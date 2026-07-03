@@ -1,5 +1,5 @@
-# Default app image: stub-mode only, no torch/transformers.
-# Target platform: linux/arm64 (Oracle Cloud Ampere A1).
+# Live-inference image (ML_MODE=live). Built only via the compose `ml` profile
+# or paperclip-vm deployment — never the default local `docker compose up`.
 
 FROM python:3.11-slim AS builder
 
@@ -9,10 +9,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY backend/requirements.txt .
+COPY backend/requirements.txt backend/requirements-ml.txt ./
 RUN python -m venv /opt/venv \
     && /opt/venv/bin/pip install --no-cache-dir --upgrade pip \
-    && /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
+    && /opt/venv/bin/pip install --no-cache-dir -r requirements-ml.txt
 
 FROM python:3.11-slim AS runtime
 
@@ -27,7 +27,9 @@ ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app/backend \
-    ML_MODE=stub
+    ML_MODE=live \
+    HF_HOME=/app/backend/app/ml_weights/huggingface \
+    TORCH_HOME=/app/backend/app/ml_weights/torch
 
 COPY --from=builder /opt/venv /opt/venv
 
@@ -37,7 +39,9 @@ COPY frontend/ /app/frontend/
 COPY data/parts_seed/ /app/data/parts_seed/
 COPY scripts/ /app/scripts/
 
-RUN mkdir -p /app/data/uploads /app/backend/app/ml_weights \
+RUN mkdir -p /app/data/uploads \
+        /app/backend/app/ml_weights/huggingface \
+        /app/backend/app/ml_weights/torch \
     && chown -R appuser:appuser /app
 
 USER appuser

@@ -1,6 +1,9 @@
-"""Deepfake / AI-generated image screening via Hugging Face transformers.
+"""Deepfake / AI-generated image screening.
 
-Primary model (ML playbook): prithivMLmods/Deep-Fake-Detector-v2-Model
+Primary live model (ML playbook): prithivMLmods/Deep-Fake-Detector-v2-Model
+
+When ML_MODE=stub (default), returns deterministic fixtures and never imports
+torch or transformers. Live inference loads the HF pipeline lazily.
 """
 
 from __future__ import annotations
@@ -10,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
 
-from PIL import Image
+from app.core.config import get_settings
 
 logger = logging.getLogger("ai_tribe.deepfake")
 
@@ -32,13 +35,25 @@ class DeepfakeResult:
     model_available: bool
 
 
+def _stub_result(_path: Path) -> DeepfakeResult:
+    # Shape verified during Milestone 5 live runs (cleared, not halted).
+    return DeepfakeResult(
+        is_fake=False,
+        label="Realism",
+        score=0.92,
+        detail="Image cleared (realism 92%, deepfake 8%).",
+        model_available=True,
+    )
+
+
 def _get_pipeline():
+    """Load the HF pipeline only when ML_MODE=live."""
     global _pipeline, _load_error
     with _lock:
         if _pipeline is not None or _load_error is not None:
             return _pipeline
         try:
-            from transformers import pipeline
+            from transformers import pipeline  # noqa: PLC0415 — live-only import
 
             _pipeline = pipeline(
                 "image-classification",
@@ -52,7 +67,9 @@ def _get_pipeline():
         return _pipeline
 
 
-def classify_image(path: Path) -> DeepfakeResult:
+def _classify_live(path: Path) -> DeepfakeResult:
+    from PIL import Image  # noqa: PLC0415
+
     detector = _get_pipeline()
     if detector is None:
         return DeepfakeResult(
@@ -100,16 +117,11 @@ def classify_image(path: Path) -> DeepfakeResult:
         default=0.0,
     )
 
-    # Require a clear majority for the fake class — weak scores on unusual
-    # photos should not halt the claim (empathy-in-design / low false-positive).
     is_fake = fake_score >= 0.70 and fake_score > real_score
-
     if is_fake:
         detail = f"Deepfake identified (score {fake_score:.0%})."
     else:
-        detail = (
-            f"Image cleared (realism {real_score:.0%}, deepfake {fake_score:.0%})."
-        )
+        detail = f"Image cleared (realism {real_score:.0%}, deepfake {fake_score:.0%})."
 
     return DeepfakeResult(
         is_fake=is_fake,
@@ -118,6 +130,12 @@ def classify_image(path: Path) -> DeepfakeResult:
         detail=detail,
         model_available=True,
     )
+
+
+def classify_image(path: Path) -> DeepfakeResult:
+    if not get_settings().ml_live:
+        return _stub_result(path)
+    return _classify_live(path)
 
 
 def classify_paths(paths: list[Path]) -> tuple[bool, str, list[DeepfakeResult]]:
@@ -129,7 +147,6 @@ def classify_paths(paths: list[Path]) -> tuple[bool, str, list[DeepfakeResult]]:
     if fakes:
         return False, fakes[0].detail, results
 
-    # If model was unavailable, pass with warning detail (do not halt demo).
     if any(not r.model_available for r in results):
         return True, results[0].detail, results
 

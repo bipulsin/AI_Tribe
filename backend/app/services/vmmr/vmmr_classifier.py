@@ -1,9 +1,10 @@
 """Vehicle make/model recognition (best-effort for the POC).
 
-No strong global VMMR checkpoint exists (see ML playbook). This module uses a
-timm ImageNet-pretrained backbone to detect vehicle-related classes and record
-a provisional identity. Full make/model fine-tuning on VMMRdb + local market
-photos is the intended follow-on.
+No strong global VMMR checkpoint exists (see ML playbook). Live mode uses a
+torchvision ImageNet-pretrained ResNet50. Stub mode returns a deterministic
+fixture and never imports torch.
+
+Full make/model fine-tuning on VMMRdb + local market photos is the follow-on.
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
 
-from PIL import Image
+from app.core.config import get_settings
 
 logger = logging.getLogger("ai_tribe.vmmr")
 
@@ -54,14 +55,33 @@ class VmmrResult:
     model_available: bool
 
 
+def _stub_result() -> VmmrResult:
+    # Deterministic fixture matching the live-mode detail shape.
+    return VmmrResult(
+        make="Maruti",
+        model="Swift",
+        year=2019,
+        confidence=0.78,
+        label="stub_fixture",
+        detail=(
+            "Provisional identity: Maruti Swift (78% stub fixture). "
+            "Full make/model fine-tuning is pending."
+        ),
+        model_available=True,
+    )
+
+
 def _get_model():
     global _model, _labels, _preprocess, _load_error
     with _lock:
         if _model is not None or _load_error is not None:
             return _model, _labels
         try:
-            from torchvision import transforms
-            from torchvision.models import ResNet50_Weights, resnet50
+            from torchvision import transforms  # noqa: PLC0415 — live-only
+            from torchvision.models import (  # noqa: PLC0415
+                ResNet50_Weights,
+                resnet50,
+            )
 
             weights = ResNet50_Weights.DEFAULT
             model = resnet50(weights=weights)
@@ -88,11 +108,10 @@ def _get_model():
 
 def _parse_identity(label: str) -> tuple[str, str]:
     cleaned = label.replace("_", " ").strip()
-    # ImageNet labels are generic (e.g. "sports car") — not OEM make/model.
     return "Unknown", cleaned.title()
 
 
-def classify_image(path: Path) -> VmmrResult:
+def _classify_live(path: Path) -> VmmrResult:
     model, labels = _get_model()
     if model is None or labels is None or _preprocess is None:
         return VmmrResult(
@@ -108,7 +127,8 @@ def classify_image(path: Path) -> VmmrResult:
             model_available=False,
         )
 
-    import torch
+    import torch  # noqa: PLC0415 — live-only import
+    from PIL import Image  # noqa: PLC0415
 
     with Image.open(path) as img:
         tensor = _preprocess(img.convert("RGB")).unsqueeze(0)
@@ -117,7 +137,6 @@ def classify_image(path: Path) -> VmmrResult:
         logits = model(tensor)
         probabilities = torch.nn.functional.softmax(logits[0], dim=0)
 
-    # Prefer vehicle-related ImageNet classes when present in the top-k.
     topk = torch.topk(probabilities, k=10)
     chosen_idx = int(topk.indices[0])
     chosen_score = float(topk.values[0])
@@ -146,6 +165,12 @@ def classify_image(path: Path) -> VmmrResult:
     )
 
 
+def classify_image(path: Path) -> VmmrResult:
+    if not get_settings().ml_live:
+        return _stub_result()
+    return _classify_live(path)
+
+
 def classify_claim_images(paths: list[Path]) -> VmmrResult:
     if not paths:
         return VmmrResult(
@@ -158,6 +183,8 @@ def classify_claim_images(paths: list[Path]) -> VmmrResult:
             model_available=False,
         )
 
+    if not get_settings().ml_live:
+        return _stub_result()
+
     results = [classify_image(path) for path in paths]
-    # Pick the highest-confidence vehicle-like prediction.
     return max(results, key=lambda item: item.confidence)

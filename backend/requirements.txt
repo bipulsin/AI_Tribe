@@ -1,3 +1,6 @@
+# Default / local-dev dependencies (ML_MODE=stub).
+# Do NOT install torch or transformers here — see requirements-ml.txt for live inference.
+
 # Web framework
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
@@ -21,20 +24,11 @@ pydantic==2.10.4
 pydantic-settings==2.7.0
 python-dotenv==1.0.1
 
-# Image / forensics (algorithmic stages)
+# Image / algorithmic forensics (no torch)
 Pillow==11.0.0
 imagehash==4.3.1
 numpy>=1.26.4,<2.0
 opencv-python-headless==4.10.0.84
-
-# ML (pretrained models — transformers path preferred for ARM containers)
-# Prefer Python 3.11/3.12. Pin torch to a version with wheels on your platform
-# (macOS 12 x86_64 currently resolves to torch 2.2.x; ARM/Linux can use newer).
-torch>=2.2.2,<2.6
-torchvision>=0.17.2,<0.21
-transformers==4.47.1
-timm==1.0.12
-huggingface-hub==0.27.0
 
 # Utilities
 httpx==0.28.1

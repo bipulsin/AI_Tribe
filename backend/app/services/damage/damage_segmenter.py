@@ -1,8 +1,9 @@
-"""Vehicle damage classification via Hugging Face transformers.
+"""Vehicle damage classification.
 
-Primary POC model (ML playbook): beingamit99/car_damage_detection
-(BEiT classifier — damage type, not pixel segmentation). CarDD segmentation
-can replace this behind the same interface later.
+Primary live model (ML playbook): beingamit99/car_damage_detection
+
+When ML_MODE=stub (default), returns deterministic fixtures and never imports
+torch or transformers. Live inference loads the HF pipeline lazily.
 """
 
 from __future__ import annotations
@@ -13,8 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
 
-from PIL import Image
-
+from app.core.config import get_settings
 from app.models.enums import DamageType
 
 logger = logging.getLogger("ai_tribe.damage")
@@ -35,7 +35,6 @@ LABEL_MAP: dict[str, DamageType] = {
     "flat tire": DamageType.tire_flat,
 }
 
-# Rough part assignment from damage type for estimate matching.
 PART_FOR_DAMAGE: dict[DamageType, str] = {
     DamageType.dent: "Front Bumper",
     DamageType.scratch: "Front Door",
@@ -60,13 +59,25 @@ class DamagePrediction:
     model_available: bool
 
 
+def _stub_result(_path: Path) -> DamagePrediction:
+    # Shape verified during Milestone 5 live runs.
+    return DamagePrediction(
+        damage_type=DamageType.scratch,
+        part_name="Front Door",
+        confidence=0.85,
+        label="Scratch",
+        detail="Front Door: scratch (85%).",
+        model_available=True,
+    )
+
+
 def _get_pipeline():
     global _pipeline, _load_error
     with _lock:
         if _pipeline is not None or _load_error is not None:
             return _pipeline
         try:
-            from transformers import pipeline
+            from transformers import pipeline  # noqa: PLC0415 — live-only import
 
             _pipeline = pipeline(
                 "image-classification",
@@ -91,7 +102,9 @@ def _map_label(label: str) -> DamageType:
     return DamageType.dent
 
 
-def classify_image(path: Path) -> DamagePrediction:
+def _classify_live(path: Path) -> DamagePrediction:
+    from PIL import Image  # noqa: PLC0415
+
     classifier = _get_pipeline()
     if classifier is None:
         return DamagePrediction(
@@ -124,6 +137,12 @@ def classify_image(path: Path) -> DamagePrediction:
         detail=f"{part_name}: {damage_type.value} ({score:.0%}).",
         model_available=True,
     )
+
+
+def classify_image(path: Path) -> DamagePrediction:
+    if not get_settings().ml_live:
+        return _stub_result(path)
+    return _classify_live(path)
 
 
 def classify_paths(paths: list[Path]) -> list[DamagePrediction]:

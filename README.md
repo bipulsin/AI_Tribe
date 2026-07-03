@@ -4,6 +4,10 @@ Proof-of-concept web application for an insurance AI lab. A user submits one to 
 
 This is a **lab prototype for demonstrations**, not a production insurer deployment.
 
+## Deployment status
+
+**Not deployed to `paperclip-vm` yet.** All work to date, including Milestone 5 live-model verification, has run on the local laptop only. See `docs/DEPLOYMENT.md`.
+
 ## Hard technology constraints
 
 Do not deviate from these:
@@ -20,6 +24,15 @@ Do not deviate from these:
 
 No authentication-as-a-service, no cloud AI APIs, no paid third-party services. Everything runs locally.
 
+## ML_MODE: stub vs live
+
+| Mode | Default | Behaviour |
+| --- | --- | --- |
+| `stub` | **yes** | Deterministic fixture responses for deepfake / damage / VMMR. **Never imports torch or transformers.** |
+| `live` | no | Loads pretrained HF / torchvision models. Requires `requirements-ml.txt`. |
+
+Local development installs **`backend/requirements.txt` only** and runs with `ML_MODE=stub`. Live inference is for the paperclip-vm `ml` compose profile (or a throwaway container), not day-to-day laptop work.
+
 ## Default credentials (change before any real use)
 
 On first seed the app creates:
@@ -33,20 +46,12 @@ This is a lab default only. The app prints a console warning on every boot while
 
 ### Prerequisites
 
-- **Python 3.11 or 3.12** for the pretrained ML stack (`torch` / `transformers` wheels). Python 3.13 works for the web app and algorithmic forensics, but may not have PyTorch wheels on all platforms — ML stages then pass with an explicit warning and provisional results.
+- Python 3.11+ (3.13 is fine for stub mode)
 - PostgreSQL 15+ (Docker Compose ships Postgres 17; a local Homebrew install of 15+ is fine for development)
 - `pip` / `venv`
 - Docker (optional for local app runs; required for the containerised deployment path)
 
-Pretrained weights (deepfake detector, car-damage classifier, ImageNet ResNet50 for VMMR transfer) are pulled by:
-
-```bash
-./scripts/download_models.sh
-```
-
-Caches land under `backend/app/ml_weights/` (gitignored).
-
-### One-command spin-up (Docker)
+### One-command spin-up (Docker, stub mode)
 
 ```bash
 cp .env.example .env
@@ -54,9 +59,17 @@ docker compose -p ai_tribe up --build
 ```
 
 App: http://localhost:8000  
-Login: `admin` / `admin`
+Login: `admin` / `admin`  
+`ML_MODE=stub` — no ML packages in the image.
 
 The compose project name is `ai_tribe` so container and network names never collide with other stacks.
+
+Live-model container (paperclip-vm path only; resource-capped):
+
+```bash
+docker compose -p ai_tribe --profile ml up --build app_ml
+# listens on localhost:8001 when used locally
+```
 
 ### Manual (no Docker for the app)
 
@@ -64,17 +77,18 @@ The compose project name is `ai_tribe` so container and network names never coll
 # 1. Start Postgres (Docker only for the DB is fine)
 docker compose -p ai_tribe up -d db
 
-# Or with a local Postgres 17 install, create role/db:
+# Or with a local Postgres install, create role/db:
 #   createuser ai_tribe -P   # password: ai_tribe
 #   createdb -O ai_tribe ai_tribe
 
 cp .env.example .env
+# ML_MODE=stub is the default in .env.example
 
-# Prefer Python 3.11 or 3.12 so torch/transformers wheels install cleanly.
-python3.12 -m venv venv
+python3 -m venv venv
 source venv/bin/activate
 pip install -r backend/requirements.txt
-./scripts/download_models.sh
+# Do NOT install requirements-ml.txt for local dev.
+# Do NOT run scripts/download_models.sh unless ML_MODE=live (it will refuse otherwise).
 
 cd backend
 alembic upgrade head
@@ -84,6 +98,17 @@ python scripts/seed_db.py
 cd backend
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
+
+### Live-model smoke test (throwaway container only)
+
+If a live-model check is genuinely needed during development, run it inside a
+memory-capped throwaway container — never install torch on the host:
+
+```bash
+docker run --rm --memory=2g --cpus=2 -e ML_MODE=live ...
+```
+
+`scripts/download_models.sh` requires `ML_MODE=live` and exits otherwise.
 
 ### Background video asset
 
@@ -103,18 +128,20 @@ See the repository tree under `backend/`, `frontend/`, `data/`, and `scripts/`. 
 - `backend/app/services/pipeline_orchestrator.py` — staged AI pipeline
 - `backend/app/core/events.py` — in-memory SSE pub/sub bus
 - `backend/app/services/storage.py` — filesystem storage interface (S3-swappable)
-- `docs/ML_Training_Playbook_and_Pretrained_Models.md` — pretrained model choices and training playbook (used from Milestone 5)
-- `docs/DEPLOYMENT.md` — paperclip-vm deployment runbook (added with Milestone 10)
+- `backend/requirements.txt` — default / stub-mode dependencies
+- `backend/requirements-ml.txt` — live-inference extras (torch, transformers, …)
+- `docs/ML_Training_Playbook_and_Pretrained_Models.md` — pretrained model choices and training playbook
+- `docs/DEPLOYMENT.md` — paperclip-vm deployment notes (not yet executed)
 
 ## ARM / container notes
 
-Target VM is Oracle Cloud ARM Ampere A1 (`linux/arm64`). Build with:
+Target VM is Oracle Cloud ARM Ampere A1 (`linux/arm64`). Default image:
 
 ```bash
 docker buildx build --platform linux/arm64 -t ai_tribe:latest .
 ```
 
-If `mmdet`/`mmcv` (CarDD) prove too heavy on ARM, the containerised deployment falls back to `transformers`-based pretrained options documented in the ML playbook. That decision will be recorded here when Milestone 8 lands.
+Live-model image (`Dockerfile.ml`) is only built via `--profile ml`. If `mmdet`/`mmcv` (CarDD) prove too heavy on ARM, the live path uses the `transformers`-based options from the ML playbook.
 
 ## Milestone status
 
@@ -124,7 +151,7 @@ If `mmdet`/`mmcv` (CarDD) prove too heavy on ARM, the containerised deployment f
 | 2 | Auth + video-background login | done |
 | 3 | Claim submission + storage | done |
 | 4 | SSE pipeline stage tracker (stubs) | done |
-| 5 | Real forensic / ML services | done |
+| 5 | Real forensic / ML services (gated by `ML_MODE`) | done |
 | 6 | Parts matching + estimate view | pending |
 | 7 | AX / minimalist UI polish | pending |
 | 8 | Dockerize (multi-stage, arm64) | pending |

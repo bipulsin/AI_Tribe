@@ -49,12 +49,17 @@ async def lifespan(_app: FastAPI):
 
     from app.core.config import REPO_ROOT
 
-    # Keep pretrained weights inside the repo's ml_weights tree when possible.
-    weights_root = REPO_ROOT / "backend" / "app" / "ml_weights"
-    os.environ.setdefault("HF_HOME", str(weights_root / "huggingface"))
-    os.environ.setdefault("TORCH_HOME", str(weights_root / "torch"))
-    (weights_root / "huggingface").mkdir(parents=True, exist_ok=True)
-    (weights_root / "torch").mkdir(parents=True, exist_ok=True)
+    logger.info("ML_MODE=%s", settings.ml_mode)
+    print(f"\n  ML_MODE={settings.ml_mode} "
+          f"({'pretrained models' if settings.ml_live else 'deterministic stubs, no torch'})\n")
+
+    # Only configure HF/torch caches when live inference is enabled.
+    if settings.ml_live:
+        weights_root = REPO_ROOT / "backend" / "app" / "ml_weights"
+        os.environ.setdefault("HF_HOME", str(weights_root / "huggingface"))
+        os.environ.setdefault("TORCH_HOME", str(weights_root / "torch"))
+        (weights_root / "huggingface").mkdir(parents=True, exist_ok=True)
+        (weights_root / "torch").mkdir(parents=True, exist_ok=True)
 
     settings.upload_path.mkdir(parents=True, exist_ok=True)
     try:
