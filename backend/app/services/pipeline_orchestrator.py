@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
@@ -22,7 +22,6 @@ from app.models import (
     ClaimImage,
     DamageDetection,
     FraudSignal,
-    PartsCatalog,
     PipelineEvent,
     Vehicle,
 )
@@ -386,45 +385,32 @@ async def stage_fraud_scoring(db: Session, claim: Claim) -> StageResult:
 
 
 async def stage_parts_matching(db: Session, claim: Claim) -> StageResult:
-    catalog_count = db.scalar(select(func.count()).select_from(PartsCatalog)) or 0
-    detections = db.scalars(
-        select(DamageDetection).where(DamageDetection.claim_id == claim.id)
-    ).all()
+    from app.services.parts import parts_matcher
 
-    if catalog_count == 0:
+    matched, total, detail = parts_matcher.match_summary(db, claim.id)
+    if total == 0:
         return StageResult(
             status=PipelineEventStatus.warning,
-            detail=(
-                f"{len(detections)} damaged part(s) identified; pricing catalogue "
-                "seed lands in Milestone 6."
-            ),
+            detail="No damage detections available for parts matching.",
         )
-
-    matched = 0
-    for row in detections:
-        hit = db.scalar(
-            select(PartsCatalog).where(
-                PartsCatalog.part_name.ilike(f"%{row.part_name}%")
-            )
+    if matched == 0:
+        return StageResult(
+            status=PipelineEventStatus.warning,
+            detail=detail,
         )
-        if hit:
-            matched += 1
-
-    return StageResult(
-        status=PipelineEventStatus.passed,
-        detail=f"Matched {matched} of {len(detections)} parts to the pricing catalogue.",
-    )
+    return StageResult(status=PipelineEventStatus.passed, detail=detail)
 
 
 async def stage_estimate_ready(db: Session, claim: Claim) -> StageResult:
-    detections = db.scalars(
-        select(DamageDetection).where(DamageDetection.claim_id == claim.id)
-    ).all()
+    from app.services.parts import estimate_builder
+
+    estimate = estimate_builder.persist_estimate(db, claim.id)
+    n = len(estimate.line_items or [])
     return StageResult(
         status=PipelineEventStatus.passed,
         detail=(
-            f"Survey estimate is ready to review "
-            f"({len(detections)} line item(s) prepared)."
+            f"Survey estimate ready — {n} line item(s), "
+            f"total ₹{float(estimate.grand_total):,.2f}."
         ),
     )
 

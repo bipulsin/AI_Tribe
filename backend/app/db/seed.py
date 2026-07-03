@@ -63,13 +63,16 @@ def seed_parts_catalog(db) -> None:
     with PARTS_SEED_CSV.open(newline="", encoding="utf-8") as fh:
         reader = csv.DictReader(fh)
         for row in reader:
+            price_raw = row.get("price") or row.get("price_inr") or "0"
+            labor_raw = row.get("labor_hours") or "1.0"
             rows.append(
                 PartsCatalog(
                     make=row["make"].strip(),
                     model=row["model"].strip(),
                     part_name=row["part_name"].strip(),
                     part_number=(row.get("part_number") or "").strip() or None,
-                    price=float(row["price"]),
+                    price=float(price_raw),
+                    labor_hours=float(labor_raw),
                     currency=(row.get("currency") or "INR").strip(),
                     region=(row.get("region") or "IN").strip(),
                     source=(row.get("source") or "seed_india_v1").strip(),

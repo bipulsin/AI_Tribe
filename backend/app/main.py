@@ -63,15 +63,16 @@ async def lifespan(_app: FastAPI):
 
     settings.upload_path.mkdir(parents=True, exist_ok=True)
     try:
-        from app.db.seed import seed_admin
+        from app.db.seed import seed_admin, seed_parts_catalog
 
         db = SessionLocal()
         try:
             seed_admin(db)
+            seed_parts_catalog(db)
         finally:
             db.close()
     except Exception as exc:
-        logger.debug("Could not run admin seed on boot: %s", exc)
+        logger.debug("Could not run seed on boot: %s", exc)
 
     _warn_default_credentials()
     yield

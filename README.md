@@ -152,7 +152,7 @@ Live-model image (`Dockerfile.ml`) is only built via `--profile ml`. If `mmdet`/
 | 3 | Claim submission + storage | done |
 | 4 | SSE pipeline stage tracker (stubs) | done |
 | 5 | Real forensic / ML services (gated by `ML_MODE`) | done |
-| 6 | Parts matching + estimate view | pending |
+| 6 | Parts matching + estimate view | done |
 | 7 | AX / minimalist UI polish | pending |
 | 8 | Dockerize (multi-stage, arm64) | pending |
 | 9 | Push to GitHub `main` | pending |
