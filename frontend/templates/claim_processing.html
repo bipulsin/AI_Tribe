@@ -59,17 +59,22 @@
   <section class="rounded-2xl border border-navy/10 bg-white px-6 py-6 dark:border-white/10 dark:bg-navy">
     <div class="flex items-center justify-between gap-3">
       <h2 class="text-sm font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">Assessment progress</h2>
-      <p
-        class="inline-flex items-center text-xs text-navy/45 dark:text-mist/40"
-        x-show="connecting && !complete"
-        x-cloak
-      >
-        <span class="stage-spinner mr-2 h-3 w-3 border border-navy/20 border-t-navy/60 dark:border-white/20 dark:border-t-mist/70"></span>
-        Connecting…
-      </p>
+      <div class="flex items-center gap-3 text-xs tabular-nums text-navy/45 dark:text-mist/40">
+        <p x-show="totalTimerLabel" x-cloak>
+          Elapsed <span x-text="totalTimerLabel"></span>
+        </p>
+        <p
+          class="inline-flex items-center"
+          x-show="connecting && !complete"
+          x-cloak
+        >
+          <span class="stage-spinner mr-2 h-3 w-3 border border-navy/20 border-t-navy/60 dark:border-white/20 dark:border-t-mist/70"></span>
+          Connecting…
+        </p>
+      </div>
     </div>
 
-    <ol class="stage-tracker mt-6 space-y-0">
+    <ol class="stage-tracker mt-6 space-y-0" aria-label="Pipeline stages">
       <template x-for="(stage, index) in stages" :key="stage.key">
         <li class="stage-row relative flex gap-4 pb-6 last:pb-0">
           <div class="flex flex-col items-center">
@@ -109,8 +114,14 @@
             <p
               class="text-sm font-medium"
               :class="stage.status === 'pending' ? 'text-navy/40 dark:text-mist/35' : 'text-navy dark:text-mist'"
-              x-text="stage.label"
-            ></p>
+            >
+              <span x-text="stage.label"></span><span
+                class="ml-1.5 text-xs font-normal tabular-nums text-navy/40 dark:text-mist/40"
+                x-show="stage.timerLabel"
+                x-text="'— ' + stage.timerLabel"
+                x-cloak
+              ></span>
+            </p>
             <p
               class="mt-0.5 text-sm text-navy/55 dark:text-mist/50"
               x-show="stage.detail"

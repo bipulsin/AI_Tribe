@@ -59,9 +59,11 @@ async def pipeline_stream(
             yield {"event": "stage", "data": json.dumps(payload)}
 
         if already_complete:
+            last_ts = historical[-1].get("created_at") if historical else None
             terminal: dict[str, Any] = {
                 "claim_id": claim_id,
                 "pipeline_complete": True,
+                "created_at": last_ts,
                 "halted": claim_status
                 in {
                     ClaimStatus.authenticity_failed.value,

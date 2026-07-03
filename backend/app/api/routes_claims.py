@@ -134,12 +134,20 @@ async def claim_processing(
             "stage_label": event.stage_label,
             "status": event.status.value if hasattr(event.status, "value") else event.status,
             "detail": event.detail,
+            "created_at": event.created_at.isoformat() if event.created_at else None,
         }
         for event in events
     ]
 
+    # Full chain rendered on load; SSE only transitions status/timers.
     stages = [
-        {"key": key, "label": label, "status": "pending", "detail": None}
+        {
+            "key": key,
+            "label": label,
+            "status": "pending",
+            "detail": None,
+            "timerLabel": "",
+        }
         for key, label in PIPELINE_STAGES
     ]
 

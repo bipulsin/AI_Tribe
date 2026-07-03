@@ -579,6 +579,7 @@ async def run_pipeline(claim_id: int) -> None:
 
         claim.status = ClaimStatus.estimate_ready
         db.commit()
+        done_at = datetime.now(timezone.utc)
         await event_bus.publish(
             claim_id,
             {
@@ -587,6 +588,7 @@ async def run_pipeline(claim_id: int) -> None:
                 "stage_label": "Survey estimate ready",
                 "status": PipelineEventStatus.passed.value,
                 "detail": "Survey estimate is ready to review.",
+                "created_at": done_at.isoformat(),
                 "pipeline_complete": True,
                 "halted": False,
                 "claim_status": claim.status.value,
@@ -608,6 +610,7 @@ async def run_pipeline(claim_id: int) -> None:
                     "stage_label": "Assessment interrupted",
                     "status": PipelineEventStatus.failed.value,
                     "detail": "An unexpected error paused this assessment.",
+                    "created_at": datetime.now(timezone.utc).isoformat(),
                     "pipeline_complete": True,
                     "halted": True,
                     "claim_status": ClaimStatus.review_required.value,
