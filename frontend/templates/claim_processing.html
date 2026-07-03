@@ -3,14 +3,11 @@
 {% block title %}Processing claim{% endblock %}
 
 {% block body %}
+{# Bootstrap JSON must not sit inside an HTML attribute — embedded " breaks Alpine. #}
+<script type="application/json" id="pipeline-bootstrap">{{ bootstrap_json | safe }}</script>
 <div
   class="mx-auto flex min-h-screen max-w-2xl flex-col px-6 py-10"
-  x-data="pipelineTracker({
-    claimId: {{ claim.id if claim else 'null' }},
-    stages: {{ stages_json | safe }},
-    initialEvents: {{ initial_events_json | safe }},
-    claimStatus: {{ claim_status_json | safe }}
-  })"
+  x-data="pipelineTracker(JSON.parse(document.getElementById('pipeline-bootstrap').textContent))"
   x-init="init()"
 >
   <header class="mb-10 flex items-start justify-between gap-4">

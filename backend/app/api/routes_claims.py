@@ -94,6 +94,10 @@ async def claim_processing(
         )
         .where(Claim.id == claim_id)
     )
+    def _bootstrap_json(payload: dict) -> str:
+        # Escape < so embedding in <script type="application/json"> is safe.
+        return json.dumps(payload).replace("<", "\\u003c")
+
     if not claim:
         return templates.TemplateResponse(
             "claim_processing.html",
@@ -101,9 +105,14 @@ async def claim_processing(
                 "request": request,
                 "claim": None,
                 "error": "Claim not found.",
-                "stages_json": "[]",
-                "initial_events_json": "[]",
-                "claim_status_json": "null",
+                "bootstrap_json": _bootstrap_json(
+                    {
+                        "claimId": None,
+                        "stages": [],
+                        "initialEvents": [],
+                        "claimStatus": None,
+                    }
+                ),
             },
             status_code=404,
         )
@@ -115,9 +124,14 @@ async def claim_processing(
                 "request": request,
                 "claim": None,
                 "error": "You do not have access to this claim.",
-                "stages_json": "[]",
-                "initial_events_json": "[]",
-                "claim_status_json": "null",
+                "bootstrap_json": _bootstrap_json(
+                    {
+                        "claimId": None,
+                        "stages": [],
+                        "initialEvents": [],
+                        "claimStatus": None,
+                    }
+                ),
             },
             status_code=403,
         )
@@ -159,8 +173,13 @@ async def claim_processing(
             "error": None,
             "username": request.session.get("username", ""),
             "full_name": request.session.get("full_name", ""),
-            "stages_json": json.dumps(stages),
-            "initial_events_json": json.dumps(initial_events),
-            "claim_status_json": json.dumps(claim.status.value),
+            "bootstrap_json": _bootstrap_json(
+                {
+                    "claimId": claim.id,
+                    "stages": stages,
+                    "initialEvents": initial_events,
+                    "claimStatus": claim.status.value,
+                }
+            ),
         },
     )
