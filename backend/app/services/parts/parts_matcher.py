@@ -9,6 +9,11 @@ from sqlalchemy.orm import Session
 
 from app.models import DamageDetection, PartsCatalog, Vehicle
 
+PRICING_CONFIRMED = "confirmed"
+PRICING_PROVISIONAL = "provisional_fallback"
+DEFAULT_FALLBACK_MAKE = "Maruti"
+DEFAULT_FALLBACK_MODEL = "Swift"
+
 
 @dataclass
 class PartMatch:
@@ -19,6 +24,13 @@ class PartMatch:
     currency: str
     matched: bool
     match_note: str
+
+
+@dataclass
+class MatchContext:
+    matches: list[PartMatch]
+    pricing_basis: str
+    catalogue_vehicle_label: str
 
 
 def _vehicle_for_claim(db: Session, claim_id: int) -> Vehicle | None:
@@ -55,26 +67,46 @@ def _find_catalog_row(
         if row:
             return row
 
-    # Fall back to any catalogue row with the same part name (demo-friendly).
     return db.scalar(select(PartsCatalog).where(part_filter))
 
 
-def match_detections(db: Session, claim_id: int) -> list[PartMatch]:
+def _pricing_identity(vehicle: Vehicle | None) -> tuple[str, str | None, str, str]:
+    """Return make, model, pricing_basis, catalogue_vehicle_label."""
+    confirmed = bool(vehicle and vehicle.identity_confirmed)
+    if confirmed and vehicle is not None:
+        make = vehicle.make or DEFAULT_FALLBACK_MAKE
+        model = vehicle.model or DEFAULT_FALLBACK_MODEL
+        label = f"{make} {model}".strip()
+        return make, model, PRICING_CONFIRMED, label
+
+    # Nearest-match / stub fallback — never treat as confirmed identity.
+    make = DEFAULT_FALLBACK_MAKE
+    model = DEFAULT_FALLBACK_MODEL
+    if vehicle and vehicle.make and vehicle.make != "Unknown":
+        make = vehicle.make
+        model = (
+            vehicle.model
+            if vehicle.model and vehicle.model != "Unknown"
+            else None
+        )
+    label = f"{make} {model}".strip() if model else make
+    if not model:
+        # Resolve a concrete catalogue model for messaging when only make is known.
+        pass
+    return make, model, PRICING_PROVISIONAL, label or f"{DEFAULT_FALLBACK_MAKE} {DEFAULT_FALLBACK_MODEL}"
+
+
+def match_detections(db: Session, claim_id: int) -> MatchContext:
     detections = db.scalars(
         select(DamageDetection)
         .where(DamageDetection.claim_id == claim_id)
         .order_by(DamageDetection.id.asc())
     ).all()
     vehicle = _vehicle_for_claim(db, claim_id)
-    make = vehicle.make if vehicle and vehicle.make and vehicle.make != "Unknown" else None
-    model = vehicle.model if vehicle and vehicle.model and vehicle.model != "Unknown" else None
-
-    # Stub VMMR often returns Maruti Swift — prefer that catalogue when identity is unknown.
-    if not make:
-        make = "Maruti"
-        model = "Swift"
+    make, model, pricing_basis, catalogue_label = _pricing_identity(vehicle)
 
     matches: list[PartMatch] = []
+    resolved_label = catalogue_label
     for detection in detections:
         catalog_row = _find_catalog_row(
             db,
@@ -83,6 +115,7 @@ def match_detections(db: Session, claim_id: int) -> list[PartMatch]:
             model=model,
         )
         if catalog_row:
+            resolved_label = f"{catalog_row.make} {catalog_row.model}".strip()
             matches.append(
                 PartMatch(
                     detection=detection,
@@ -98,7 +131,6 @@ def match_detections(db: Session, claim_id: int) -> list[PartMatch]:
                 )
             )
         else:
-            # Conservative fallback so the estimate sheet still renders.
             matches.append(
                 PartMatch(
                     detection=detection,
@@ -110,15 +142,32 @@ def match_detections(db: Session, claim_id: int) -> list[PartMatch]:
                     match_note="Catalogue miss — provisional price applied",
                 )
             )
-    return matches
+
+    if pricing_basis == PRICING_PROVISIONAL and matches:
+        # Prefer the concrete catalogue vehicle actually used for pricing copy.
+        for match in matches:
+            if match.catalog_row:
+                resolved_label = (
+                    f"{match.catalog_row.make} {match.catalog_row.model}".strip()
+                )
+                break
+
+    return MatchContext(
+        matches=matches,
+        pricing_basis=pricing_basis,
+        catalogue_vehicle_label=resolved_label,
+    )
 
 
 def match_summary(db: Session, claim_id: int) -> tuple[int, int, str]:
     catalog_count = db.scalar(select(func.count()).select_from(PartsCatalog)) or 0
-    matches = match_detections(db, claim_id)
+    context = match_detections(db, claim_id)
+    matches = context.matches
     if catalog_count == 0:
         return 0, len(matches), "Pricing catalogue is empty."
 
     matched = sum(1 for item in matches if item.matched)
     detail = f"Matched {matched} of {len(matches)} parts to the pricing catalogue."
+    if context.pricing_basis == PRICING_PROVISIONAL:
+        detail += f" Provisional pricing against {context.catalogue_vehicle_label}."
     return matched, len(matches), detail

@@ -63,6 +63,15 @@ async def claim_estimate(
     confidences = [float(d.confidence_score) for d in detections]
     max_confidence = max(confidences) if confidences else None
 
+    catalogue_vehicle_label = None
+    for item in line_items:
+        note = item.get("match_note") or ""
+        if " · " in note:
+            catalogue_vehicle_label = note.split(" · ", 1)[0].strip()
+            break
+    if not catalogue_vehicle_label and vehicle and vehicle.make:
+        catalogue_vehicle_label = f"{vehicle.make} {vehicle.model or ''}".strip()
+
     return templates.TemplateResponse(
         "claim_estimate.html",
         {
@@ -75,6 +84,7 @@ async def claim_estimate(
             "fraud_signals": fraud_signals,
             "detections": detections,
             "max_confidence": max_confidence,
+            "catalogue_vehicle_label": catalogue_vehicle_label,
             "username": request.session.get("username", ""),
             "full_name": request.session.get("full_name", ""),
         },

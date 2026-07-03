@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy import Boolean, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -14,6 +14,8 @@ class Vehicle(Base):
     year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     vin: Mapped[str | None] = mapped_column(String(32), nullable=True)
     plate_number: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # True only when VMMR produced a non-stub, non-Unknown make and model.
+    identity_confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     source_claim_id: Mapped[int] = mapped_column(
         ForeignKey("claims.id"), nullable=False, index=True
     )

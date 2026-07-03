@@ -11,12 +11,16 @@ from sqlalchemy.orm import Session
 
 from app.models import Estimate, Vehicle
 from app.models.enums import Severity
-from app.services.parts.parts_matcher import PartMatch, match_detections
+from app.services.parts.parts_matcher import (
+    PRICING_CONFIRMED,
+    PRICING_PROVISIONAL,
+    PartMatch,
+    match_detections,
+)
 
 LABOR_RATE_INR = 450.0
 GST_RATE = 0.18
 
-# Repair uses part of the unit price; replace uses full unit price.
 REPAIR_PART_FRACTION = {
     Severity.minor.value: 0.35,
     Severity.moderate.value: 0.55,
@@ -32,6 +36,8 @@ class BuiltEstimate:
     grand_total: float
     reason_summary: str
     currency: str
+    pricing_basis: str
+    catalogue_vehicle_label: str
 
 
 def _line_costs(match: PartMatch) -> tuple[float, float, float]:
@@ -60,19 +66,30 @@ def _reason_summary(
     *,
     vehicle: Vehicle | None,
     line_items: list[dict[str, Any]],
-    subtotal: float,
     tax: float,
     grand_total: float,
     currency: str,
+    pricing_basis: str,
+    catalogue_vehicle_label: str,
 ) -> str:
-    vehicle_label = "the assessed vehicle"
-    if vehicle and vehicle.make:
-        bits = [vehicle.make]
-        if vehicle.model:
-            bits.append(vehicle.model)
-        if vehicle.year:
-            bits.append(str(vehicle.year))
-        vehicle_label = " ".join(bits)
+    if pricing_basis == PRICING_PROVISIONAL:
+        lead = (
+            "Vehicle identity could not be confirmed from the submitted photos, "
+            f"this estimate is priced against the nearest matched catalogue entry "
+            f"({catalogue_vehicle_label}) and should be treated as indicative "
+            "until a surveyor confirms the vehicle. "
+        )
+        vehicle_label = catalogue_vehicle_label
+    else:
+        lead = ""
+        vehicle_label = "the assessed vehicle"
+        if vehicle and vehicle.make:
+            bits = [vehicle.make]
+            if vehicle.model:
+                bits.append(vehicle.model)
+            if vehicle.year:
+                bits.append(str(vehicle.year))
+            vehicle_label = " ".join(bits)
 
     n = len(line_items)
     replace_n = sum(1 for item in line_items if item.get("repair_or_replace") == "replace")
@@ -83,20 +100,21 @@ def _reason_summary(
     )
     materials = sum(float(item["unit_price"]) for item in line_items)
     labor = sum(float(item["labor_cost"]) for item in line_items)
-    return (
+    body = (
         f"Total of {currency} {grand_total:,.2f} covers {parts}. "
         f"Parts and materials come to {currency} {materials:,.2f}, "
         f"labour at ₹{LABOR_RATE_INR:.0f}/hr adds {currency} {labor:,.2f}, "
         f"and GST ({GST_RATE:.0%}) is {currency} {tax:,.2f}."
     )
+    return f"{lead}{body}"
 
 
 def build_estimate(db: Session, claim_id: int) -> BuiltEstimate:
-    matches = match_detections(db, claim_id)
+    context = match_detections(db, claim_id)
     vehicle = db.scalar(select(Vehicle).where(Vehicle.source_claim_id == claim_id))
 
     line_items: list[dict[str, Any]] = []
-    for match in matches:
+    for match in context.matches:
         unit_price, labor_cost, total = _line_costs(match)
         detection = match.detection
         line_items.append(
@@ -128,14 +146,17 @@ def build_estimate(db: Session, claim_id: int) -> BuiltEstimate:
     tax = round(subtotal * GST_RATE, 2)
     grand_total = round(subtotal + tax, 2)
     currency = line_items[0]["currency"] if line_items else "INR"
+    pricing_basis = context.pricing_basis
+    catalogue_label = context.catalogue_vehicle_label
 
     reason = _reason_summary(
         vehicle=vehicle,
         line_items=line_items,
-        subtotal=subtotal,
         tax=tax,
         grand_total=grand_total,
         currency=currency,
+        pricing_basis=pricing_basis,
+        catalogue_vehicle_label=catalogue_label,
     )
 
     return BuiltEstimate(
@@ -145,6 +166,8 @@ def build_estimate(db: Session, claim_id: int) -> BuiltEstimate:
         grand_total=grand_total,
         reason_summary=reason,
         currency=currency,
+        pricing_basis=pricing_basis,
+        catalogue_vehicle_label=catalogue_label,
     )
 
 
@@ -158,6 +181,7 @@ def persist_estimate(db: Session, claim_id: int) -> Estimate:
         existing.tax = built.tax
         existing.grand_total = built.grand_total
         existing.reason_summary = built.reason_summary
+        existing.pricing_basis = built.pricing_basis
         existing.generated_at = datetime.now(timezone.utc)
         estimate = existing
     else:
@@ -168,6 +192,7 @@ def persist_estimate(db: Session, claim_id: int) -> Estimate:
             tax=built.tax,
             grand_total=built.grand_total,
             reason_summary=built.reason_summary,
+            pricing_basis=built.pricing_basis,
             generated_at=datetime.now(timezone.utc),
         )
         db.add(estimate)

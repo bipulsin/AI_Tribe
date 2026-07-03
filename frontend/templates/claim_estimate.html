@@ -39,23 +39,40 @@
   {# Vehicle summary #}
   <section class="mb-6 rounded-2xl border border-navy/10 bg-white px-6 py-5">
     <p class="text-xs font-semibold uppercase tracking-[0.18em] text-navy/45">Vehicle</p>
-    {% if vehicle %}
+    {% if vehicle and estimate.pricing_basis == "confirmed" %}
     <p class="mt-2 text-xl font-semibold text-navy">
       {{ vehicle.make or "Unknown" }}
       {{ vehicle.model or "" }}
       {% if vehicle.year %}<span class="font-normal text-navy/50">· {{ vehicle.year }}</span>{% endif %}
     </p>
     <p class="mt-1 text-sm text-navy/55">
-      Identity from assessment pipeline
+      Identity confirmed from assessment pipeline
       {% if max_confidence is not none %}
       · damage confidence up to {{ '%.0f'|format(max_confidence * 100) }}%
       {% endif %}
     </p>
     {% else %}
-    <p class="mt-2 text-lg font-medium text-navy">Vehicle not identified</p>
-    <p class="mt-1 text-sm text-navy/55">Pricing used the nearest catalogue match.</p>
+    <p class="mt-2 text-xl font-semibold text-navy">Vehicle identity unconfirmed</p>
+    <p class="mt-1 text-sm text-navy/55">
+      Priced provisionally against {{ catalogue_vehicle_label or "nearest catalogue entry" }}
+      {% if max_confidence is not none %}
+      · damage confidence up to {{ '%.0f'|format(max_confidence * 100) }}%
+      {% endif %}
+    </p>
     {% endif %}
   </section>
+
+  {% if estimate.pricing_basis == "provisional_fallback" %}
+  <section class="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4" role="status">
+    <p class="text-sm font-medium text-amber-950">Provisional estimate</p>
+    <p class="mt-1 text-sm leading-relaxed text-amber-900/80">
+      Vehicle identity could not be confirmed from the submitted photos. This total is
+      priced against the nearest matched catalogue entry
+      ({{ catalogue_vehicle_label or "catalogue fallback" }}) and should be treated as
+      indicative until a surveyor confirms the vehicle.
+    </p>
+  </section>
+  {% endif %}
 
   {# Parts table #}
   <section class="mb-6 overflow-hidden rounded-2xl border border-navy/10 bg-white">
@@ -106,7 +123,13 @@
         <span class="tabular-nums">₹{{ '%.2f'|format(estimate.tax) }}</span>
       </div>
       <div class="mt-2 flex w-full max-w-xs justify-between border-t border-navy/10 pt-3">
-        <span class="text-base font-semibold text-navy">Grand total</span>
+        <span class="text-base font-semibold text-navy">
+          {% if estimate.pricing_basis == "provisional_fallback" %}
+          Provisional total
+          {% else %}
+          Grand total
+          {% endif %}
+        </span>
         <span class="text-2xl font-semibold tabular-nums text-navy">₹{{ '%.2f'|format(estimate.grand_total) }}</span>
       </div>
     </div>

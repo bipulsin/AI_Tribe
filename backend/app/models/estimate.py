@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, Text, func
+from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -19,6 +19,10 @@ class Estimate(Base):
     subtotal: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False, default=0)
     tax: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False, default=0)
     grand_total: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    # "confirmed" when priced from VMMR-confirmed identity; otherwise provisional.
+    pricing_basis: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="provisional_fallback"
+    )
     generated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
