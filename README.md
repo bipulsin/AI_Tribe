@@ -135,13 +135,26 @@ See the repository tree under `backend/`, `frontend/`, `data/`, and `scripts/`. 
 
 ## ARM / container notes
 
-Target VM is Oracle Cloud ARM Ampere A1 (`linux/arm64`). Default image:
+Target VM is Oracle Cloud ARM Ampere A1 (`linux/arm64`).
+
+| Image | File | Default compose | Notes |
+| --- | --- | --- | --- |
+| Stub app | `Dockerfile` | `app` service | `requirements.txt` only, `ML_MODE=stub` |
+| Live ML | `Dockerfile.ml` | `app_ml` (`--profile ml`) | `requirements-ml.txt`, build **natively on paperclip-vm** |
 
 ```bash
-docker buildx build --platform linux/arm64 -t ai_tribe:latest .
+# Stub image (safe to try on any Docker host)
+docker buildx build --platform linux/arm64 -t ai_tribe_app:arm64 -f Dockerfile .
+
+# Live ML image — prefer native ARM on paperclip-vm; do not burn time on
+# emulated cross-builds if torch/transformers wheels fail or hang.
+docker buildx build --platform linux/arm64 -t ai_tribe_app_ml:arm64 -f Dockerfile.ml .
 ```
 
-Live-model image (`Dockerfile.ml`) is only built via `--profile ml`. If `mmdet`/`mmcv` (CarDD) prove too heavy on ARM, the live path uses the `transformers`-based options from the ML playbook.
+**Milestone 8 laptop status:** Docker is not available on the current development
+Mac, so arm64 image builds and `docker compose` were not executed here. Compose
+config is verified statically: default `docker compose -p ai_tribe up` starts
+only Postgres + stub `app` (no `app_ml`). See `docs/DEPLOYMENT.md`.
 
 ## Milestone status
 
@@ -154,6 +167,6 @@ Live-model image (`Dockerfile.ml`) is only built via `--profile ml`. If `mmdet`/
 | 5 | Real forensic / ML services (gated by `ML_MODE`) | done |
 | 6 | Parts matching + estimate view | done |
 | 7 | AX / minimalist UI polish | done |
-| 8 | Dockerize (multi-stage, arm64) | pending |
+| 8 | Dockerize (multi-stage, arm64) | config ready; builds deferred to VM (no local Docker) |
 | 9 | Push to GitHub `main` | pending |
 | 10 | Deploy to `paperclip-vm` | pending |

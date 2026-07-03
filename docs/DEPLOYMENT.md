@@ -29,6 +29,37 @@ genuinely required during development, use a throwaway container:
 docker run --rm --memory=2g --cpus=2 -e ML_MODE=live ...
 ```
 
+## ARM image builds (Milestone 8 status)
+
+**Not verified on the development laptop.** This Mac has no Docker daemon
+(Docker Desktop / Colima not installed; Homebrew install of Colima was blocked
+on a from-source Go bootstrap and was abandoned). Image builds must run where
+Docker is available.
+
+| Image | Dockerfile | Platform | Local laptop | paperclip-vm (native ARM) |
+| --- | --- | --- | --- | --- |
+| Base app (`ai_tribe_app`) | `Dockerfile` | `linux/arm64` | Attempt when Docker is present; should be fast (no torch) | Preferred if laptop cannot build |
+| Live ML (`ai_tribe_app_ml`) | `Dockerfile.ml` | `linux/arm64` | **Do not chase** slow/failing cross-builds under QEMU for torch/transformers | **Build natively on the VM** during deployment |
+
+Commands (run on a machine with Docker, ideally the VM for ML):
+
+```bash
+# Base stub image — expected to succeed quickly
+docker buildx build --platform linux/arm64 -t ai_tribe_app:arm64 -f Dockerfile --load .
+docker run --rm --platform linux/arm64 -e ML_MODE=stub ai_tribe_app:arm64 \
+  python -c "from app.core.config import get_settings; print(get_settings().ml_mode)"
+
+# Live ML image — build on paperclip-vm only (native ARM)
+docker buildx build --platform linux/arm64 -t ai_tribe_app_ml:arm64 -f Dockerfile.ml --load .
+```
+
+Default compose (no ML profile) starts only `db` + `app` (stub):
+
+```bash
+docker compose -p ai_tribe up --build
+# does NOT start app_ml unless: docker compose -p ai_tribe --profile ml up
+```
+
 ## paperclip-vm (Milestone 10 — not done yet)
 
 When deployment happens:
