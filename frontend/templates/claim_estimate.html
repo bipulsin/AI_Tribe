@@ -31,8 +31,9 @@
   </header>
 
   {% if error %}
-  <section class="rounded-2xl border border-amber-200 bg-amber-50 px-6 py-8">
-    <p class="text-sm text-amber-900">{{ error }}</p>
+  <section class="notice" role="status">
+    <p class="notice-title">Estimate unavailable</p>
+    <p class="notice-body">{{ error }}</p>
   </section>
   {% else %}
 
@@ -63,9 +64,9 @@
   </section>
 
   {% if estimate.pricing_basis == "provisional_fallback" %}
-  <section class="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4" role="status">
-    <p class="text-sm font-medium text-amber-950">Provisional estimate</p>
-    <p class="mt-1 text-sm leading-relaxed text-amber-900/80">
+  <section class="notice mb-6" role="status">
+    <p class="notice-title">Provisional estimate</p>
+    <p class="notice-body">
       Vehicle identity could not be confirmed from the submitted photos. This total is
       priced against the nearest matched catalogue entry
       ({{ catalogue_vehicle_label or "catalogue fallback" }}) and should be treated as

@@ -49,6 +49,8 @@
           hx-post="/auth/login"
           hx-target="#login-error"
           hx-swap="innerHTML"
+          hx-disabled-elt="find button[type=submit]"
+          hx-indicator="#login-spinner"
           class="space-y-5"
           autocomplete="on"
         >
@@ -87,8 +89,9 @@
 
           <button
             type="submit"
-            class="btn-primary w-full rounded-lg px-4 py-2.5 text-sm font-semibold tracking-wide shadow-lg shadow-black/20"
+            class="btn-primary inline-flex w-full items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold tracking-wide shadow-lg shadow-black/20"
           >
+            <span id="login-spinner" class="btn-spinner htmx-indicator"></span>
             Sign in
           </button>
         </form>

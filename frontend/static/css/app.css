@@ -74,3 +74,59 @@ body {
 .stage-row:last-child .stage-icon + div {
   display: none;
 }
+
+/* Calm contextual notices — only shown when a condition triggers them */
+.notice {
+  border-radius: 0.75rem;
+  border: 1px solid rgba(180, 83, 9, 0.25);
+  background: #fffbeb;
+  padding: 1rem 1.25rem;
+}
+
+.notice-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #451a03;
+}
+
+.notice-body {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: rgba(120, 53, 15, 0.85);
+}
+
+.notice-success {
+  border-color: rgba(16, 185, 129, 0.25);
+  background: #ecfdf5;
+}
+
+.notice-success .notice-title {
+  color: #064e3b;
+}
+
+.notice-success .notice-body {
+  color: rgba(6, 78, 59, 0.8);
+}
+
+.btn-spinner {
+  display: inline-block;
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 9999px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  animation: stage-spin 0.7s linear infinite;
+  vertical-align: -0.1em;
+  margin-right: 0.4rem;
+}
+
+/* HTMX request indicators — only visible while a request is in flight */
+.htmx-indicator {
+  display: none;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+  display: inline-block;
+}

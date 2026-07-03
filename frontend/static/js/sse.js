@@ -15,6 +15,7 @@ function pipelineTracker({
     halted: false,
     haltMessage: "",
     reviewSent: false,
+    connecting: false,
     estimateUrl: claimId ? `/claims/${claimId}/estimate` : "#",
     _source: null,
 
@@ -32,6 +33,7 @@ function pipelineTracker({
         claimStatus === "closed"
       ) {
         this.complete = true;
+        this.connecting = false;
         this.halted =
           claimStatus === "authenticity_failed" ||
           claimStatus === "review_required";
@@ -45,6 +47,7 @@ function pipelineTracker({
         return;
       }
 
+      this.connecting = initialEvents.length === 0;
       this.connect();
     },
 
@@ -76,6 +79,7 @@ function pipelineTracker({
 
     applyEvent(event) {
       if (!event) return;
+      this.connecting = false;
 
       if (event.stage_key && event.stage_key !== "pipeline_error") {
         const stage = this.stages.find((item) => item.key === event.stage_key);

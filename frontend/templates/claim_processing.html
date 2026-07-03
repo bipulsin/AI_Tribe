@@ -30,12 +30,14 @@
   </header>
 
   {% if error %}
-  <section class="rounded-2xl border border-amber-200 bg-amber-50 px-6 py-8">
-    <p class="text-sm text-amber-900">{{ error }}</p>
+  <section class="notice" role="status">
+    <p class="notice-title">Claim unavailable</p>
+    <p class="notice-body">{{ error }}</p>
   </section>
   {% else %}
 
   <section class="mb-8 rounded-2xl border border-navy/10 bg-white px-5 py-4">
+    {% if claim.images %}
     <ul class="grid grid-cols-4 gap-2 sm:grid-cols-6">
       {% for image in claim.images|sort(attribute='image_order') %}
       <li class="overflow-hidden rounded-lg border border-navy/10 bg-canvas">
@@ -49,10 +51,23 @@
       </li>
       {% endfor %}
     </ul>
+    {% else %}
+    <p class="py-6 text-center text-sm text-navy/50">No images are attached to this claim.</p>
+    {% endif %}
   </section>
 
   <section class="rounded-2xl border border-navy/10 bg-white px-6 py-6">
-    <h2 class="text-sm font-semibold uppercase tracking-[0.18em] text-navy/45">Assessment progress</h2>
+    <div class="flex items-center justify-between gap-3">
+      <h2 class="text-sm font-semibold uppercase tracking-[0.18em] text-navy/45">Assessment progress</h2>
+      <p
+        class="inline-flex items-center text-xs text-navy/45"
+        x-show="connecting && !complete"
+        x-cloak
+      >
+        <span class="stage-spinner mr-2 h-3 w-3 border border-navy/20 border-t-navy/60"></span>
+        Connecting…
+      </p>
+    </div>
 
     <ol class="stage-tracker mt-6 space-y-0">
       <template x-for="(stage, index) in stages" :key="stage.key">
@@ -107,14 +122,9 @@
       </template>
     </ol>
 
-    <div
-      class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4"
-      x-show="halted"
-      x-cloak
-      role="status"
-    >
-      <p class="text-sm font-medium text-amber-950">Assessment paused</p>
-      <p class="mt-1 text-sm leading-relaxed text-amber-900/80" x-text="haltMessage"></p>
+    <div class="notice mt-6" x-show="halted" x-cloak role="status">
+      <p class="notice-title">Assessment paused</p>
+      <p class="notice-body" x-text="haltMessage"></p>
       <button
         type="button"
         class="btn-primary mt-4 rounded-lg px-4 py-2 text-sm font-semibold"
@@ -126,14 +136,9 @@
       </button>
     </div>
 
-    <div
-      class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4"
-      x-show="complete && !halted"
-      x-cloak
-      role="status"
-    >
-      <p class="text-sm font-medium text-emerald-950">Survey estimate ready</p>
-      <p class="mt-1 text-sm text-emerald-900/80">
+    <div class="notice notice-success mt-6" x-show="complete && !halted" x-cloak role="status">
+      <p class="notice-title">Survey estimate ready</p>
+      <p class="notice-body">
         The assessment pipeline finished. Review the estimate sheet next.
       </p>
       <a

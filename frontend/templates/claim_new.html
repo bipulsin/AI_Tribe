@@ -64,13 +64,18 @@
       <p class="text-sm text-navy/45" x-show="video" x-cloak>1 video attached</p>
     </div>
 
+    <div class="notice mt-4" x-show="error" x-cloak role="alert">
+      <p class="notice-title">Could not add that file</p>
+      <p class="notice-body" x-text="error"></p>
+    </div>
+
     <p
-      class="mt-3 text-sm text-amber-800"
-      x-show="error"
-      x-text="error"
+      class="mt-6 text-sm text-navy/45"
+      x-show="!previews.length"
       x-cloak
-      role="alert"
-    ></p>
+    >
+      Nothing attached yet. Add at least one clear photo of the damage to continue.
+    </p>
 
     <ul
       class="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4"
@@ -120,15 +125,22 @@
       </template>
     </ul>
 
-    <div class="mt-10 flex justify-end">
+    <div class="mt-10 flex flex-col items-end gap-2">
+      <p
+        class="text-xs text-navy/45"
+        x-show="!canSubmit && !submitting"
+        x-cloak
+      >
+        Add at least one image to enable submit.
+      </p>
       <button
         type="button"
-        class="btn-primary rounded-lg px-6 py-2.5 text-sm font-semibold"
+        class="btn-primary inline-flex items-center rounded-lg px-6 py-2.5 text-sm font-semibold"
         :disabled="!canSubmit || submitting"
         @click="submitClaim()"
       >
-        <span x-show="!submitting">Submit claim</span>
-        <span x-show="submitting" x-cloak>Submitting…</span>
+        <span class="btn-spinner" x-show="submitting" x-cloak></span>
+        <span x-text="submitting ? 'Submitting…' : 'Submit claim'"></span>
       </button>
     </div>
   </section>
