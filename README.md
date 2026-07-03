@@ -33,10 +33,18 @@ This is a lab default only. The app prints a console warning on every boot while
 
 ### Prerequisites
 
-- Python 3.11+
+- **Python 3.11 or 3.12** for the pretrained ML stack (`torch` / `transformers` wheels). Python 3.13 works for the web app and algorithmic forensics, but may not have PyTorch wheels on all platforms — ML stages then pass with an explicit warning and provisional results.
 - PostgreSQL 15+ (Docker Compose ships Postgres 17; a local Homebrew install of 15+ is fine for development)
 - `pip` / `venv`
 - Docker (optional for local app runs; required for the containerised deployment path)
+
+Pretrained weights (deepfake detector, car-damage classifier, ImageNet ResNet50 for VMMR transfer) are pulled by:
+
+```bash
+./scripts/download_models.sh
+```
+
+Caches land under `backend/app/ml_weights/` (gitignored).
 
 ### One-command spin-up (Docker)
 
@@ -62,9 +70,11 @@ docker compose -p ai_tribe up -d db
 
 cp .env.example .env
 
-python3 -m venv venv
+# Prefer Python 3.11 or 3.12 so torch/transformers wheels install cleanly.
+python3.12 -m venv venv
 source venv/bin/activate
 pip install -r backend/requirements.txt
+./scripts/download_models.sh
 
 cd backend
 alembic upgrade head
@@ -114,7 +124,7 @@ If `mmdet`/`mmcv` (CarDD) prove too heavy on ARM, the containerised deployment f
 | 2 | Auth + video-background login | done |
 | 3 | Claim submission + storage | done |
 | 4 | SSE pipeline stage tracker (stubs) | done |
-| 5 | Real forensic / ML services | pending |
+| 5 | Real forensic / ML services | done |
 | 6 | Parts matching + estimate view | pending |
 | 7 | AX / minimalist UI polish | pending |
 | 8 | Dockerize (multi-stage, arm64) | pending |

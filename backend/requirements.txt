@@ -24,12 +24,14 @@ python-dotenv==1.0.1
 # Image / forensics (algorithmic stages)
 Pillow==11.0.0
 imagehash==4.3.1
-numpy==2.2.1
+numpy>=1.26.4,<2.0
 opencv-python-headless==4.10.0.84
 
 # ML (pretrained models — transformers path preferred for ARM containers)
-torch==2.5.1
-torchvision==0.20.1
+# Prefer Python 3.11/3.12. Pin torch to a version with wheels on your platform
+# (macOS 12 x86_64 currently resolves to torch 2.2.x; ARM/Linux can use newer).
+torch>=2.2.2,<2.6
+torchvision>=0.17.2,<0.21
 transformers==4.47.1
 timm==1.0.12
 huggingface-hub==0.27.0

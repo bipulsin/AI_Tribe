@@ -1,6 +1,7 @@
 # Python
 venv/
 .venv/
+.conda/
 __pycache__/
 *.py[cod]
 *$py.class

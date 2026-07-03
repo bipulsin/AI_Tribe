@@ -45,6 +45,17 @@ def _warn_default_credentials() -> None:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    import os
+
+    from app.core.config import REPO_ROOT
+
+    # Keep pretrained weights inside the repo's ml_weights tree when possible.
+    weights_root = REPO_ROOT / "backend" / "app" / "ml_weights"
+    os.environ.setdefault("HF_HOME", str(weights_root / "huggingface"))
+    os.environ.setdefault("TORCH_HOME", str(weights_root / "torch"))
+    (weights_root / "huggingface").mkdir(parents=True, exist_ok=True)
+    (weights_root / "torch").mkdir(parents=True, exist_ok=True)
+
     settings.upload_path.mkdir(parents=True, exist_ok=True)
     try:
         from app.db.seed import seed_admin
