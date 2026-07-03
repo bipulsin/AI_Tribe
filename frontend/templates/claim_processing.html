@@ -3,7 +3,16 @@
 {% block title %}Processing claim{% endblock %}
 
 {% block body %}
-<div class="mx-auto flex min-h-screen max-w-2xl flex-col px-6 py-10">
+<div
+  class="mx-auto flex min-h-screen max-w-2xl flex-col px-6 py-10"
+  x-data="pipelineTracker({
+    claimId: {{ claim.id if claim else 'null' }},
+    stages: {{ stages_json | safe }},
+    initialEvents: {{ initial_events_json | safe }},
+    claimStatus: {{ claim_status_json | safe }}
+  })"
+  x-init="init()"
+>
   <header class="mb-10 flex items-start justify-between gap-4">
     <div>
       <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gold">AI Tribe</p>
@@ -25,37 +34,120 @@
     <p class="text-sm text-amber-900">{{ error }}</p>
   </section>
   {% else %}
-  <section class="rounded-2xl border border-navy/10 bg-white px-6 py-8">
-    <p class="text-sm font-medium text-navy">Claim received</p>
-    <p class="mt-2 text-sm leading-relaxed text-navy/60">
-      {{ claim.images|length }} file{% if claim.images|length != 1 %}s{% endif %}
-      stored for {{ claim.claim_reference }}. The live stage tracker and assessment
-      pipeline land in the next milestone.
-    </p>
 
-    <ul class="mt-8 grid grid-cols-3 gap-3 sm:grid-cols-4">
+  <section class="mb-8 rounded-2xl border border-navy/10 bg-white px-5 py-4">
+    <ul class="grid grid-cols-4 gap-2 sm:grid-cols-6">
       {% for image in claim.images|sort(attribute='image_order') %}
       <li class="overflow-hidden rounded-lg border border-navy/10 bg-canvas">
         <div class="aspect-square">
           {% if image.is_video %}
-          <video
-            class="h-full w-full object-cover"
-            src="/uploads/{{ image.file_path }}"
-            muted
-            playsinline
-          ></video>
+          <video class="h-full w-full object-cover" src="/uploads/{{ image.file_path }}" muted playsinline></video>
           {% else %}
-          <img
-            class="h-full w-full object-cover"
-            src="/uploads/{{ image.file_path }}"
-            alt="Claim image {{ image.image_order }}"
-          />
+          <img class="h-full w-full object-cover" src="/uploads/{{ image.file_path }}" alt="Claim image {{ image.image_order }}" />
           {% endif %}
         </div>
       </li>
       {% endfor %}
     </ul>
   </section>
+
+  <section class="rounded-2xl border border-navy/10 bg-white px-6 py-6">
+    <h2 class="text-sm font-semibold uppercase tracking-[0.18em] text-navy/45">Assessment progress</h2>
+
+    <ol class="stage-tracker mt-6 space-y-0">
+      <template x-for="(stage, index) in stages" :key="stage.key">
+        <li class="stage-row relative flex gap-4 pb-6 last:pb-0">
+          <div class="flex flex-col items-center">
+            <div
+              class="stage-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm"
+              :class="iconClass(stage.status)"
+            >
+              <template x-if="stage.status === 'pending'">
+                <span class="h-2 w-2 rounded-full bg-navy/20"></span>
+              </template>
+              <template x-if="stage.status === 'started'">
+                <span class="stage-spinner h-4 w-4 rounded-full border-2 border-gold/30 border-t-gold"></span>
+              </template>
+              <template x-if="stage.status === 'passed'">
+                <svg class="h-4 w-4 text-emerald-700" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.25 7.333a1 1 0 0 1-1.44-.02L3.27 9.96a1 1 0 1 1 1.46-1.366l3.98 4.253 6.53-6.603a1 1 0 0 1 1.464.046z" clip-rule="evenodd"/>
+                </svg>
+              </template>
+              <template x-if="stage.status === 'failed'">
+                <svg class="h-4 w-4 text-amber-800" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22z"/>
+                </svg>
+              </template>
+              <template x-if="stage.status === 'warning'">
+                <svg class="h-4 w-4 text-amber-700" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.168 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 6zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" clip-rule="evenodd"/>
+                </svg>
+              </template>
+            </div>
+            <div
+              class="mt-1 w-px flex-1 bg-navy/10"
+              x-show="index < stages.length - 1"
+            ></div>
+          </div>
+
+          <div class="min-w-0 flex-1 pt-1">
+            <p
+              class="text-sm font-medium"
+              :class="stage.status === 'pending' ? 'text-navy/40' : 'text-navy'"
+              x-text="stage.label"
+            ></p>
+            <p
+              class="mt-0.5 text-sm text-navy/55"
+              x-show="stage.detail"
+              x-text="stage.detail"
+              x-cloak
+            ></p>
+          </div>
+        </li>
+      </template>
+    </ol>
+
+    <div
+      class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4"
+      x-show="halted"
+      x-cloak
+      role="status"
+    >
+      <p class="text-sm font-medium text-amber-950">Assessment paused</p>
+      <p class="mt-1 text-sm leading-relaxed text-amber-900/80" x-text="haltMessage"></p>
+      <button
+        type="button"
+        class="btn-primary mt-4 rounded-lg px-4 py-2 text-sm font-semibold"
+        :disabled="reviewSent"
+        @click="requestReview()"
+      >
+        <span x-show="!reviewSent">Send for manual review</span>
+        <span x-show="reviewSent" x-cloak>Sent for manual review</span>
+      </button>
+    </div>
+
+    <div
+      class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4"
+      x-show="complete && !halted"
+      x-cloak
+      role="status"
+    >
+      <p class="text-sm font-medium text-emerald-950">Survey estimate ready</p>
+      <p class="mt-1 text-sm text-emerald-900/80">
+        The assessment pipeline finished. Review the estimate sheet next.
+      </p>
+      <a
+        :href="estimateUrl"
+        class="btn-primary mt-4 inline-flex rounded-lg px-4 py-2 text-sm font-semibold"
+      >
+        View estimate
+      </a>
+    </div>
+  </section>
   {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/sse.js"></script>
 {% endblock %}

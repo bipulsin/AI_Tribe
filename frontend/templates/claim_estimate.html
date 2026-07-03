@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Estimate{% endblock %}
+
+{% block body %}
+<div class="mx-auto flex min-h-screen max-w-2xl flex-col px-6 py-10">
+  <header class="mb-10">
+    <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gold">AI Tribe</p>
+    <h1 class="mt-2 text-3xl font-semibold tracking-tight text-navy">Survey estimate</h1>
+    {% if claim %}
+    <p class="mt-2 text-sm text-navy/60">{{ claim.claim_reference }}</p>
+    {% endif %}
+  </header>
+
+  {% if error %}
+  <section class="rounded-2xl border border-amber-200 bg-amber-50 px-6 py-8">
+    <p class="text-sm text-amber-900">{{ error }}</p>
+  </section>
+  {% else %}
+  <section class="rounded-2xl border border-navy/10 bg-white px-6 py-8">
+    <p class="text-sm font-medium text-navy">Estimate sheet arrives in Milestone 6</p>
+    <p class="mt-2 text-sm leading-relaxed text-navy/60">
+      The assessment pipeline finished successfully. Part-level pricing and the
+      plain-language reason summary land next.
+    </p>
+    <a
+      href="/claims/{{ claim.id }}/processing"
+      class="mt-6 inline-flex text-sm font-medium text-gold hover:underline"
+    >
+      Back to processing
+    </a>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

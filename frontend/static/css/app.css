@@ -60,3 +60,17 @@ body {
 .upload-zone {
   cursor: pointer;
 }
+
+.stage-spinner {
+  animation: stage-spin 0.7s linear infinite;
+}
+
+@keyframes stage-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.stage-row:last-child .stage-icon + div {
+  display: none;
+}

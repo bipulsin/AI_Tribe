@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+import json
+
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
@@ -11,8 +13,10 @@ from starlette.datastructures import UploadFile
 
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.models import Claim
+from app.models import Claim, PipelineEvent
+from app.models.enums import ClaimStatus
 from app.services.claim_service import ClaimValidationError, create_claim_with_uploads
+from app.services.pipeline_orchestrator import PIPELINE_STAGES, ensure_pipeline_started
 
 router = APIRouter(tags=["claims"])
 settings = get_settings()
@@ -36,6 +40,7 @@ async def claim_new(request: Request):
 @router.post("/claims")
 async def create_claim(
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     user_id = request.session.get("user_id")
@@ -63,6 +68,8 @@ async def create_claim(
     except ClaimValidationError as exc:
         return JSONResponse({"detail": str(exc)}, status_code=400)
 
+    background_tasks.add_task(ensure_pipeline_started, claim.id)
+
     return JSONResponse(
         {
             "claim_id": claim.id,
@@ -76,11 +83,15 @@ async def create_claim(
 async def claim_processing(
     claim_id: int,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     claim = db.scalar(
         select(Claim)
-        .options(selectinload(Claim.images))
+        .options(
+            selectinload(Claim.images),
+            selectinload(Claim.pipeline_events),
+        )
         .where(Claim.id == claim_id)
     )
     if not claim:
@@ -90,6 +101,9 @@ async def claim_processing(
                 "request": request,
                 "claim": None,
                 "error": "Claim not found.",
+                "stages_json": "[]",
+                "initial_events_json": "[]",
+                "claim_status_json": "null",
             },
             status_code=404,
         )
@@ -101,9 +115,33 @@ async def claim_processing(
                 "request": request,
                 "claim": None,
                 "error": "You do not have access to this claim.",
+                "stages_json": "[]",
+                "initial_events_json": "[]",
+                "claim_status_json": "null",
             },
             status_code=403,
         )
+
+    if claim.status in {ClaimStatus.submitted, ClaimStatus.processing}:
+        background_tasks.add_task(ensure_pipeline_started, claim.id)
+
+    events = sorted(claim.pipeline_events, key=lambda e: e.id)
+    initial_events = [
+        {
+            "id": event.id,
+            "claim_id": event.claim_id,
+            "stage_key": event.stage_key,
+            "stage_label": event.stage_label,
+            "status": event.status.value if hasattr(event.status, "value") else event.status,
+            "detail": event.detail,
+        }
+        for event in events
+    ]
+
+    stages = [
+        {"key": key, "label": label, "status": "pending", "detail": None}
+        for key, label in PIPELINE_STAGES
+    ]
 
     return templates.TemplateResponse(
         "claim_processing.html",
@@ -113,6 +151,8 @@ async def claim_processing(
             "error": None,
             "username": request.session.get("username", ""),
             "full_name": request.session.get("full_name", ""),
-            "pipeline_ready": False,
+            "stages_json": json.dumps(stages),
+            "initial_events_json": json.dumps(initial_events),
+            "claim_status_json": json.dumps(claim.status.value),
         },
     )

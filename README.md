@@ -113,7 +113,7 @@ If `mmdet`/`mmcv` (CarDD) prove too heavy on ARM, the containerised deployment f
 | 1 | Scaffold, FastAPI, Postgres, Alembic | done |
 | 2 | Auth + video-background login | done |
 | 3 | Claim submission + storage | done |
-| 4 | SSE pipeline stage tracker (stubs) | pending |
+| 4 | SSE pipeline stage tracker (stubs) | done |
 | 5 | Real forensic / ML services | pending |
 | 6 | Parts matching + estimate view | pending |
 | 7 | AX / minimalist UI polish | pending |
