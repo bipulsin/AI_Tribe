@@ -4,6 +4,8 @@
   --navy: #001f3f;
   --gold: #b8860b;
   --canvas: #f7f8fa;
+  --ink: #0a0f1a;
+  --mist: #e8ecf1;
   --alert: #b45309;
 }
 
@@ -75,7 +77,7 @@ body {
   display: none;
 }
 
-/* Calm contextual notices — only shown when a condition triggers them */
+/* Calm contextual notices — light defaults, dark overrides for app shell */
 .notice {
   border-radius: 0.75rem;
   border: 1px solid rgba(180, 83, 9, 0.25);
@@ -107,6 +109,33 @@ body {
 
 .notice-success .notice-body {
   color: rgba(6, 78, 59, 0.8);
+}
+
+/* Dark app shell — calm amber / soft emerald, not alarm red */
+.dark .notice {
+  border-color: rgba(251, 191, 36, 0.28);
+  background: rgba(120, 53, 15, 0.22);
+}
+
+.dark .notice-title {
+  color: #fde68a;
+}
+
+.dark .notice-body {
+  color: rgba(254, 243, 199, 0.82);
+}
+
+.dark .notice-success {
+  border-color: rgba(52, 211, 153, 0.28);
+  background: rgba(6, 78, 59, 0.28);
+}
+
+.dark .notice-success .notice-title {
+  color: #a7f3d0;
+}
+
+.dark .notice-success .notice-body {
+  color: rgba(209, 250, 229, 0.82);
 }
 
 .btn-spinner {

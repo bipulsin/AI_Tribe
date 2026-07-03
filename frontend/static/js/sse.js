@@ -115,15 +115,15 @@ function pipelineTracker({
     iconClass(status) {
       switch (status) {
         case "started":
-          return "border-gold/40 bg-gold/10";
+          return "border-gold/50 bg-gold/15";
         case "passed":
-          return "border-emerald-200 bg-emerald-50";
+          return "border-emerald-500/35 bg-emerald-500/10";
         case "failed":
-          return "border-amber-300 bg-amber-50";
+          return "border-amber-400/40 bg-amber-500/10";
         case "warning":
-          return "border-amber-200 bg-amber-50";
+          return "border-amber-400/35 bg-amber-500/10";
         default:
-          return "border-navy/10 bg-canvas";
+          return "border-navy/10 bg-canvas dark:border-white/10 dark:bg-ink/70";
       }
     },
 

@@ -1,18 +1,22 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
   <title>{% block title %}AI Tribe{% endblock %} · Motor Damage Assessment</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
+      darkMode: 'class',
       theme: {
         extend: {
           colors: {
             navy: '#001F3F',
             gold: '#B8860B',
             canvas: '#F7F8FA',
+            ink: '#0A0F1A',
+            mist: '#E8ECF1',
           },
         },
       },
@@ -24,7 +28,7 @@
   <link rel="stylesheet" href="/static/css/app.css" />
   {% block head %}{% endblock %}
 </head>
-<body class="min-h-screen bg-canvas text-navy antialiased">
+<body class="min-h-screen bg-canvas text-navy antialiased dark:bg-ink dark:text-mist">
   {% block body %}{% endblock %}
   {% block scripts %}{% endblock %}
 </body>

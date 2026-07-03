@@ -10,15 +10,15 @@
   <header class="mb-10 flex items-start justify-between gap-4">
     <div>
       <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gold">AI Tribe</p>
-      <h1 class="mt-2 text-3xl font-semibold tracking-tight text-navy">New claim</h1>
-      <p class="mt-2 text-sm text-navy/60">
+      <h1 class="mt-2 text-3xl font-semibold tracking-tight text-navy dark:text-mist">New claim</h1>
+      <p class="mt-2 text-sm text-navy/60 dark:text-mist/55">
         Signed in as {{ full_name or username }}
       </p>
     </div>
     <form method="post" action="/auth/logout">
       <button
         type="submit"
-        class="rounded-lg border border-navy/10 bg-white px-3 py-1.5 text-sm text-navy/70 transition hover:border-navy/20 hover:text-navy"
+        class="rounded-lg border border-navy/10 bg-white px-3 py-1.5 text-sm text-navy/70 transition hover:border-navy/20 hover:text-navy dark:border-white/10 dark:bg-navy dark:text-mist/70 dark:hover:border-white/20 dark:hover:text-mist"
       >
         Sign out
       </button>
@@ -27,10 +27,10 @@
 
   <section class="flex-1">
     <div
-      class="upload-zone rounded-2xl border border-dashed bg-white px-6 py-12 text-center transition"
+      class="upload-zone rounded-2xl border border-dashed bg-white px-6 py-12 text-center transition dark:bg-navy"
       :class="dragOver
-        ? 'border-gold bg-gold/5'
-        : 'border-navy/15 hover:border-navy/30'"
+        ? 'border-gold bg-gold/5 dark:bg-gold/10'
+        : 'border-navy/15 hover:border-navy/30 dark:border-white/15 dark:hover:border-white/25'"
       @dragover.prevent="dragOver = true"
       @dragleave.prevent="dragOver = false"
       @drop.prevent="onDrop($event)"
@@ -45,8 +45,8 @@
         @change="onFileSelect($event)"
       />
 
-      <p class="text-lg font-medium text-navy">Drop photos of the damaged vehicle</p>
-      <p class="mt-2 text-sm text-navy/55">
+      <p class="text-lg font-medium text-navy dark:text-mist">Drop photos of the damaged vehicle</p>
+      <p class="mt-2 text-sm text-navy/55 dark:text-mist/50">
         Up to {{ max_images }} images, plus one optional short video.
         Max {{ max_upload_mb }} MB per file.
       </p>
@@ -60,8 +60,8 @@
     </div>
 
     <div class="mt-6 flex items-center justify-between gap-4">
-      <p class="text-sm text-navy/60" x-text="imageCounterLabel"></p>
-      <p class="text-sm text-navy/45" x-show="video" x-cloak>1 video attached</p>
+      <p class="text-sm text-navy/60 dark:text-mist/55" x-text="imageCounterLabel"></p>
+      <p class="text-sm text-navy/45 dark:text-mist/40" x-show="video" x-cloak>1 video attached</p>
     </div>
 
     <div class="notice mt-4" x-show="error" x-cloak role="alert">
@@ -70,7 +70,7 @@
     </div>
 
     <p
-      class="mt-6 text-sm text-navy/45"
+      class="mt-6 text-sm text-navy/45 dark:text-mist/40"
       x-show="!previews.length"
       x-cloak
     >
@@ -83,8 +83,8 @@
       x-cloak
     >
       <template x-for="item in previews" :key="item.id">
-        <li class="group relative overflow-hidden rounded-xl border border-navy/10 bg-white shadow-sm">
-          <div class="aspect-square bg-navy/5">
+        <li class="group relative overflow-hidden rounded-xl border border-navy/10 bg-white shadow-sm dark:border-white/10 dark:bg-navy dark:shadow-none">
+          <div class="aspect-square bg-navy/5 dark:bg-ink/60">
             <template x-if="item.isVideo">
               <video
                 class="h-full w-full object-cover"
@@ -103,12 +103,12 @@
           </div>
           <div class="flex items-center justify-between gap-2 px-2.5 py-2">
             <span
-              class="truncate text-xs text-navy/60"
+              class="truncate text-xs text-navy/60 dark:text-mist/55"
               x-text="item.isVideo ? 'Video' : item.name"
             ></span>
             <button
               type="button"
-              class="rounded-md px-1.5 py-0.5 text-xs text-navy/50 transition hover:bg-navy/5 hover:text-navy"
+              class="rounded-md px-1.5 py-0.5 text-xs text-navy/50 transition hover:bg-navy/5 hover:text-navy dark:text-mist/45 dark:hover:bg-white/5 dark:hover:text-mist"
               @click="removeItem(item.id)"
               aria-label="Remove file"
             >
@@ -117,7 +117,7 @@
           </div>
           <span
             x-show="item.isVideo"
-            class="absolute left-2 top-2 rounded-full bg-navy/80 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white"
+            class="absolute left-2 top-2 rounded-full bg-navy/80 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white dark:bg-ink/90"
           >
             Video
           </span>
@@ -127,7 +127,7 @@
 
     <div class="mt-10 flex flex-col items-end gap-2">
       <p
-        class="text-xs text-navy/45"
+        class="text-xs text-navy/45 dark:text-mist/40"
         x-show="!canSubmit && !submitting"
         x-cloak
       >
