@@ -3,8 +3,11 @@
 {% block title %}New claim{% endblock %}
 
 {% block body %}
-<div class="mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-10">
-  <header class="mb-12 flex items-start justify-between gap-4">
+<div
+  class="mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-10"
+  x-data="claimUpload({ maxImages: {{ max_images }}, maxUploadMb: {{ max_upload_mb }} })"
+>
+  <header class="mb-10 flex items-start justify-between gap-4">
     <div>
       <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gold">AI Tribe</p>
       <h1 class="mt-2 text-3xl font-semibold tracking-tight text-navy">New claim</h1>
@@ -22,12 +25,116 @@
     </form>
   </header>
 
-  <section class="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-navy/15 bg-white px-8 py-20 text-center">
-    <p class="text-lg font-medium text-navy">Claim upload arrives in the next milestone</p>
-    <p class="mt-2 max-w-md text-sm leading-relaxed text-navy/55">
-      You are authenticated. Drag-and-drop photo submission, thumbnail previews,
-      and pipeline processing land in Milestone 3 and 4.
-    </p>
+  <section class="flex-1">
+    <div
+      class="upload-zone rounded-2xl border border-dashed bg-white px-6 py-12 text-center transition"
+      :class="dragOver
+        ? 'border-gold bg-gold/5'
+        : 'border-navy/15 hover:border-navy/30'"
+      @dragover.prevent="dragOver = true"
+      @dragleave.prevent="dragOver = false"
+      @drop.prevent="onDrop($event)"
+      @click="$refs.fileInput.click()"
+    >
+      <input
+        type="file"
+        class="hidden"
+        x-ref="fileInput"
+        accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
+        multiple
+        @change="onFileSelect($event)"
+      />
+
+      <p class="text-lg font-medium text-navy">Drop photos of the damaged vehicle</p>
+      <p class="mt-2 text-sm text-navy/55">
+        Up to {{ max_images }} images, plus one optional short video.
+        Max {{ max_upload_mb }} MB per file.
+      </p>
+      <button
+        type="button"
+        class="btn-primary mt-6 rounded-lg px-5 py-2.5 text-sm font-semibold"
+        @click.stop="$refs.fileInput.click()"
+      >
+        Browse files
+      </button>
+    </div>
+
+    <div class="mt-6 flex items-center justify-between gap-4">
+      <p class="text-sm text-navy/60" x-text="imageCounterLabel"></p>
+      <p class="text-sm text-navy/45" x-show="video" x-cloak>1 video attached</p>
+    </div>
+
+    <p
+      class="mt-3 text-sm text-amber-800"
+      x-show="error"
+      x-text="error"
+      x-cloak
+      role="alert"
+    ></p>
+
+    <ul
+      class="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4"
+      x-show="previews.length"
+      x-cloak
+    >
+      <template x-for="item in previews" :key="item.id">
+        <li class="group relative overflow-hidden rounded-xl border border-navy/10 bg-white shadow-sm">
+          <div class="aspect-square bg-navy/5">
+            <template x-if="item.isVideo">
+              <video
+                class="h-full w-full object-cover"
+                :src="item.previewUrl"
+                muted
+                playsinline
+              ></video>
+            </template>
+            <template x-if="!item.isVideo">
+              <img
+                class="h-full w-full object-cover"
+                :src="item.previewUrl"
+                :alt="item.name"
+              />
+            </template>
+          </div>
+          <div class="flex items-center justify-between gap-2 px-2.5 py-2">
+            <span
+              class="truncate text-xs text-navy/60"
+              x-text="item.isVideo ? 'Video' : item.name"
+            ></span>
+            <button
+              type="button"
+              class="rounded-md px-1.5 py-0.5 text-xs text-navy/50 transition hover:bg-navy/5 hover:text-navy"
+              @click="removeItem(item.id)"
+              aria-label="Remove file"
+            >
+              Remove
+            </button>
+          </div>
+          <span
+            x-show="item.isVideo"
+            class="absolute left-2 top-2 rounded-full bg-navy/80 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white"
+          >
+            Video
+          </span>
+        </li>
+      </template>
+    </ul>
+
+    <div class="mt-10 flex justify-end">
+      <button
+        type="button"
+        class="btn-primary rounded-lg px-6 py-2.5 text-sm font-semibold"
+        :disabled="!canSubmit || submitting"
+        @click="submitClaim()"
+      >
+        <span x-show="!submitting">Submit claim</span>
+        <span x-show="submitting" x-cloak>Submitting…</span>
+      </button>
+    </div>
   </section>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/upload.js"></script>
 {% endblock %}

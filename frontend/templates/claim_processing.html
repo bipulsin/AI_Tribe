@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Processing claim{% endblock %}
+
+{% block body %}
+<div class="mx-auto flex min-h-screen max-w-2xl flex-col px-6 py-10">
+  <header class="mb-10 flex items-start justify-between gap-4">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gold">AI Tribe</p>
+      <h1 class="mt-2 text-3xl font-semibold tracking-tight text-navy">Processing</h1>
+      {% if claim %}
+      <p class="mt-2 text-sm text-navy/60">{{ claim.claim_reference }}</p>
+      {% endif %}
+    </div>
+    <a
+      href="/claims/new"
+      class="rounded-lg border border-navy/10 bg-white px-3 py-1.5 text-sm text-navy/70 transition hover:border-navy/20 hover:text-navy"
+    >
+      New claim
+    </a>
+  </header>
+
+  {% if error %}
+  <section class="rounded-2xl border border-amber-200 bg-amber-50 px-6 py-8">
+    <p class="text-sm text-amber-900">{{ error }}</p>
+  </section>
+  {% else %}
+  <section class="rounded-2xl border border-navy/10 bg-white px-6 py-8">
+    <p class="text-sm font-medium text-navy">Claim received</p>
+    <p class="mt-2 text-sm leading-relaxed text-navy/60">
+      {{ claim.images|length }} file{% if claim.images|length != 1 %}s{% endif %}
+      stored for {{ claim.claim_reference }}. The live stage tracker and assessment
+      pipeline land in the next milestone.
+    </p>
+
+    <ul class="mt-8 grid grid-cols-3 gap-3 sm:grid-cols-4">
+      {% for image in claim.images|sort(attribute='image_order') %}
+      <li class="overflow-hidden rounded-lg border border-navy/10 bg-canvas">
+        <div class="aspect-square">
+          {% if image.is_video %}
+          <video
+            class="h-full w-full object-cover"
+            src="/uploads/{{ image.file_path }}"
+            muted
+            playsinline
+          ></video>
+          {% else %}
+          <img
+            class="h-full w-full object-cover"
+            src="/uploads/{{ image.file_path }}"
+            alt="Claim image {{ image.image_order }}"
+          />
+          {% endif %}
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

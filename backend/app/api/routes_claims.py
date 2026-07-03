@@ -1,12 +1,18 @@
-"""Claim routes — minimal protected landing in Milestone 2; upload in Milestone 3."""
+"""Claim submission and detail routes."""
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import select
+from sqlalchemy.orm import Session, selectinload
+from starlette.datastructures import UploadFile
 
 from app.core.config import get_settings
+from app.core.database import get_db
+from app.models import Claim
+from app.services.claim_service import ClaimValidationError, create_claim_with_uploads
 
 router = APIRouter(tags=["claims"])
 settings = get_settings()
@@ -15,12 +21,98 @@ templates = Jinja2Templates(directory=str(settings.templates_dir))
 
 @router.get("/claims/new", response_class=HTMLResponse)
 async def claim_new(request: Request):
-    """Post-login landing. Full upload zone lands in Milestone 3."""
     return templates.TemplateResponse(
         "claim_new.html",
         {
             "request": request,
             "username": request.session.get("username", ""),
             "full_name": request.session.get("full_name", ""),
+            "max_images": settings.max_images_per_claim,
+            "max_upload_mb": settings.max_upload_mb,
+        },
+    )
+
+
+@router.post("/claims")
+async def create_claim(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    user_id = request.session.get("user_id")
+    form = await request.form()
+
+    images = [
+        item
+        for item in form.getlist("images")
+        if isinstance(item, UploadFile) and item.filename
+    ]
+    video_field = form.get("video")
+    video = (
+        video_field
+        if isinstance(video_field, UploadFile) and video_field.filename
+        else None
+    )
+
+    try:
+        claim = await create_claim_with_uploads(
+            db,
+            user_id=user_id,
+            images=images,
+            video=video,
+        )
+    except ClaimValidationError as exc:
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+
+    return JSONResponse(
+        {
+            "claim_id": claim.id,
+            "claim_reference": claim.claim_reference,
+            "redirect": f"/claims/{claim.id}/processing",
+        }
+    )
+
+
+@router.get("/claims/{claim_id}/processing", response_class=HTMLResponse)
+async def claim_processing(
+    claim_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    claim = db.scalar(
+        select(Claim)
+        .options(selectinload(Claim.images))
+        .where(Claim.id == claim_id)
+    )
+    if not claim:
+        return templates.TemplateResponse(
+            "claim_processing.html",
+            {
+                "request": request,
+                "claim": None,
+                "error": "Claim not found.",
+            },
+            status_code=404,
+        )
+
+    if claim.created_by != request.session.get("user_id"):
+        return templates.TemplateResponse(
+            "claim_processing.html",
+            {
+                "request": request,
+                "claim": None,
+                "error": "You do not have access to this claim.",
+            },
+            status_code=403,
+        )
+
+    return templates.TemplateResponse(
+        "claim_processing.html",
+        {
+            "request": request,
+            "claim": claim,
+            "error": None,
+            "username": request.session.get("username", ""),
+            "full_name": request.session.get("full_name", ""),
+            "pipeline_ready": False,
         },
     )

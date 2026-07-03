@@ -97,7 +97,9 @@ async def require_session(request: Request, call_next):
 
     user_id = request.session.get("user_id")
     if not user_id:
-        if path.startswith("/api/"):
+        accept = request.headers.get("accept", "")
+        wants_json = path.startswith("/api/") or "application/json" in accept
+        if wants_json:
             from fastapi.responses import JSONResponse
 
             return JSONResponse({"detail": "Not authenticated"}, status_code=401)

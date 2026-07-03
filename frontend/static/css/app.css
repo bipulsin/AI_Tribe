@@ -51,3 +51,12 @@ body {
 .login-stage {
   background-color: #001f3f;
 }
+
+/* Alpine.js cloak — hide unbound templates until Alpine boots */
+[x-cloak] {
+  display: none !important;
+}
+
+.upload-zone {
+  cursor: pointer;
+}
