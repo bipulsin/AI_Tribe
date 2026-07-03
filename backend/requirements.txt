@@ -14,7 +14,7 @@ greenlet==3.1.1
 
 # Auth
 passlib[bcrypt]==1.7.4
-bcrypt==4.2.1
+bcrypt==4.0.1
 
 # Config / validation
 pydantic==2.10.4

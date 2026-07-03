@@ -33,3 +33,21 @@ body {
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+/* Login page — full-bleed video with dark gradient for text contrast */
+.login-bg-video {
+  filter: saturate(0.9) brightness(0.85);
+}
+
+.login-bg-video.video-missing {
+  display: none;
+}
+
+.login-overlay {
+  background:
+    linear-gradient(160deg, rgba(0, 31, 63, 0.78) 0%, rgba(0, 31, 63, 0.55) 45%, rgba(0, 0, 0, 0.72) 100%);
+}
+
+.login-stage {
+  background-color: #001f3f;
+}

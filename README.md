@@ -77,13 +77,13 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 ### Background video asset
 
-Drop the real login background video at:
+Login page background video lives at:
 
 ```
 frontend/static/video/login_bg.mp4
 ```
 
-A placeholder is used until that file is present.
+Replace this file to change the looping background. The current asset was sourced from the lab's `twcto.mp4` clip.
 
 ## Project layout
 
@@ -93,7 +93,7 @@ See the repository tree under `backend/`, `frontend/`, `data/`, and `scripts/`. 
 - `backend/app/services/pipeline_orchestrator.py` — staged AI pipeline
 - `backend/app/core/events.py` — in-memory SSE pub/sub bus
 - `backend/app/services/storage.py` — filesystem storage interface (S3-swappable)
-- `docs/ML_Training_Playbook_and_Pretrained_Models.md` — model choices and training notes (added with Milestone 5)
+- `docs/ML_Training_Playbook_and_Pretrained_Models.md` — pretrained model choices and training playbook (used from Milestone 5)
 - `docs/DEPLOYMENT.md` — paperclip-vm deployment runbook (added with Milestone 10)
 
 ## ARM / container notes
@@ -111,7 +111,7 @@ If `mmdet`/`mmcv` (CarDD) prove too heavy on ARM, the containerised deployment f
 | # | Milestone | Status |
 | --- | --- | --- |
 | 1 | Scaffold, FastAPI, Postgres, Alembic | done |
-| 2 | Auth + video-background login | pending |
+| 2 | Auth + video-background login | done |
 | 3 | Claim submission + storage | pending |
 | 4 | SSE pipeline stage tracker (stubs) | pending |
 | 5 | Real forensic / ML services | pending |

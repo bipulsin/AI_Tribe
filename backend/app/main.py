@@ -46,6 +46,17 @@ def _warn_default_credentials() -> None:
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     settings.upload_path.mkdir(parents=True, exist_ok=True)
+    try:
+        from app.db.seed import seed_admin
+
+        db = SessionLocal()
+        try:
+            seed_admin(db)
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.debug("Could not run admin seed on boot: %s", exc)
+
     _warn_default_credentials()
     yield
 

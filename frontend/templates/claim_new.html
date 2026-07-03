@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}New claim{% endblock %}
+
+{% block body %}
+<div class="mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-10">
+  <header class="mb-12 flex items-start justify-between gap-4">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gold">AI Tribe</p>
+      <h1 class="mt-2 text-3xl font-semibold tracking-tight text-navy">New claim</h1>
+      <p class="mt-2 text-sm text-navy/60">
+        Signed in as {{ full_name or username }}
+      </p>
+    </div>
+    <form method="post" action="/auth/logout">
+      <button
+        type="submit"
+        class="rounded-lg border border-navy/10 bg-white px-3 py-1.5 text-sm text-navy/70 transition hover:border-navy/20 hover:text-navy"
+      >
+        Sign out
+      </button>
+    </form>
+  </header>
+
+  <section class="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-navy/15 bg-white px-8 py-20 text-center">
+    <p class="text-lg font-medium text-navy">Claim upload arrives in the next milestone</p>
+    <p class="mt-2 max-w-md text-sm leading-relaxed text-navy/55">
+      You are authenticated. Drag-and-drop photo submission, thumbnail previews,
+      and pipeline processing land in Milestone 3 and 4.
+    </p>
+  </section>
+</div>
+{% endblock %}
