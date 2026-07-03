@@ -59,7 +59,8 @@ PROVISIONAL_ONLY_MODELS = {
     "Kia_Seltos",
 }
 
-DEFAULT_MARGIN_THRESHOLD = 0.4
+# Settled at 0.39 from FGVD-7 held-out correct-prediction margin p25; 0.4 was the start.
+DEFAULT_MARGIN_THRESHOLD = 0.39
 
 IMAGENET_VEHICLE_HINTS = (
     "car",

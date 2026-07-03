@@ -120,9 +120,10 @@ tree — that copy is enough to run without `/mnt/ml-scratch` mounted.
 | Item | Value |
 | --- | --- |
 | Dataset | FGVD (IDD) crops, 80/20 per-class held-out |
-| Checkpoint | `backend/app/ml_weights/vmmr/vmmr_resnet50_fgvd7.pt` |
+| Checkpoint | `backend/app/ml_weights/vmmr/vmmr_resnet50_fgvd7.pt` (also copied into Docker volume `ai_tribe_ml_weights` for `app_ml`) |
 | Meta / metrics | `backend/app/ml_weights/vmmr/meta.json` |
 | Scratch run | `/mnt/ml-scratch/vmmr_runs/20260703T214155Z/` |
+| Registry row | `model_runs.run_id=20260703T214155Z` |
 | Accept rule | top-1 − top-2 probability **margin ≥ 0.39** (started at 0.4; tuned from held-out correct-prediction margin p25 ≈ 0.39) |
 | Below margin | ImageNet-transfer path, `identity_confirmed=false`, `pricing_basis=provisional_fallback` |
 
