@@ -93,13 +93,19 @@ class CropDataset(Dataset):
         return tensor, self.class_to_idx[label], label
 
 
-def evaluate(model, loader, class_names, device):
+# Source-image totals under this count have held-out sets too small to trust.
+MIN_RELIABLE_SOURCE_IMAGES = 100
+
+
+def evaluate(model, loader, class_names, device, source_totals: dict[str, int] | None = None):
     model.eval()
     correct_top1 = Counter()
     correct_top5 = Counter()
     total = Counter()
     margins_by_class = defaultdict(list)
+    correct_margins_by_class = defaultdict(list)
     all_margins = []
+    correct_margins = []
 
     with torch.no_grad():
         for images, targets, labels in loader:
@@ -120,15 +126,22 @@ def evaluate(model, loader, class_names, device):
                 margin = margins[i]
                 margins_by_class[label].append(margin)
                 all_margins.append(margin)
-                if pred1[i].item() == targets[i].item():
+                is_correct = pred1[i].item() == targets[i].item()
+                if is_correct:
                     correct_top1[label] += 1
+                    correct_margins_by_class[label].append(margin)
+                    correct_margins.append(margin)
                 if targets[i].item() in topk.indices[i].tolist():
                     correct_top5[label] += 1
 
+    source_totals = source_totals or {}
     per_class = {}
     for name in class_names:
         n = total[name]
+        n_source = source_totals.get(name, n)
+        reliable = n_source >= MIN_RELIABLE_SOURCE_IMAGES and n >= 20
         per_class[name] = {
+            "n_source": n_source,
             "n_test": n,
             "top1_acc": (correct_top1[name] / n) if n else None,
             "top5_acc": (correct_top5[name] / n) if n else None,
@@ -140,7 +153,23 @@ def evaluate(model, loader, class_names, device):
             "margin_p25": _percentile(margins_by_class[name], 25),
             "margin_p50": _percentile(margins_by_class[name], 50),
             "margin_p75": _percentile(margins_by_class[name], 75),
-            "statistically_meaningful": n >= 20,
+            "correct_margin_mean": (
+                sum(correct_margins_by_class[name]) / len(correct_margins_by_class[name])
+                if correct_margins_by_class[name]
+                else None
+            ),
+            "correct_margin_p25": _percentile(correct_margins_by_class[name], 25),
+            "correct_margin_p50": _percentile(correct_margins_by_class[name], 50),
+            "statistically_meaningful": reliable,
+            "reliability_note": (
+                None
+                if reliable
+                else (
+                    f"Not statistically meaningful: {n_source} source images, "
+                    f"{n} held-out test images. Report the number but do not "
+                    "treat accuracy as reliable (especially Kwid-scale sets)."
+                )
+            ),
         }
 
     overall_n = sum(total.values())
@@ -150,12 +179,22 @@ def evaluate(model, loader, class_names, device):
         "overall_top1": overall_top1,
         "overall_top5": overall_top5,
         "overall_n": overall_n,
+        "overall_note": (
+            "Overall accuracy is dominated by Swift/Innova; always read per-class "
+            "numbers. Classes with <100 source images are not reliable."
+        ),
         "per_class": per_class,
         "all_margins": all_margins,
         "margin_mean": sum(all_margins) / len(all_margins) if all_margins else 0.0,
         "margin_p25": _percentile(all_margins, 25),
         "margin_p50": _percentile(all_margins, 50),
         "margin_p75": _percentile(all_margins, 75),
+        "correct_margin_mean": (
+            sum(correct_margins) / len(correct_margins) if correct_margins else 0.0
+        ),
+        "correct_margin_p25": _percentile(correct_margins, 25),
+        "correct_margin_p50": _percentile(correct_margins, 50),
+        "correct_margin_p75": _percentile(correct_margins, 75),
     }
 
 
@@ -264,15 +303,27 @@ def main() -> None:
         loss = train_epoch(model, train_loader, criterion, optimizer, DEVICE)
         print(f"  epoch {epoch}/{PHASE2_EPOCHS} loss={loss:.4f}")
 
-    metrics = evaluate(model, test_loader, class_names, DEVICE)
-    # Suggest margin threshold from held-out distribution (between p25 and p50 of correct? use overall p25)
-    # Start at 0.4; if p50 of all margins is lower, use max(0.25, p25)
+    source_totals = {
+        name: manifest["classes"][name]["total"] for name in class_names
+    }
+    metrics = evaluate(
+        model, test_loader, class_names, DEVICE, source_totals=source_totals
+    )
+    # Margin gate: start at 0.4; tune from held-out margins on *correct* predictions.
+    # Prefer keeping 0.4 when correct-margin p25 is at or above it; otherwise lower
+    # toward correct-margin p25 (floor 0.25) so we do not reject every minority hit.
     suggested = 0.4
-    p25 = metrics["margin_p25"] or 0.4
-    p50 = metrics["margin_p50"] or 0.4
-    if p50 < 0.4:
-        suggested = max(0.25, round(p25, 2))
+    correct_p25 = metrics.get("correct_margin_p25")
+    correct_p50 = metrics.get("correct_margin_p50")
+    if correct_p25 is not None and correct_p25 < 0.4:
+        suggested = max(0.25, round(correct_p25, 2))
+    elif correct_p50 is not None and correct_p50 < 0.35:
+        suggested = max(0.25, round(correct_p50, 2))
     metrics["margin_threshold_selected"] = suggested
+    metrics["margin_threshold_rationale"] = (
+        f"Started at 0.4; correct-margin p25={correct_p25}, p50={correct_p50}; "
+        f"selected {suggested}."
+    )
 
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     run_dir = RUN_ROOT / run_id
