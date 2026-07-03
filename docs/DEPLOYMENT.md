@@ -111,6 +111,69 @@ docker compose -p ai_tribe --profile ml up -d --build app_ml
 Today the live site uses the stub `app` service only. Bringing up `app_ml` requires
 joining it to `stack_web` and updating the Caddy upstream if the container name changes.
 
+## VMMR (FGVD-7 fine-tune)
+
+Training and crops live on the **`/mnt/ml-scratch`** volume only (not root disk).
+The app loads weights from **`backend/app/ml_weights/vmmr/`** inside the deploy
+tree — that copy is enough to run without `/mnt/ml-scratch` mounted.
+
+| Item | Value |
+| --- | --- |
+| Dataset | FGVD (IDD) crops, 80/20 per-class held-out |
+| Checkpoint | `backend/app/ml_weights/vmmr/vmmr_resnet50_fgvd7.pt` |
+| Meta / metrics | `backend/app/ml_weights/vmmr/meta.json` |
+| Scratch run | `/mnt/ml-scratch/vmmr_runs/20260703T214155Z/` |
+| Accept rule | top-1 − top-2 probability **margin ≥ 0.39** (started at 0.4; tuned from held-out correct-prediction margin p25 ≈ 0.39) |
+| Below margin | ImageNet-transfer path, `identity_confirmed=false`, `pricing_basis=provisional_fallback` |
+
+### Catalog models: trained vs provisional-only
+
+| Catalog model | FGVD source images | Status |
+| --- | --- | --- |
+| Maruti Swift | ~451 | **Trained** (held-out meaningful) |
+| Toyota Innova | ~500 | **Trained** (held-out meaningful) |
+| Hyundai i20 | ~123 | **Trained** (held-out meaningful) |
+| Hyundai Creta | ~107 | **Trained** (held-out barely meaningful; accuracy weak) |
+| Maruti Baleno | ~91 | **Trained**, held-out **not** statistically meaningful |
+| Honda City | ~84 | **Trained**, held-out **not** statistically meaningful |
+| Renault Kwid | ~23 | **Trained**, held-out **not** statistically meaningful (n_test≈5 — do not trust accuracy) |
+| Tata Nexon | 2 (unused) | **Provisional only** — no class in head |
+| Mahindra XUV700 | 0 | **Provisional only** |
+| Kia Seltos | 0 | **Provisional only** |
+
+Training used inverse-frequency `WeightedRandomSampler` + class-weighted CE, with
+stronger augmentation on Kwid / City / Creta / Baleno.
+
+### Held-out per-class top-1 (run `20260703T214155Z`, margin gate not applied)
+
+Overall top-1 **66.7%** on n=276 is dominated by Swift/Innova — **do not use alone**.
+
+| Class | n_test | top-1 | margin mean / p50 | Reliable? |
+| --- | --- | --- | --- | --- |
+| Maruti_Swift | 90 | 67.8% | 0.53 / 0.52 | yes |
+| Toyota_Innova | 100 | 74.0% | 0.55 / 0.59 | yes |
+| Hyundai_i20 | 25 | 68.0% | 0.69 / 0.85 | yes |
+| Hyundai_Creta | 21 | 47.6% | 0.43 / 0.39 | weak / small |
+| Maruti_Baleno | 18 | 61.1% | 0.60 / 0.54 | **no** (<100 source) |
+| Honda_City | 17 | 52.9% | 0.51 / 0.49 | **no** (<100 source) |
+| Renault_Kwid | 5 | 40.0% | 0.51 / 0.42 | **no** — near guessing on 5 images |
+
+Correct-prediction margin distribution (held-out): p25≈0.39, p50≈0.76 → **threshold 0.39**.
+
+Smoke (informative): real City crops often accept with high margin; City-adjacent
+Baleno crops did not falsely confirm as City; low-margin cases fall through to
+provisional ImageNet transfer. City results are informative only (~82 source images).
+
+Retrain / redeploy weights:
+
+```bash
+# prepare + train write only under /mnt/ml-scratch
+python scripts/vmmr/prepare_fgvd_subset.py
+python scripts/vmmr/train_fgvd_vmmr.py
+# copy into app tree and retune margin from held-out
+python scripts/vmmr/deploy_and_smoke.py
+```
+
 ## Co-located stacks (must remain untouched)
 
 | Name | Role |

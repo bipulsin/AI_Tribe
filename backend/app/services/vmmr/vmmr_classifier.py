@@ -3,16 +3,25 @@
 ML_MODE=stub: deterministic fixture (never imports torch).
 
 ML_MODE=live:
-  1. Fine-tuned FGVD-7 classifier when checkpoint is present
-     (Maruti Swift/Baleno, Hyundai i20/Creta, Honda City, Toyota Innova,
-     Renault Kwid). Accept only if top-1 vs top-2 probability margin exceeds
-     the configured threshold (default 0.4).
-  2. Otherwise fall through to ImageNet-transfer ResNet50 and mark the
-     identity as unconfirmed (pricing_basis=provisional_fallback).
+  1. Fine-tuned FGVD-7 classifier when checkpoint is present under
+     backend/app/ml_weights/vmmr/ (independent of /mnt/ml-scratch).
+     Accept only if top-1 vs top-2 probability margin exceeds the
+     checkpoint margin_threshold (settled at ~0.39 from held-out
+     correct-prediction margins; default 0.4 if meta missing).
+  2. Below that margin, fall through to ImageNet-transfer ResNet50 and
+     mark identity_confirmed=false (pricing_basis=provisional_fallback).
 
-Catalog models with zero training data (Tata Nexon, Mahindra XUV700,
-Kia Seltos) always remain provisional — the fine-tuned head has no class
-for them, so they cannot be "confidently" labelled.
+Catalog coverage (10 models in india_parts_seed.csv):
+
+  Real (uneven) FGVD training data — fine-tune can confirm when margin OK:
+    Maruti Swift (~440), Toyota Innova (~467), Hyundai i20 (~122),
+    Hyundai Creta (~107), Maruti Baleno (~91), Honda City (~82),
+    Renault Kwid (~23). Baleno/City/Kwid held-out sets are too small to
+    treat accuracy as reliable (Kwid n_test≈5 especially).
+
+  Provisional only — zero usable training images, never confirmed by the
+  fine-tuned head (no class; always ImageNet / provisional_fallback):
+    Tata Nexon (2 images, unused), Mahindra XUV700 (0), Kia Seltos (0).
 """
 
 from __future__ import annotations
