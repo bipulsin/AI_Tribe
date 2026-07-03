@@ -167,6 +167,6 @@ only Postgres + stub `app` (no `app_ml`). See `docs/DEPLOYMENT.md`.
 | 5 | Real forensic / ML services (gated by `ML_MODE`) | done |
 | 6 | Parts matching + estimate view | done |
 | 7 | AX / minimalist UI polish | done |
-| 8 | Dockerize (multi-stage, arm64) | config ready; builds deferred to VM (no local Docker) |
-| 9 | Push to GitHub `main` | pending |
-| 10 | Deploy to `paperclip-vm` | pending |
+| 8 | Dockerize (multi-stage, arm64) | config ready; stub image built on VM |
+| 9 | Push to GitHub `main` | done (ongoing per milestone) |
+| 10 | Deploy to `paperclip-vm` | done (stub mode at tribe.tradentical.com) |

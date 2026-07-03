@@ -71,6 +71,9 @@ async def lifespan(_app: FastAPI):
             seed_parts_catalog(db)
         finally:
             db.close()
+    except RuntimeError:
+        # e.g. ADMIN_PASSWORD missing in production — fail the boot.
+        raise
     except Exception as exc:
         logger.debug("Could not run seed on boot: %s", exc)
 

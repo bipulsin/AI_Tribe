@@ -1,21 +1,25 @@
 """Seed default admin user and parts catalog.
 
-Creates username `admin` / password `admin` (bcrypt-hashed) when the users
-table is empty. This default credential must be changed before any use
-beyond local lab demos.
+Local development (no ADMIN_PASSWORD): creates admin/admin when the users
+table is empty.
+
+Production / paperclip-vm (APP_ENV=production): ADMIN_PASSWORD is required.
+On boot, if the admin user still has the seeded default password, it is
+rotated to ADMIN_PASSWORD.
 """
 
 from __future__ import annotations
 
 import csv
 import logging
+import os
 from pathlib import Path
 
 from sqlalchemy import func, select
 
 from app.core.config import REPO_ROOT
 from app.core.database import SessionLocal
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_password
 from app.models import PartsCatalog, User
 
 logger = logging.getLogger("ai_tribe.seed")
@@ -25,28 +29,76 @@ DEFAULT_ADMIN_PASSWORD = "admin"
 PARTS_SEED_CSV = REPO_ROOT / "data" / "parts_seed" / "india_parts_seed.csv"
 
 
+def _resolve_admin_password() -> str:
+    explicit = os.environ.get("ADMIN_PASSWORD", "").strip()
+    app_env = os.environ.get("APP_ENV", "development").strip().lower()
+
+    if app_env == "production":
+        if not explicit:
+            raise RuntimeError(
+                "ADMIN_PASSWORD must be set when APP_ENV=production "
+                "(paperclip-vm / internet-facing deploy)."
+            )
+        return explicit
+
+    return explicit or DEFAULT_ADMIN_PASSWORD
+
+
 def seed_admin(db) -> None:
-    count = db.scalar(select(func.count()).select_from(User))
-    if count and count > 0:
-        logger.info("Users table already has %s row(s); skipping admin seed.", count)
+    password = _resolve_admin_password()
+    explicit = bool(os.environ.get("ADMIN_PASSWORD", "").strip())
+
+    admin = db.scalar(select(User).where(User.username == DEFAULT_ADMIN_USERNAME))
+
+    if admin is None:
+        count = db.scalar(select(func.count()).select_from(User))
+        if count and count > 0:
+            logger.info("Users table has %s row(s) but no admin; skipping.", count)
+            return
+
+        admin = User(
+            username=DEFAULT_ADMIN_USERNAME,
+            password_hash=hash_password(password),
+            full_name="Lab Administrator",
+            role="admin",
+        )
+        db.add(admin)
+        db.commit()
+        if explicit:
+            print(
+                "\n"
+                "!" * 72 + "\n"
+                "  SEEDED admin user with ADMIN_PASSWORD from environment.\n"
+                + "!" * 72
+                + "\n"
+            )
+        else:
+            print(
+                "\n"
+                "!" * 72 + "\n"
+                "  SEEDED default user: admin / admin\n"
+                "  Change this credential before anything resembling production use.\n"
+                + "!" * 72
+                + "\n"
+            )
         return
 
-    admin = User(
-        username=DEFAULT_ADMIN_USERNAME,
-        password_hash=hash_password(DEFAULT_ADMIN_PASSWORD),
-        full_name="Lab Administrator",
-        role="admin",
-    )
-    db.add(admin)
-    db.commit()
-    print(
-        "\n"
-        "!" * 72 + "\n"
-        "  SEEDED default user: admin / admin\n"
-        "  Change this credential before anything resembling production use.\n"
-        + "!" * 72
-        + "\n"
-    )
+    # Rotate away from the lab default when ADMIN_PASSWORD is provided.
+    if explicit and verify_password(DEFAULT_ADMIN_PASSWORD, admin.password_hash):
+        admin.password_hash = hash_password(password)
+        db.commit()
+        print(
+            "\n"
+            "!" * 72 + "\n"
+            "  ROTATED admin password from seeded default using ADMIN_PASSWORD.\n"
+            + "!" * 72
+            + "\n"
+        )
+        logger.info("Rotated admin password from default using ADMIN_PASSWORD.")
+    elif explicit:
+        logger.info("Admin user present; password already non-default — left unchanged.")
+    else:
+        logger.info("Admin user already present; skipping seed.")
 
 
 def seed_parts_catalog(db) -> None:
