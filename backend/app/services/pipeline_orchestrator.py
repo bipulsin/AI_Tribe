@@ -237,14 +237,8 @@ async def stage_vehicle_id(db: Session, claim: Claim) -> StageResult:
     paths = [path for _, path in images]
     result = await asyncio.to_thread(vmmr_classifier.classify_claim_images, paths)
 
-    identity_confirmed = (
-        result.model_available
-        and result.label not in {"stub_fixture", "unavailable", "none"}
-        and bool(result.make)
-        and result.make != "Unknown"
-        and bool(result.model)
-        and result.model != "Unknown"
-    )
+    # Prefer the classifier's own confirmation (fine-tune margin gate).
+    identity_confirmed = bool(getattr(result, "identity_confirmed", False))
 
     existing = db.scalar(select(Vehicle).where(Vehicle.source_claim_id == claim.id))
     if existing:

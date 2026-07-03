@@ -3,6 +3,7 @@ from app.models.claim_image import ClaimImage
 from app.models.damage_detection import DamageDetection
 from app.models.estimate import Estimate
 from app.models.fraud_signal import FraudSignal
+from app.models.model_run import ModelRun
 from app.models.parts_catalog import PartsCatalog
 from app.models.pipeline_event import PipelineEvent
 from app.models.user import User
@@ -18,4 +19,5 @@ __all__ = [
     "Estimate",
     "DamageDetection",
     "FraudSignal",
+    "ModelRun",
 ]
