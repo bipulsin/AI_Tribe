@@ -1,0 +1,45 @@
+# Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Environment
+.env
+.env.local
+
+# Uploads and local data
+data/uploads/*
+!data/uploads/.gitkeep
+
+# ML weights (large binaries — pull via scripts/download_models.sh)
+backend/app/ml_weights/*
+!backend/app/ml_weights/.gitkeep
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Alembic local artefacts
+backend/app/db/migrations/versions/__pycache__/
+
+# Docker
+*.log

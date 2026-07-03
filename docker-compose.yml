@@ -1,0 +1,47 @@
+name: ai_tribe
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: ai_tribe_db
+    environment:
+      POSTGRES_USER: ai_tribe
+      POSTGRES_PASSWORD: ai_tribe
+      POSTGRES_DB: ai_tribe
+    ports:
+      - "5432:5432"
+    volumes:
+      - ai_tribe_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ai_tribe -d ai_tribe"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - linux/arm64
+    container_name: ai_tribe_app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_ENV: production
+      DEBUG: "false"
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production-use-a-long-random-string}
+      DATABASE_URL: postgresql+psycopg://ai_tribe:ai_tribe@db:5432/ai_tribe
+      UPLOAD_DIR: /app/data/uploads
+      HOST: 0.0.0.0
+      PORT: 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ai_tribe_uploads:/app/data/uploads
+    restart: unless-stopped
+
+volumes:
+  ai_tribe_pgdata:
+  ai_tribe_uploads:
