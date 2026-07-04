@@ -50,7 +50,7 @@
 
   <section class="mt-3 rounded-xl border border-navy/10 bg-white px-4 py-3 dark:border-white/10 dark:bg-navy">
     <div
-      class="upload-zone rounded-xl border border-dashed bg-canvas px-4 py-4 transition dark:bg-ink"
+      class="upload-zone flex flex-col items-center justify-center rounded-xl border border-dashed bg-canvas px-4 py-6 text-center transition dark:bg-ink"
       :class="dragOver
         ? 'border-gold bg-gold/5 dark:bg-gold/10'
         : 'border-navy/15 hover:border-navy/30 dark:border-white/15 dark:hover:border-white/25'"
@@ -68,27 +68,17 @@
         @change="onFileSelect($event)"
       />
 
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-        <div class="min-w-0 flex-1 text-left sm:text-left">
-          <p class="text-lg font-medium text-navy dark:text-mist">Drop damage photos</p>
-          <p class="mt-1 text-sm text-navy/55 dark:text-mist/50">
-            Up to {{ max_images }} images · optional video · max {{ max_upload_mb }} MB
-          </p>
-          <button
-            type="button"
-            class="btn-primary mt-3 rounded-lg px-5 py-2.5 text-sm font-semibold"
-            @click.stop="$refs.fileInput.click()"
-          >
-            Browse files
-          </button>
-        </div>
-        <div class="min-w-0 flex-1 text-left sm:text-right">
-          <p class="text-lg font-medium text-navy dark:text-mist">Find an existing claim</p>
-          <p class="mt-1 text-sm text-navy/55 dark:text-mist/50">
-            Search by claim reference, garage, or surveyor.
-          </p>
-        </div>
-      </div>
+      <p class="text-lg font-medium text-navy dark:text-mist">Drop damage photos</p>
+      <p class="mt-1 text-sm text-navy/55 dark:text-mist/50">
+        Up to {{ max_images }} images · optional video · max {{ max_upload_mb }} MB
+      </p>
+      <button
+        type="button"
+        class="btn-primary mt-3 rounded-lg px-5 py-2.5 text-sm font-semibold"
+        @click.stop="$refs.fileInput.click()"
+      >
+        Browse files
+      </button>
     </div>
 
     <div class="mt-2 flex items-center justify-between gap-4 text-sm text-navy/60 dark:text-mist/55">

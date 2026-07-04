@@ -303,30 +303,39 @@ body {
   bottom: 1rem;
   z-index: 60;
   max-width: min(28rem, calc(100vw - 2rem));
+  /* Room for the absolutely positioned help icon above the byline */
+  padding-top: 5.25rem;
+  overflow: visible;
 }
 
 .attribution-byline--login {
   position: static;
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: flex-end;
+  display: inline;
   text-align: right;
   /* Read clearly over the video loop */
   color: rgba(255, 255, 255, 0.82);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 12px rgba(0, 0, 0, 0.45);
+  white-space: normal;
 }
 
+/* Stack width follows "by" only; icon is absolutely centered above it. */
 .attribution-by-stack {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.4rem;
+  position: relative;
+  display: inline;
+  white-space: nowrap;
 }
 
 .attribution-by {
   font-weight: 400;
   line-height: 1.4;
+}
+
+.attribution-by-stack .help-guide-trigger--login {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 16px); /* ≥10px higher than prior ~6px gap */
+  transform: translateX(-50%);
+  margin: 0;
 }
 
 .attribution-byline--login .attribution-name {
