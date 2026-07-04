@@ -1,0 +1,75 @@
+{
+  "source": "spareshub.com",
+  "sourced_at": "2026-07-04",
+  "robots_txt": "Allow: / for public catalogue; cart/checkout/admin disallowed",
+  "collection_product_counts": {
+    "kia": 6,
+    "kia-sonet": 0,
+    "kia-carens": 0,
+    "kia-carnival": 0,
+    "kia-seltos": 0,
+    "kia-syros": 0,
+    "kia-ev6": 0,
+    "mg-motors": 0,
+    "mg-comet-ev": 0,
+    "mg-hector": 0,
+    "mg-astor": 0,
+    "mg-zs-ev": 0,
+    "mg-gloster": 0,
+    "mg-windsor-ev": 0
+  },
+  "body_parts_found_per_model": {
+    "Kia": {
+      "Sonet": 0,
+      "Carens": 0,
+      "Carnival": 0,
+      "Seltos": 0,
+      "Syros": 0,
+      "EV6": 0
+    },
+    "MG": {
+      "Windsor EV": 0,
+      "Comet EV": 0,
+      "Hector": 0,
+      "Astor": 0,
+      "ZS EV": 0,
+      "Gloster": 0
+    }
+  },
+  "new_rows_added": 0,
+  "before": {
+    "Kia": {
+      "Carens": 8,
+      "Carnival": 5,
+      "EV6": 1,
+      "Seltos": 25,
+      "Sonet": 5
+    },
+    "MG": {
+      "Astor": 23,
+      "Comet EV": 21,
+      "Gloster": 21,
+      "Hector": 23,
+      "ZS EV": 22
+    },
+    "total": 1253
+  },
+  "after": {
+    "Kia": {
+      "Carens": 8,
+      "Carnival": 5,
+      "EV6": 1,
+      "Seltos": 25,
+      "Sonet": 5
+    },
+    "MG": {
+      "Astor": 23,
+      "Comet EV": 21,
+      "Gloster": 21,
+      "Hector": 23,
+      "ZS EV": 22
+    },
+    "total": 1253
+  },
+  "note": "SparesHub model collections for Kia/MG body parts are empty; brand 'kia' collection only has service parts (filters, bearings, brake pads/discs) outside the body-part set."
+}
