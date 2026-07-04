@@ -15,6 +15,7 @@ from app.core.config import get_settings
 from app.core.database import get_db
 from app.models import Claim, Garage, PipelineEvent
 from app.models.enums import ClaimStatus
+from app.services.claim_search import search_claims
 from app.services.claim_service import ClaimValidationError, create_claim_with_uploads
 from app.services.fraud.fraud_graph import claim_network_view
 from app.services.pipeline_orchestrator import PIPELINE_STAGES, ensure_pipeline_started
@@ -99,6 +100,25 @@ async def suggest_surveyors(
             "names": names,
             "field": "surveyorName",
             "empty": not names and bool(query),
+        },
+    )
+
+
+@router.get("/api/claims/search", response_class=HTMLResponse)
+async def claims_search(
+    request: Request,
+    q: str = "",
+    db: Session = Depends(get_db),
+):
+    query = (q or "").strip()
+    hits = search_claims(db, query) if query else []
+    return templates.TemplateResponse(
+        "partials/claim_search_results.html",
+        {
+            "request": request,
+            "query": query,
+            "hits": hits,
+            "searched": bool(query),
         },
     )
 
