@@ -1,7 +1,11 @@
 /**
  * Claim upload zone: drag-and-drop, thumbnails, submit via multipart FormData.
  */
-function claimUpload({ maxImages = 10, maxUploadMb = 25 } = {}) {
+function claimUpload({
+  maxImages = 10,
+  maxUploadMb = 25,
+  surveyorName = "",
+} = {}) {
   const maxBytes = maxUploadMb * 1024 * 1024;
   const imageTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
   const videoTypes = ["video/mp4", "video/webm", "video/quicktime"];
@@ -9,7 +13,8 @@ function claimUpload({ maxImages = 10, maxUploadMb = 25 } = {}) {
   return {
     maxImages,
     maxUploadMb,
-    garageId: "",
+    garageName: "",
+    surveyorName: surveyorName || "",
     images: [],
     video: null,
     dragOver: false,
@@ -114,8 +119,11 @@ function claimUpload({ maxImages = 10, maxUploadMb = 25 } = {}) {
       if (this.video) {
         formData.append("video", this.video.file, this.video.name);
       }
-      if (this.garageId) {
-        formData.append("garage_id", this.garageId);
+      if (this.garageName) {
+        formData.append("garage_name", this.garageName.trim());
+      }
+      if (this.surveyorName) {
+        formData.append("surveyor_name", this.surveyorName.trim());
       }
 
       try {

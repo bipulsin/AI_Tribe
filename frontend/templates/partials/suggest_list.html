@@ -1,0 +1,17 @@
+{% if names %}
+<ul class="suggest-list" role="listbox">
+  {% for name in names %}
+  <li role="option">
+    <button
+      type="button"
+      class="suggest-item"
+      @click="{{ field }} = {{ name|tojson }}; $refs.{{ field }}Suggestions.innerHTML = ''"
+    >
+      {{ name }}
+    </button>
+  </li>
+  {% endfor %}
+</ul>
+{% elif empty %}
+<p class="suggest-empty">No matches — a new entry will be created.</p>
+{% endif %}

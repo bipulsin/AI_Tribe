@@ -26,16 +26,79 @@ templates = Jinja2Templates(directory=str(settings.templates_dir))
 
 @router.get("/claims/new", response_class=HTMLResponse)
 async def claim_new(request: Request, db: Session = Depends(get_db)):
-    garages = db.scalars(select(Garage).order_by(Garage.name.asc())).all()
     return templates.TemplateResponse(
         "claim_new.html",
         {
             "request": request,
             "username": request.session.get("username", ""),
-            "full_name": request.session.get("full_name", ""),
+            "full_name": request.session.get("full_name", "") or "",
             "max_images": settings.max_images_per_claim,
             "max_upload_mb": settings.max_upload_mb,
-            "garages": garages,
+        },
+    )
+
+
+@router.get("/api/suggest/garages", response_class=HTMLResponse)
+async def suggest_garages(
+    request: Request,
+    q: str = "",
+    garage_name: str = "",
+    db: Session = Depends(get_db),
+):
+    query = (q or garage_name or "").strip()
+    stmt = select(Garage.name).order_by(Garage.name.asc()).limit(8)
+    if query:
+        stmt = (
+            select(Garage.name)
+            .where(Garage.name.ilike(f"%{query}%"))
+            .order_by(Garage.name.asc())
+            .limit(8)
+        )
+    names = list(db.scalars(stmt).all())
+    return templates.TemplateResponse(
+        "partials/suggest_list.html",
+        {
+            "request": request,
+            "names": names,
+            "field": "garageName",
+            "empty": not names and bool(query),
+        },
+    )
+
+
+@router.get("/api/suggest/surveyors", response_class=HTMLResponse)
+async def suggest_surveyors(
+    request: Request,
+    q: str = "",
+    surveyor_name: str = "",
+    db: Session = Depends(get_db),
+):
+    query = (q or surveyor_name or "").strip()
+    stmt = (
+        select(Claim.surveyor_name)
+        .where(Claim.surveyor_name.is_not(None))
+        .where(Claim.surveyor_name != "")
+        .distinct()
+        .order_by(Claim.surveyor_name.asc())
+        .limit(8)
+    )
+    if query:
+        stmt = (
+            select(Claim.surveyor_name)
+            .where(Claim.surveyor_name.is_not(None))
+            .where(Claim.surveyor_name.ilike(f"%{query}%"))
+            .distinct()
+            .order_by(Claim.surveyor_name.asc())
+            .limit(8)
+        )
+    names = [name for name in db.scalars(stmt).all() if name]
+    return templates.TemplateResponse(
+        "partials/suggest_list.html",
+        {
+            "request": request,
+            "names": names,
+            "field": "surveyorName",
+            "empty": not names and bool(query),
         },
     )
 
@@ -60,16 +123,18 @@ async def create_claim(
         if isinstance(video_field, UploadFile) and video_field.filename
         else None
     )
-    garage_raw = form.get("garage_id")
+    garage_name = (form.get("garage_name") or "").strip()
+    surveyor_name = (form.get("surveyor_name") or "").strip()
     garage_id = None
-    if garage_raw not in (None, ""):
-        try:
-            garage_id = int(str(garage_raw))
-        except ValueError as exc:
-            return JSONResponse({"detail": "Invalid garage selection."}, status_code=400)
-        garage = db.get(Garage, garage_id)
+    if garage_name:
+        garage = db.scalar(select(Garage).where(Garage.name.ilike(garage_name)))
         if garage is None:
-            return JSONResponse({"detail": "Unknown garage."}, status_code=400)
+            garage = Garage(name=garage_name)
+            db.add(garage)
+            db.flush()
+        garage_id = garage.id
+
+    claimant_name = (request.session.get("full_name") or request.session.get("username") or "").strip()
 
     try:
         claim = await create_claim_with_uploads(
@@ -78,6 +143,8 @@ async def create_claim(
             images=images,
             video=video,
             garage_id=garage_id,
+            surveyor_name=surveyor_name or None,
+            claimant_name=claimant_name or None,
         )
     except ClaimValidationError as exc:
         return JSONResponse({"detail": str(exc)}, status_code=400)

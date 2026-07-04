@@ -72,6 +72,8 @@ async def create_claim_with_uploads(
     images: list[UploadFile],
     video: UploadFile | None = None,
     garage_id: int | None = None,
+    surveyor_name: str | None = None,
+    claimant_name: str | None = None,
     storage: StorageBackend | None = None,
 ) -> Claim:
     settings = get_settings()
@@ -123,6 +125,8 @@ async def create_claim_with_uploads(
         claim_reference="PENDING",
         created_by=user_id,
         garage_id=garage_id,
+        surveyor_name=(surveyor_name or "").strip() or None,
+        claimant_name=(claimant_name or "").strip() or None,
         status=ClaimStatus.submitted,
     )
     db.add(claim)

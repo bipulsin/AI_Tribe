@@ -5,7 +5,7 @@
 {% block body %}
 <div
   class="mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-10"
-  x-data="claimUpload({ maxImages: {{ max_images }}, maxUploadMb: {{ max_upload_mb }} })"
+  x-data="claimUpload({ maxImages: {{ max_images }}, maxUploadMb: {{ max_upload_mb }}, surveyorName: {{ (full_name or username or '')|tojson }} })"
 >
   <header class="mb-10 flex items-start justify-between gap-4">
     <div>
@@ -125,24 +125,43 @@
       </template>
     </ul>
 
-    <div class="mt-8 rounded-2xl border border-navy/10 bg-white px-5 py-4 dark:border-white/10 dark:bg-navy">
-      <label for="garage_id" class="block text-sm font-medium text-navy dark:text-mist">
-        Garage <span class="font-normal text-navy/45 dark:text-mist/45">(optional)</span>
-      </label>
-      <p class="mt-1 text-xs text-navy/50 dark:text-mist/45">
-        Optional. Claims that share a garage appear together in the network view.
-      </p>
-      <select
-        id="garage_id"
-        name="garage_id"
-        x-model="garageId"
-        class="mt-3 w-full rounded-lg border border-navy/15 bg-canvas px-3 py-2 text-sm text-navy outline-none focus:border-gold/50 dark:border-white/15 dark:bg-ink dark:text-mist"
-      >
-        <option value="">No garage selected</option>
-        {% for garage in garages %}
-        <option value="{{ garage.id }}">{{ garage.name }}</option>
-        {% endfor %}
-      </select>
+    <div class="mt-8 grid gap-4 rounded-2xl border border-navy/10 bg-white px-5 py-4 dark:border-white/10 dark:bg-navy sm:grid-cols-2">
+      <div class="relative">
+        <label for="garage_name" class="block text-sm font-medium text-navy dark:text-mist">Garage</label>
+        <p class="mt-1 text-xs text-navy/50 dark:text-mist/45">Type to search, or enter a new name.</p>
+        <input
+          id="garage_name"
+          name="garage_name"
+          type="text"
+          autocomplete="off"
+          x-model="garageName"
+          hx-get="/api/suggest/garages"
+          hx-trigger="keyup changed delay:300ms"
+          hx-target="#garage-suggestions"
+          hx-include="this"
+          class="mt-2 w-full rounded-lg border border-navy/15 bg-canvas px-3 py-2 text-sm text-navy outline-none focus:border-gold/50 dark:border-white/15 dark:bg-ink dark:text-mist"
+          placeholder="e.g. Shree Balaji Motors, Pune"
+        />
+        <div id="garage-suggestions" class="suggest-panel" x-ref="garageNameSuggestions"></div>
+      </div>
+      <div class="relative">
+        <label for="surveyor_name" class="block text-sm font-medium text-navy dark:text-mist">Surveyor</label>
+        <p class="mt-1 text-xs text-navy/50 dark:text-mist/45">Prefilled with your name; editable.</p>
+        <input
+          id="surveyor_name"
+          name="surveyor_name"
+          type="text"
+          autocomplete="off"
+          x-model="surveyorName"
+          hx-get="/api/suggest/surveyors"
+          hx-trigger="keyup changed delay:300ms"
+          hx-target="#surveyor-suggestions"
+          hx-include="this"
+          class="mt-2 w-full rounded-lg border border-navy/15 bg-canvas px-3 py-2 text-sm text-navy outline-none focus:border-gold/50 dark:border-white/15 dark:bg-ink dark:text-mist"
+          placeholder="Surveyor name"
+        />
+        <div id="surveyor-suggestions" class="suggest-panel" x-ref="surveyorNameSuggestions"></div>
+      </div>
     </div>
 
     <div class="mt-8 flex flex-col items-end gap-2">
