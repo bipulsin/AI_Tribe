@@ -75,4 +75,20 @@ def evaluate_claim(db: Session, claim: Claim) -> list[FraudSignalDraft]:
             )
         )
 
+    sensor_warn = db.scalar(
+        select(PipelineEvent).where(
+            PipelineEvent.claim_id == claim.id,
+            PipelineEvent.stage_key == "sensor_consistency",
+            PipelineEvent.status == PipelineEventStatus.warning,
+        )
+    )
+    if sensor_warn:
+        signals.append(
+            FraudSignalDraft(
+                signal_type=FraudSignalType.soft_fraud,
+                risk_score=55,
+                reason_code="SENSOR_RESIDUAL_OUTLIER",
+            )
+        )
+
     return signals

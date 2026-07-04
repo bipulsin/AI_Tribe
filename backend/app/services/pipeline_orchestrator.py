@@ -39,6 +39,7 @@ from app.services.forensics import (
     metadata_forensics,
     phash_reuse,
     quality_gate,
+    sensor_consistency,
 )
 from app.services.fraud import risk_scorer, rules_engine
 from app.services.image_utils import claim_image_paths
@@ -52,6 +53,7 @@ PIPELINE_STAGES: list[tuple[str, str]] = [
     ("deepfake_check", "Deepfake identification in process"),
     ("vehicle_forensics", "Vehicle forensics in process"),
     ("duplicate_check", "Checking for reused images"),
+    ("sensor_consistency", "Checking sensor consistency across photos"),
     ("vehicle_id", "Identifying make and model"),
     ("consistency_check", "Confirming all images match the same vehicle"),
     ("damage_detection", "Mapping damage to vehicle parts"),
@@ -76,6 +78,10 @@ RESOLVED_LABELS: dict[str, dict[str, str]] = {
     "vehicle_forensics": {
         "passed": "Forensic check passed",
         "failed": "Forensic anomaly detected",
+    },
+    "sensor_consistency": {
+        "passed": "Consistent",
+        "warning": "Inconsistent, review recommended",
     },
 }
 
@@ -231,6 +237,36 @@ async def stage_duplicate_check(db: Session, claim: Claim) -> StageResult:
     return StageResult(
         status=PipelineEventStatus.passed,
         detail="No reused images found in prior claims.",
+    )
+
+
+async def stage_sensor_consistency(db: Session, claim: Claim) -> StageResult:
+    """Within-claim sensor-noise consistency (not full PRNU device attribution)."""
+    images = _paths(db, claim)
+    paths = [path for _, path in images]
+    result = await asyncio.to_thread(sensor_consistency.check_paths, paths)
+
+    if not result.consistent:
+        for image_row, path in images:
+            score = next(
+                (item for item in result.scores if item.path == path),
+                None,
+            )
+            if score and score.is_outlier:
+                image_row.authenticity_verdict = AuthenticityVerdict.flagged
+                image_row.authenticity_reason = (
+                    f"Sensor residual outlier (correlation={score.correlation:.2f}). "
+                    "Within-claim check only; not full PRNU attribution."
+                )
+        db.commit()
+        return StageResult(
+            status=PipelineEventStatus.warning,
+            detail=result.detail,
+        )
+
+    return StageResult(
+        status=PipelineEventStatus.passed,
+        detail=result.detail,
     )
 
 
@@ -431,6 +467,7 @@ STAGE_HANDLERS: dict[str, StageFn] = {
     "deepfake_check": stage_deepfake_check,
     "vehicle_forensics": stage_vehicle_forensics,
     "duplicate_check": stage_duplicate_check,
+    "sensor_consistency": stage_sensor_consistency,
     "vehicle_id": stage_vehicle_id,
     "consistency_check": stage_consistency_check,
     "damage_detection": stage_damage_detection,
