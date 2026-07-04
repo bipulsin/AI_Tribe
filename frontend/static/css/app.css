@@ -360,13 +360,35 @@ body.help-guide-open {
   overflow-y: auto;
 }
 
-/* Organised fraud graph — compact always-on neighborhood diagram */
+/* Assessment stage list: fixed window (~5 rows), scroll for the rest. */
+.stage-window {
+  height: 17.5rem;
+  max-height: 17.5rem;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+.stage-row {
+  min-height: 3.25rem;
+  padding-bottom: 0.75rem;
+}
+
+.stage-row:last-child {
+  padding-bottom: 0;
+}
+
+.stage-icon {
+  width: 2rem;
+  height: 2rem;
+}
+
+/* Organised fraud graph — always-on neighborhood diagram */
 .fraud-network-panel {
   min-height: 0;
 }
 
 .fraud-network-frame {
-  height: 7.5rem;
+  height: 11rem;
   border-radius: 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(10, 15, 26, 0.55);

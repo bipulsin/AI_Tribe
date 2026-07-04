@@ -1,7 +1,10 @@
 /**
  * Live pipeline stage tracker via Server-Sent Events.
- * Renders the full stage chain on load; SSE transitions status and timers.
- * Timers are anchored to server-recorded pipeline_events timestamps.
+ *
+ * Windowed stage list (~5 rows): current/focus stage is centered and gold;
+ * completed stages show green checks + elapsed timers; pending stay neutral.
+ * Completed claims without pipeline_events (seeded demo claims) synthesize
+ * a full passed history so the view is not a flat grey list.
  */
 function pipelineTracker({
   claimId,
@@ -9,6 +12,8 @@ function pipelineTracker({
   initialEvents = [],
   claimStatus = null,
 } = {}) {
+  const DEFAULT_STAGE_SECONDS = 1.8;
+
   return {
     claimId,
     stages: stages.map((stage) => ({
@@ -61,6 +66,10 @@ function pipelineTracker({
         if (claimStatus === "review_required") {
           this.reviewSent = true;
         }
+        // Seeded / completed claims often have no pipeline_events rows.
+        if (!this.hasResolvedStages()) {
+          this.synthesizeCompletedStages(claimStatus);
+        }
         this.freezeTotalFromStages();
         this.refreshTimers();
         this.$nextTick(() => this.scrollToActiveStage({ instant: true }));
@@ -71,6 +80,51 @@ function pipelineTracker({
       this.startTicker();
       this.connect();
       this.$nextTick(() => this.scrollToActiveStage({ instant: true }));
+    },
+
+    hasResolvedStages() {
+      return this.stages.some(
+        (stage) =>
+          stage.status === "passed" ||
+          stage.status === "failed" ||
+          stage.status === "warning" ||
+          stage.status === "started"
+      );
+    },
+
+    synthesizeCompletedStages(claimStatus) {
+      const defaultSec = DEFAULT_STAGE_SECONDS;
+      const haltEarly =
+        claimStatus === "authenticity_failed" ||
+        claimStatus === "review_required";
+      // Halt after early forensic stages when the claim never finished.
+      const haltAfterKey = haltEarly ? "duplicate_check" : null;
+      let cursor = Date.now() - this.stages.length * defaultSec * 1000;
+      this.pipelineStartedAtMs = cursor;
+      let halted = false;
+
+      for (const stage of this.stages) {
+        if (halted) {
+          stage.status = "pending";
+          stage.durationSeconds = null;
+          stage.timerLabel = "";
+          continue;
+        }
+        stage.status =
+          haltEarly && stage.key === haltAfterKey ? "failed" : "passed";
+        stage.startedAtMs = cursor;
+        stage.durationSeconds = defaultSec;
+        stage.workSeconds = defaultSec;
+        cursor += defaultSec * 1000;
+        if (haltEarly && stage.key === haltAfterKey) {
+          halted = true;
+        }
+      }
+
+      this.totalDurationSeconds = Math.max(
+        0,
+        (cursor - this.pipelineStartedAtMs) / 1000
+      );
     },
 
     activeStageKey() {
@@ -89,6 +143,10 @@ function pipelineTracker({
       return this.stages[0] ? this.stages[0].key : null;
     },
 
+    isFocusStage(stage) {
+      return Boolean(stage && stage.key === this.activeStageKey());
+    },
+
     scrollToActiveStage({ instant = false } = {}) {
       const windowEl = this.$refs.stageWindow;
       if (!windowEl) return;
@@ -96,11 +154,9 @@ function pipelineTracker({
       if (!key) return;
       const row = windowEl.querySelector(`[data-stage-key="${key}"]`);
       if (!row) return;
-      // Keep the in-progress stage roughly centered in the ~5-row window.
-      const rowTop = row.offsetTop;
-      const rowHeight = row.offsetHeight;
+      // Center the focus stage in the fixed ~5-row window.
       const target =
-        rowTop - windowEl.clientHeight / 2 + rowHeight / 2;
+        row.offsetTop - windowEl.clientHeight / 2 + row.offsetHeight / 2;
       windowEl.scrollTo({
         top: Math.max(0, target),
         behavior: instant ? "auto" : "smooth",
@@ -228,11 +284,16 @@ function pipelineTracker({
           ) {
             stage.status = event.status;
             if (ts != null && stage.startedAtMs != null) {
-              // Elapsed time includes demo floor padding (started→passed timestamps).
+              // Elapsed includes demo floor padding (started→passed timestamps).
               stage.durationSeconds = Math.max(
                 0,
                 (ts - stage.startedAtMs) / 1000
               );
+            } else if (
+              event.work_seconds != null &&
+              !Number.isNaN(Number(event.work_seconds))
+            ) {
+              stage.durationSeconds = Number(event.work_seconds);
             }
             if (
               event.work_seconds != null &&
@@ -280,6 +341,7 @@ function pipelineTracker({
           this._source.close();
           this._source = null;
         }
+        this.$nextTick(() => this.scrollToActiveStage({ instant: true }));
         return;
       }
 
@@ -288,12 +350,15 @@ function pipelineTracker({
       }
     },
 
-    iconClass(status) {
-      switch (status) {
+    iconClass(stage) {
+      if (this.isFocusStage(stage)) {
+        return "border-gold/60 bg-gold/20";
+      }
+      switch (stage.status) {
         case "started":
           return "border-gold/50 bg-gold/15";
         case "passed":
-          return "border-emerald-500/35 bg-emerald-500/10";
+          return "border-emerald-500/40 bg-emerald-500/10";
         case "failed":
           return "border-amber-400/40 bg-amber-500/10";
         case "warning":
@@ -301,6 +366,22 @@ function pipelineTracker({
         default:
           return "border-navy/10 bg-canvas dark:border-white/10 dark:bg-ink/70";
       }
+    },
+
+    labelClass(stage) {
+      if (this.isFocusStage(stage)) {
+        return "text-gold";
+      }
+      if (stage.status === "pending") {
+        return "text-navy/40 dark:text-mist/35";
+      }
+      return "text-navy dark:text-mist";
+    },
+
+    checkClass(stage) {
+      return this.isFocusStage(stage)
+        ? "text-gold"
+        : "text-emerald-700 dark:text-emerald-400";
     },
 
     async requestReview() {

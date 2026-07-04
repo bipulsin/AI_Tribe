@@ -2,36 +2,34 @@
 
 {% block title %}Processing claim{% endblock %}
 
-{% block body_class %}h-dvh overflow-hidden bg-canvas text-navy antialiased dark:bg-ink dark:text-mist{% endblock %}
-
 {% block body %}
 {# Bootstrap JSON must not sit inside an HTML attribute — embedded " breaks Alpine. #}
 <script type="application/json" id="pipeline-bootstrap">{{ bootstrap_json | safe }}</script>
 <div
-  class="page-viewport mx-auto flex max-w-3xl flex-col px-4 py-2"
+  class="mx-auto max-w-3xl px-6 py-8"
   x-data="pipelineTracker(JSON.parse(document.getElementById('pipeline-bootstrap').textContent))"
   x-init="init()"
 >
-  <header class="mb-2 flex shrink-0 items-center justify-between gap-3">
+  <header class="mb-6 flex items-start justify-between gap-4">
     <div>
-      <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-gold">AI Tribe</p>
-      <h1 class="text-lg font-semibold tracking-tight text-navy dark:text-mist">Assessment</h1>
+      <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gold">AI Tribe</p>
+      <h1 class="mt-2 text-3xl font-semibold tracking-tight text-navy dark:text-mist">Assessment</h1>
       {% if claim %}
-      <p class="text-xs text-navy/55 dark:text-mist/50">{{ claim.claim_reference }}</p>
+      <p class="mt-2 text-sm text-navy/60 dark:text-mist/55">{{ claim.claim_reference }}</p>
       {% endif %}
     </div>
-    <div class="flex flex-wrap items-center justify-end gap-1.5">
+    <div class="flex flex-wrap items-center justify-end gap-2">
       {% if claim and claim.status.value == "estimate_ready" %}
       <a
         href="/claims/{{ claim.id }}/estimate"
-        class="rounded-md border border-gold/40 bg-gold/10 px-2.5 py-1 text-xs font-semibold text-navy transition hover:border-gold/60 hover:bg-gold/20 dark:border-gold/50 dark:bg-gold/15 dark:text-mist dark:hover:bg-gold/25"
+        class="rounded-lg border border-gold/40 bg-gold/10 px-3 py-1.5 text-sm font-semibold text-navy transition hover:border-gold/60 hover:bg-gold/20 dark:border-gold/50 dark:bg-gold/15 dark:text-mist dark:hover:bg-gold/25"
       >
         View estimate
       </a>
       {% endif %}
       <a
         href="/claims/new"
-        class="rounded-md border border-navy/10 bg-white px-2.5 py-1 text-xs text-navy/70 transition hover:border-navy/20 hover:text-navy dark:border-white/10 dark:bg-navy dark:text-mist/70 dark:hover:border-white/20 dark:hover:text-mist"
+        class="rounded-lg border border-navy/10 bg-white px-3 py-1.5 text-sm text-navy/70 transition hover:border-navy/20 hover:text-navy dark:border-white/10 dark:bg-navy dark:text-mist/70 dark:hover:border-white/20 dark:hover:text-mist"
       >
         New claim
       </a>
@@ -39,17 +37,17 @@
   </header>
 
   {% if error %}
-  <section class="notice shrink-0" role="status">
+  <section class="notice" role="status">
     <p class="notice-title">Claim unavailable</p>
     <p class="notice-body">{{ error }}</p>
   </section>
   {% else %}
 
-  <section class="mb-2 shrink-0 rounded-xl border border-navy/10 bg-white px-2 py-1.5 dark:border-white/10 dark:bg-navy">
+  <section class="mb-4 rounded-2xl border border-navy/10 bg-white px-4 py-3 dark:border-white/10 dark:bg-navy">
     {% if claim.images %}
-    <ul class="grid grid-cols-8 gap-1 sm:grid-cols-10">
+    <ul class="grid grid-cols-6 gap-2 sm:grid-cols-8">
       {% for image in claim.images|sort(attribute='image_order') %}
-      <li class="overflow-hidden rounded border border-navy/10 bg-canvas dark:border-white/10 dark:bg-ink">
+      <li class="overflow-hidden rounded-md border border-navy/10 bg-canvas dark:border-white/10 dark:bg-ink">
         <div class="aspect-square">
           {% if image.is_video %}
           <video class="h-full w-full object-cover" src="/uploads/{{ image.file_path }}" muted playsinline></video>
@@ -61,15 +59,15 @@
       {% endfor %}
     </ul>
     {% else %}
-    <p class="py-1 text-center text-xs text-navy/50 dark:text-mist/45">No images attached.</p>
+    <p class="py-2 text-center text-sm text-navy/50 dark:text-mist/45">No images attached.</p>
     {% endif %}
   </section>
 
-  <div class="flex min-h-0 flex-1 flex-col gap-2 lg:flex-row">
-  <section class="flex min-h-0 min-w-0 flex-1 flex-col rounded-xl border border-navy/10 bg-white px-3 py-2 dark:border-white/10 dark:bg-navy">
-    <div class="flex shrink-0 items-center justify-between gap-2">
-      <h2 class="text-[10px] font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">Progress</h2>
-      <div class="flex items-center gap-2 text-[11px] tabular-nums text-navy/45 dark:text-mist/40">
+  <div class="flex flex-col gap-4 lg:flex-row">
+  <section class="min-w-0 flex-1 rounded-2xl border border-navy/10 bg-white px-5 py-4 dark:border-white/10 dark:bg-navy">
+    <div class="flex items-center justify-between gap-3">
+      <h2 class="text-sm font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">Progress</h2>
+      <div class="flex items-center gap-3 text-xs tabular-nums text-navy/45 dark:text-mist/40">
         <p x-show="totalTimerLabel" x-cloak>
           Elapsed <span x-text="totalTimerLabel"></span>
         </p>
@@ -78,71 +76,70 @@
           x-show="connecting && !complete"
           x-cloak
         >
-          <span class="stage-spinner mr-1.5 h-2.5 w-2.5 border border-navy/20 border-t-navy/60 dark:border-white/20 dark:border-t-mist/70"></span>
+          <span class="stage-spinner mr-2 h-3 w-3 border border-navy/20 border-t-navy/60 dark:border-white/20 dark:border-t-mist/70"></span>
           Connecting…
         </p>
       </div>
     </div>
 
+    {# Fixed-height window (~5 stages); scroll for the rest. #}
     <div
-      class="stage-window mt-1.5 min-h-0 flex-1 overflow-y-auto pr-0.5"
+      class="stage-window mt-4 overflow-y-auto pr-1"
       x-ref="stageWindow"
       aria-label="Pipeline stages"
     >
-      <ol class="stage-tracker space-y-0">
+      <ol class="stage-tracker">
         <template x-for="(stage, index) in stages" :key="stage.key">
           <li
-            class="stage-row relative flex gap-2.5"
+            class="stage-row relative flex gap-4"
             :data-stage-key="stage.key"
             :data-stage-status="stage.status"
+            :data-stage-focus="isFocusStage(stage) ? 'true' : 'false'"
           >
             <div class="flex flex-col items-center">
               <div
                 class="stage-icon flex shrink-0 items-center justify-center rounded-full border"
-                :class="iconClass(stage.status)"
+                :class="iconClass(stage)"
               >
                 <template x-if="stage.status === 'pending'">
-                  <span class="h-1.5 w-1.5 rounded-full bg-navy/20 dark:bg-mist/25"></span>
+                  <span class="h-2 w-2 rounded-full bg-navy/20 dark:bg-mist/25"></span>
                 </template>
                 <template x-if="stage.status === 'started'">
-                  <span class="stage-spinner h-3 w-3 rounded-full border-2 border-gold/30 border-t-gold"></span>
+                  <span class="stage-spinner h-4 w-4 rounded-full border-2 border-gold/30 border-t-gold"></span>
                 </template>
                 <template x-if="stage.status === 'passed'">
-                  <svg class="h-3 w-3 text-emerald-700 dark:text-emerald-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <svg class="h-4 w-4" :class="checkClass(stage)" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                     <path fill-rule="evenodd" d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.25 7.333a1 1 0 0 1-1.44-.02L3.27 9.96a1 1 0 1 1 1.46-1.366l3.98 4.253 6.53-6.603a1 1 0 0 1 1.464.046z" clip-rule="evenodd"/>
                   </svg>
                 </template>
                 <template x-if="stage.status === 'failed'">
-                  <svg class="h-3 w-3 text-amber-700 dark:text-amber-300" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <svg class="h-4 w-4 text-amber-700 dark:text-amber-300" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                     <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22z"/>
                   </svg>
                 </template>
                 <template x-if="stage.status === 'warning'">
-                  <svg class="h-3 w-3 text-amber-600 dark:text-amber-300" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <svg class="h-4 w-4 text-amber-600 dark:text-amber-300" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                     <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.168 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 6zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" clip-rule="evenodd"/>
                   </svg>
                 </template>
               </div>
               <div
-                class="mt-0.5 w-px flex-1 bg-navy/10 dark:bg-white/10"
+                class="mt-1 w-px flex-1 bg-navy/10 dark:bg-white/10"
                 x-show="index < stages.length - 1"
               ></div>
             </div>
 
-            <div class="min-w-0 flex-1 pt-0.5">
-              <p
-                class="text-xs font-medium leading-tight"
-                :class="stage.status === 'pending' ? 'text-navy/40 dark:text-mist/35' : 'text-navy dark:text-mist'"
-              >
+            <div class="min-w-0 flex-1 pt-1">
+              <p class="text-sm font-medium" :class="labelClass(stage)">
                 <span x-text="stage.label"></span><span
-                  class="ml-1 text-[10px] font-normal tabular-nums text-navy/40 dark:text-mist/40"
+                  class="ml-1.5 text-xs font-normal tabular-nums opacity-70"
                   x-show="stage.timerLabel"
                   x-text="'— ' + stage.timerLabel"
                   x-cloak
                 ></span>
               </p>
               <p
-                class="mt-0.5 text-[11px] leading-snug text-navy/55 dark:text-mist/50"
+                class="mt-0.5 text-sm text-navy/55 dark:text-mist/50"
                 x-show="stage.detail"
                 x-text="stage.detail"
                 x-cloak
@@ -153,12 +150,12 @@
       </ol>
     </div>
 
-    <div class="notice mt-1.5 shrink-0" x-show="halted" x-cloak role="status">
+    <div class="notice mt-4" x-show="halted" x-cloak role="status">
       <p class="notice-title">Assessment paused</p>
       <p class="notice-body" x-text="haltMessage"></p>
       <button
         type="button"
-        class="btn-primary mt-1.5 rounded-md px-3 py-1 text-xs font-semibold"
+        class="btn-primary mt-3 rounded-lg px-4 py-2 text-sm font-semibold"
         :disabled="reviewSent"
         @click="requestReview()"
       >
@@ -167,20 +164,21 @@
       </button>
     </div>
 
-    <div class="notice notice-success mt-1.5 shrink-0" x-show="complete && !halted" x-cloak role="status">
+    <div class="notice notice-success mt-4" x-show="complete && !halted" x-cloak role="status">
       <p class="notice-title">Survey estimate ready</p>
+      <p class="notice-body">The assessment pipeline finished. Review the estimate sheet next.</p>
       <a
         :href="estimateUrl"
-        class="btn-primary mt-1.5 inline-flex rounded-md px-3 py-1 text-xs font-semibold"
+        class="btn-primary mt-3 inline-flex rounded-lg px-4 py-2 text-sm font-semibold"
       >
         View estimate
       </a>
     </div>
   </section>
 
-  <aside class="fraud-network-panel flex w-full shrink-0 flex-col rounded-xl border border-navy/10 bg-white px-2.5 py-2 dark:border-white/10 dark:bg-navy lg:w-56">
-    <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">Claim network</p>
-    <div class="fraud-network-frame relative mt-1">
+  <aside class="fraud-network-panel w-full shrink-0 rounded-2xl border border-navy/10 bg-white px-4 py-3 dark:border-white/10 dark:bg-navy lg:w-64">
+    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">Claim network</p>
+    <div class="fraud-network-frame relative mt-2">
       <div id="fraud-network" class="fraud-network-canvas" aria-label="Local claim network diagram"></div>
       <div id="fraud-network-clear-badge" class="fraud-network-clear-badge" hidden aria-label="No network pattern detected">
         <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -188,7 +186,7 @@
         </svg>
       </div>
     </div>
-    <p id="fraud-network-caption" class="fraud-network-caption mt-1">
+    <p id="fraud-network-caption" class="fraud-network-caption mt-2">
       Network view of claims sharing this garage or surveyor.
     </p>
   </aside>
