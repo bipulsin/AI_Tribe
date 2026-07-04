@@ -9,6 +9,7 @@ function claimUpload({ maxImages = 10, maxUploadMb = 25 } = {}) {
   return {
     maxImages,
     maxUploadMb,
+    garageId: "",
     images: [],
     video: null,
     dragOver: false,
@@ -112,6 +113,9 @@ function claimUpload({ maxImages = 10, maxUploadMb = 25 } = {}) {
       }
       if (this.video) {
         formData.append("video", this.video.file, this.video.name);
+      }
+      if (this.garageId) {
+        formData.append("garage_id", this.garageId);
       }
 
       try {

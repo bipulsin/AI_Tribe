@@ -91,4 +91,8 @@ def evaluate_claim(db: Session, claim: Claim) -> list[FraudSignalDraft]:
             )
         )
 
+    from app.services.fraud.fraud_graph import evaluate_claim_signals
+
+    signals.extend(evaluate_claim_signals(db, claim))
+
     return signals

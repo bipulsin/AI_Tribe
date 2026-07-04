@@ -13,9 +13,10 @@ from starlette.datastructures import UploadFile
 
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.models import Claim, PipelineEvent
+from app.models import Claim, Garage, PipelineEvent
 from app.models.enums import ClaimStatus
 from app.services.claim_service import ClaimValidationError, create_claim_with_uploads
+from app.services.fraud.fraud_graph import claim_network_view
 from app.services.pipeline_orchestrator import PIPELINE_STAGES, ensure_pipeline_started
 
 router = APIRouter(tags=["claims"])
@@ -24,7 +25,8 @@ templates = Jinja2Templates(directory=str(settings.templates_dir))
 
 
 @router.get("/claims/new", response_class=HTMLResponse)
-async def claim_new(request: Request):
+async def claim_new(request: Request, db: Session = Depends(get_db)):
+    garages = db.scalars(select(Garage).order_by(Garage.name.asc())).all()
     return templates.TemplateResponse(
         "claim_new.html",
         {
@@ -33,6 +35,7 @@ async def claim_new(request: Request):
             "full_name": request.session.get("full_name", ""),
             "max_images": settings.max_images_per_claim,
             "max_upload_mb": settings.max_upload_mb,
+            "garages": garages,
         },
     )
 
@@ -57,6 +60,16 @@ async def create_claim(
         if isinstance(video_field, UploadFile) and video_field.filename
         else None
     )
+    garage_raw = form.get("garage_id")
+    garage_id = None
+    if garage_raw not in (None, ""):
+        try:
+            garage_id = int(str(garage_raw))
+        except ValueError as exc:
+            return JSONResponse({"detail": "Invalid garage selection."}, status_code=400)
+        garage = db.get(Garage, garage_id)
+        if garage is None:
+            return JSONResponse({"detail": "Unknown garage."}, status_code=400)
 
     try:
         claim = await create_claim_with_uploads(
@@ -64,6 +77,7 @@ async def create_claim(
             user_id=user_id,
             images=images,
             video=video,
+            garage_id=garage_id,
         )
     except ClaimValidationError as exc:
         return JSONResponse({"detail": str(exc)}, status_code=400)
@@ -91,6 +105,8 @@ async def claim_processing(
         .options(
             selectinload(Claim.images),
             selectinload(Claim.pipeline_events),
+            selectinload(Claim.garage),
+            selectinload(Claim.creator),
         )
         .where(Claim.id == claim_id)
     )
@@ -166,6 +182,31 @@ async def claim_processing(
         for key, label in PIPELINE_STAGES
     ]
 
+    network = claim_network_view(db, claim)
+    network_payload = {
+        "clear": network.clear,
+        "caption": network.caption,
+        "flaggedNodeIds": network.flagged_node_ids,
+        "nodes": [
+            {
+                "id": node.id,
+                "label": node.label,
+                "kind": node.kind,
+                "flagged": node.flagged,
+                "degree": node.degree,
+            }
+            for node in network.nodes
+        ],
+        "edges": [
+            {
+                "from": edge.source,
+                "to": edge.target,
+                "title": edge.claim_reference,
+            }
+            for edge in network.edges
+        ],
+    }
+
     return templates.TemplateResponse(
         "claim_processing.html",
         {
@@ -180,6 +221,7 @@ async def claim_processing(
                     "stages": stages,
                     "initialEvents": initial_events,
                     "claimStatus": claim.status.value,
+                    "network": network_payload,
                 }
             ),
         },

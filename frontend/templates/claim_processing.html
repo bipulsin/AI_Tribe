@@ -53,7 +53,8 @@
     {% endif %}
   </section>
 
-  <section class="flex min-h-0 flex-1 flex-col rounded-2xl border border-navy/10 bg-white px-5 py-4 dark:border-white/10 dark:bg-navy">
+  <div class="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row">
+  <section class="flex min-h-0 min-w-0 flex-1 flex-col rounded-2xl border border-navy/10 bg-white px-5 py-4 dark:border-white/10 dark:bg-navy">
     <div class="flex shrink-0 items-center justify-between gap-3">
       <h2 class="text-sm font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">Assessment progress</h2>
       <div class="flex items-center gap-3 text-xs tabular-nums text-navy/45 dark:text-mist/40">
@@ -168,10 +169,40 @@
       </a>
     </div>
   </section>
+
+  <aside class="fraud-network-panel flex w-full shrink-0 flex-col rounded-2xl border border-navy/10 bg-white px-4 py-3 dark:border-white/10 dark:bg-navy lg:w-64">
+    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">Claim network</p>
+    <div class="fraud-network-frame relative mt-2">
+      <div id="fraud-network" class="fraud-network-canvas" aria-label="Local claim network diagram"></div>
+      <div id="fraud-network-clear-badge" class="fraud-network-clear-badge" hidden aria-label="No network pattern detected">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.25 7.333a1 1 0 0 1-1.44-.02L3.27 9.96a1 1 0 1 1 1.46-1.366l3.98 4.253 6.53-6.603a1 1 0 0 1 1.464.046z" clip-rule="evenodd"/>
+        </svg>
+      </div>
+    </div>
+    <p id="fraud-network-caption" class="fraud-network-caption mt-2">
+      Network view built on demo data (DEMO-prefixed claims), illustrating the approach. Not built on production claim history.
+    </p>
+  </aside>
+  </div>
   {% endif %}
 </div>
 {% endblock %}
 
 {% block scripts %}
+<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
 <script src="/static/js/sse.js"></script>
+<script src="/static/js/fraud_network.js"></script>
+<script>
+  (function () {
+    const bootstrap = JSON.parse(document.getElementById("pipeline-bootstrap").textContent);
+    if (bootstrap.network) {
+      const caption = document.getElementById("fraud-network-caption");
+      if (caption && bootstrap.network.caption) {
+        caption.textContent = bootstrap.network.caption;
+      }
+      renderFraudNetwork("fraud-network", bootstrap.network);
+    }
+  })();
+</script>
 {% endblock %}

@@ -20,6 +20,7 @@ from sqlalchemy import func, select
 from app.core.config import REPO_ROOT
 from app.core.database import SessionLocal
 from app.core.security import hash_password, verify_password
+from app.db.seed_fraud_demo import seed_fraud_demo
 from app.models import PartsCatalog, User
 
 logger = logging.getLogger("ai_tribe.seed")
@@ -148,6 +149,7 @@ def run_seed() -> None:
     try:
         seed_admin(db)
         seed_parts_catalog(db)
+        seed_fraud_demo(db)
     finally:
         db.close()
 
