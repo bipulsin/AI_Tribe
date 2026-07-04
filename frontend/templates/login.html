@@ -22,7 +22,7 @@
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
   <link rel="stylesheet" href="/static/css/app.css" />
 </head>
-<body class="min-h-screen overflow-hidden text-white antialiased">
+<body class="login-page min-h-screen overflow-hidden text-white antialiased">
   <div class="login-stage relative flex min-h-screen items-center px-6 sm:px-10 lg:px-16">
     <video
       id="login-bg-video"
@@ -137,6 +137,35 @@
         </a>
       </p>
     </main>
+  </div>
+
+  {# Login chrome: enlarged spherical help icon centered above "by", byline beneath. #}
+  <div class="login-chrome">
+    <p class="attribution-byline attribution-byline--login">
+      <span class="attribution-prefix">Conceptualized, Architected &amp; Built&nbsp;</span>
+      <span class="attribution-by-stack">
+        <button
+          type="button"
+          id="help-guide-open"
+          class="help-guide-trigger help-guide-trigger--login"
+          aria-haspopup="dialog"
+          aria-controls="help-guide-modal"
+          aria-expanded="false"
+          title="What is AI Tribe?"
+        >
+          <span aria-hidden="true">?</span>
+          <span class="sr-only">Open help guide</span>
+        </button>
+        <span class="attribution-by">by</span>
+      </span>
+      <span class="attribution-gap">&nbsp;</span>
+      <a
+        class="attribution-name"
+        href="http://www.linkedin.com/in/bipulsahay"
+        target="_blank"
+        rel="noopener noreferrer"
+      >Bipul Sahay</a>
+    </p>
   </div>
 
   {% include "partials/help_guide.html" %}
