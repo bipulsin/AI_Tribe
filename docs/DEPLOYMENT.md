@@ -120,11 +120,10 @@ tree — that copy is enough to run without `/mnt/ml-scratch` mounted.
 | Item | Value |
 | --- | --- |
 | Dataset | FGVD (IDD) crops, 80/20 per-class held-out |
-| Checkpoint | `backend/app/ml_weights/vmmr/vmmr_resnet50_fgvd7.pt` (also copied into Docker volume `ai_tribe_ml_weights` for `app_ml`) |
+| Checkpoint | `backend/app/ml_weights/vmmr/vmmr_resnet50_fgvd8.pt` (also in Docker volume `ai_tribe_ml_weights`) |
 | Meta / metrics | `backend/app/ml_weights/vmmr/meta.json` |
-| Scratch run | `/mnt/ml-scratch/vmmr_runs/20260703T214155Z/` |
-| Registry row | `model_runs.run_id=20260703T214155Z` |
-| Accept rule | margin ≥ **0.39** **and** predicted class tier = **reliable** → `identity_confirmed`, `pricing_basis=confirmed` |
+| Scratch run | `/mnt/ml-scratch/vmmr_runs/20260704T072651Z/` (prior 7-class: `20260703T214155Z`) |
+| Accept rule | margin ≥ **0.30** **and** predicted class tier = **reliable** → `identity_confirmed`, `pricing_basis=confirmed` |
 | Low-confidence tier (margin OK) | Keep specific guess; `identity_confirmed=false`, vehicle `pricing_basis=needs_confirmation` (surveyor must confirm) |
 | Below margin | ImageNet-transfer path, `pricing_basis=provisional_fallback` |
 | Same-make catalog miss | Exact model has no catalogue rows → price via **same-make only** substitute (never cross-brand); estimate `pricing_basis=model_fallback_priced`, `fallback_source_model` records the substitute (e.g. XUV500 → XUV700). Loud “Approximate pricing” banner names both vehicles. |
@@ -189,7 +188,9 @@ Overall top-1 **66.7%** on n=276 is dominated by Swift/Innova — **do not use a
 | Honda_City | 17 | 52.9% | 0.51 / 0.49 | **no** (<100 source) |
 | Renault_Kwid | 5 | 40.0% | 0.51 / 0.42 | **no** — near guessing on 5 images |
 
-Correct-prediction margin distribution (held-out): p25≈0.39, p50≈0.76 → **threshold 0.39**.
+FGVD-8 held-out (run `20260704T072651Z`): overall top-1 **61.9%** on n=289.
+XUV500: **61.5%** on n_test=13 (not meaningful; forced `low_confidence`).
+Correct-prediction margin p25≈0.30, p50≈0.68 → **threshold 0.30**.
 
 Smoke (informative): real City crops often accept with high margin; City-adjacent
 Baleno crops did not falsely confirm as City; low-margin cases fall through to
