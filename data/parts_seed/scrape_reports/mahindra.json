@@ -1,0 +1,14 @@
+{
+  "make": "Mahindra",
+  "rows": 192,
+  "models": {
+    "Scorpio-N": 24,
+    "XUV700": 24,
+    "XUV 3XO": 24,
+    "Bolero Neo": 24,
+    "Thar": 24,
+    "XUV500": 24,
+    "Bolero": 24,
+    "Marazzo": 24
+  }
+}

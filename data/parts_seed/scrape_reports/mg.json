@@ -1,0 +1,12 @@
+{
+  "make": "MG",
+  "rows": 110,
+  "models": {
+    "Hector": 23,
+    "Astor": 23,
+    "Comet EV": 21,
+    "ZS EV": 22,
+    "Gloster": 21,
+    "Windsor EV": 0
+  }
+}

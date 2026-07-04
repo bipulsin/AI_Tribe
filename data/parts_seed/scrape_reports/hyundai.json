@@ -1,0 +1,15 @@
+{
+  "make": "Hyundai",
+  "rows": 214,
+  "models": {
+    "Creta": 24,
+    "Venue": 24,
+    "i20": 24,
+    "Grand i10 Nios": 24,
+    "Verna": 24,
+    "Alcazar": 24,
+    "Exter": 22,
+    "Aura": 24,
+    "Tucson": 24
+  }
+}

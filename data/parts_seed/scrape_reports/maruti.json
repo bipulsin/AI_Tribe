@@ -1,0 +1,16 @@
+{
+  "make": "Maruti",
+  "rows": 215,
+  "models": {
+    "Swift": 24,
+    "Baleno": 24,
+    "WagonR": 24,
+    "Dzire": 24,
+    "Brezza": 24,
+    "Ertiga": 24,
+    "Alto K10": 0,
+    "Fronx": 23,
+    "Grand Vitara": 24,
+    "XL6": 24
+  }
+}

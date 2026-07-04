@@ -127,7 +127,14 @@ def seed_parts_catalog(db) -> None:
                     labor_hours=float(labor_raw),
                     currency=(row.get("currency") or "INR").strip(),
                     region=(row.get("region") or "IN").strip(),
-                    source=(row.get("source") or "seed_india_v1").strip(),
+                    source=(
+                        (row.get("source") or "seed_india_v1").strip()
+                        + (
+                            f"; sourced_at={row['sourced_at'].strip()}"
+                            if (row.get("sourced_at") or "").strip()
+                            else ""
+                        )
+                    ),
                 )
             )
 

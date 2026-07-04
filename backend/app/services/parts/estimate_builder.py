@@ -22,6 +22,12 @@ from app.services.parts.parts_matcher import (
 LABOR_RATE_INR = 450.0
 GST_RATE = 0.18
 
+PRICE_DISCLAIMER = (
+    "Part prices shown are indicative estimates from publicly available "
+    "sources and have not been independently verified. Do not use for binding "
+    "settlement decisions."
+)
+
 REPAIR_PART_FRACTION = {
     Severity.minor.value: 0.35,
     Severity.moderate.value: 0.55,
@@ -139,7 +145,8 @@ def _reason_summary(
         f"Total of {currency} {grand_total:,.2f} covers {parts}. "
         f"Parts and materials come to {currency} {materials:,.2f}, "
         f"labour at ₹{LABOR_RATE_INR:.0f}/hr adds {currency} {labor:,.2f}, "
-        f"and GST ({GST_RATE:.0%}) is {currency} {tax:,.2f}."
+        f"and GST ({GST_RATE:.0%}) is {currency} {tax:,.2f}. "
+        f"{PRICE_DISCLAIMER}"
     )
     return f"{lead}{body}"
 

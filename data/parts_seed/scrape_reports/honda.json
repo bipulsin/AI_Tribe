@@ -1,0 +1,12 @@
+{
+  "make": "Honda",
+  "rows": 120,
+  "models": {
+    "City": 24,
+    "Amaze": 24,
+    "Elevate": 2,
+    "Jazz": 23,
+    "WR-V": 23,
+    "Civic": 24
+  }
+}

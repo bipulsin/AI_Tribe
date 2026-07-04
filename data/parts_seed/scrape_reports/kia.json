@@ -1,0 +1,12 @@
+{
+  "make": "Kia",
+  "rows": 36,
+  "models": {
+    "Seltos": 17,
+    "Sonet": 5,
+    "Carens": 8,
+    "Carnival": 5,
+    "Syros": 0,
+    "EV6": 1
+  }
+}
