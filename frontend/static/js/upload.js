@@ -46,9 +46,29 @@ function claimUpload({
       event.target.value = "";
     },
 
+    pickSuggestion(event, field) {
+      const btn = event.target.closest("[data-suggest]");
+      if (!btn) return;
+      const value = btn.getAttribute("data-suggest") || "";
+      if (field === "garageName") {
+        this.garageName = value;
+        if (this.$refs.garageNameSuggestions) {
+          this.$refs.garageNameSuggestions.innerHTML = "";
+        }
+      } else if (field === "surveyorName") {
+        this.surveyorName = value;
+        if (this.$refs.surveyorNameSuggestions) {
+          this.$refs.surveyorNameSuggestions.innerHTML = "";
+        }
+      }
+    },
+
     addFiles(fileList) {
       this.error = "";
       const files = Array.from(fileList || []);
+      // Reassign arrays so Alpine always detects the update.
+      const nextImages = [...this.images];
+      let nextVideo = this.video;
 
       for (const file of files) {
         if (file.size > maxBytes) {
@@ -64,20 +84,23 @@ function claimUpload({
           /\.(mp4|webm|mov)$/i.test(file.name);
 
         if (isImage) {
-          if (this.images.length >= this.maxImages) {
+          if (nextImages.length >= this.maxImages) {
             this.error = `You can add at most ${this.maxImages} images.`;
             continue;
           }
-          this.images.push(this._makeItem(file, false));
+          nextImages.push(this._makeItem(file, false));
         } else if (isVideo) {
-          if (this.video) {
-            URL.revokeObjectURL(this.video.previewUrl);
+          if (nextVideo) {
+            URL.revokeObjectURL(nextVideo.previewUrl);
           }
-          this.video = this._makeItem(file, true);
+          nextVideo = this._makeItem(file, true);
         } else {
           this.error = `"${file.name}" is not a supported image or video type.`;
         }
       }
+
+      this.images = nextImages;
+      this.video = nextVideo;
     },
 
     _makeItem(file, isVideo) {
@@ -95,7 +118,7 @@ function claimUpload({
       const imageIndex = this.images.findIndex((item) => item.id === id);
       if (imageIndex >= 0) {
         URL.revokeObjectURL(this.images[imageIndex].previewUrl);
-        this.images.splice(imageIndex, 1);
+        this.images = this.images.filter((item) => item.id !== id);
         this.error = "";
         return;
       }

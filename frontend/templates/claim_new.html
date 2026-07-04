@@ -5,7 +5,7 @@
 {% block body %}
 <div
   class="mx-auto max-w-3xl px-6 py-4"
-  x-data="claimUpload({ maxImages: {{ max_images }}, maxUploadMb: {{ max_upload_mb }}, surveyorName: {{ (full_name or username or '')|tojson }} })"
+  x-data='claimUpload({ maxImages: {{ max_images }}, maxUploadMb: {{ max_upload_mb }}, surveyorName: {{ (full_name or username or "")|tojson }} })'
 >
   <header class="mb-3 flex items-start justify-between gap-4">
     <div>
@@ -149,7 +149,12 @@
           class="mt-1 w-full rounded-lg border border-navy/15 bg-canvas px-3 py-2 text-sm text-navy outline-none focus:border-gold/50 dark:border-white/15 dark:bg-ink dark:text-mist"
           placeholder="Garage name"
         />
-        <div id="garage-suggestions" class="suggest-panel" x-ref="garageNameSuggestions"></div>
+        <div
+          id="garage-suggestions"
+          class="suggest-panel"
+          x-ref="garageNameSuggestions"
+          @click="pickSuggestion($event, 'garageName')"
+        ></div>
       </div>
       <div class="relative">
         <label for="surveyor_name" class="block text-sm font-medium text-navy dark:text-mist">Surveyor</label>
@@ -166,7 +171,12 @@
           class="mt-1 w-full rounded-lg border border-navy/15 bg-canvas px-3 py-2 text-sm text-navy outline-none focus:border-gold/50 dark:border-white/15 dark:bg-ink dark:text-mist"
           placeholder="Surveyor name"
         />
-        <div id="surveyor-suggestions" class="suggest-panel" x-ref="surveyorNameSuggestions"></div>
+        <div
+          id="surveyor-suggestions"
+          class="suggest-panel"
+          x-ref="surveyorNameSuggestions"
+          @click="pickSuggestion($event, 'surveyorName')"
+        ></div>
       </div>
     </div>
 
@@ -180,12 +190,13 @@
       </p>
       <button
         type="button"
-        class="btn-primary inline-flex items-center justify-center rounded-lg px-10 py-5 text-lg font-semibold"
+        class="btn-primary inline-flex items-center justify-center rounded-lg px-10 py-5 text-lg font-semibold text-white"
         :disabled="!canSubmit || submitting"
         @click="submitClaim()"
       >
         <span class="btn-spinner" x-show="submitting" x-cloak></span>
-        <span x-text="submitting ? 'Submitting…' : 'Submit claim'">Submit claim</span>
+        <span x-show="!submitting">Submit claim</span>
+        <span x-show="submitting" x-cloak>Submitting…</span>
       </button>
     </div>
   </section>

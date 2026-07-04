@@ -32,8 +32,9 @@ body {
 }
 
 .btn-primary:disabled {
-  opacity: 0.45;
+  opacity: 0.55;
   cursor: not-allowed;
+  color: #fff;
 }
 
 /* Login page — full-bleed video, flat left-aligned form (no card) */

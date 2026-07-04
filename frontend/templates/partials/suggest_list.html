@@ -5,7 +5,7 @@
     <button
       type="button"
       class="suggest-item"
-      @click="{{ field }} = {{ name|tojson }}; $refs.{{ field }}Suggestions.innerHTML = ''"
+      data-suggest="{{ name }}"
     >
       {{ name }}
     </button>
