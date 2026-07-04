@@ -30,6 +30,8 @@
 </head>
 <body class="min-h-screen bg-canvas text-navy antialiased dark:bg-ink dark:text-mist">
   {% block body %}{% endblock %}
+  {% include "partials/help_guide.html" %}
+  <script src="/static/js/help_guide.js"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>
