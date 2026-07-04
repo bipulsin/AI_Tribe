@@ -5,28 +5,33 @@ ML_MODE=stub: deterministic fixture (never imports torch).
 ML_MODE=live:
   1. Fine-tuned FGVD-7 classifier when checkpoint is present under
      backend/app/ml_weights/vmmr/ (independent of /mnt/ml-scratch).
-     Accept only if top-1 vs top-2 probability margin exceeds the
-     checkpoint margin_threshold (settled at ~0.39 from held-out
-     correct-prediction margins; default 0.4 if meta missing).
-  2. Below that margin, fall through to ImageNet-transfer ResNet50 and
-     mark identity_confirmed=false (pricing_basis=provisional_fallback).
+  2. Margin gate: top-1 − top-2 probability must exceed margin_threshold
+     (settled at ~0.39 from held-out correct-prediction margins).
+  3. Class-reliability tier on top of the margin gate:
+       - reliable (Swift, Innova, i20): margin OK → identity_confirmed,
+         pricing_basis=confirmed (auto-finalize).
+       - low_confidence (Creta, Baleno, City, Kwid): margin OK still keeps
+         the specific guess but pricing_basis=needs_confirmation (surveyor
+         must confirm; not auto-trusted).
+  4. Below margin: ImageNet-transfer ResNet50,
+     pricing_basis=provisional_fallback.
 
 Catalog coverage (10 models in india_parts_seed.csv):
 
-  Real (uneven) FGVD training data — fine-tune can confirm when margin OK:
-    Maruti Swift (~440), Toyota Innova (~467), Hyundai i20 (~122),
-    Hyundai Creta (~107), Maruti Baleno (~91), Honda City (~82),
-    Renault Kwid (~23). Baleno/City/Kwid held-out sets are too small to
-    treat accuracy as reliable (Kwid n_test≈5 especially).
+  Real (uneven) FGVD training data:
+    reliable: Maruti Swift, Toyota Innova, Hyundai i20
+    low_confidence: Hyundai Creta, Maruti Baleno, Honda City, Renault Kwid
 
-  Provisional only — zero usable training images, never confirmed by the
-  fine-tuned head (no class; always ImageNet / provisional_fallback):
-    Tata Nexon (2 images, unused), Mahindra XUV700 (0), Kia Seltos (0).
+  Provisional only — zero usable training images (no class in head):
+    Tata Nexon, Mahindra XUV700, Kia Seltos.
+
+Known residual risk: a real City (or other low_confidence class) misclassified
+as Swift/Innova/i20 still auto-finalizes, because the predicted class is
+reliable-tier. Tier gating does not fix that reverse confusion.
 """
 
 from __future__ import annotations
 
-import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
@@ -41,16 +46,36 @@ VMMR_DIR = REPO_ROOT / "backend" / "app" / "ml_weights" / "vmmr"
 CHECKPOINT_PATH = VMMR_DIR / "vmmr_resnet50_fgvd7.pt"
 META_PATH = VMMR_DIR / "meta.json"
 
-# Catalog models with real (uneven) FGVD training data.
-TRAINED_CATALOG_MODELS = {
+PRICING_CONFIRMED = "confirmed"
+PRICING_NEEDS_CONFIRMATION = "needs_confirmation"
+PRICING_PROVISIONAL = "provisional_fallback"
+
+TIER_RELIABLE = "reliable"
+TIER_LOW_CONFIDENCE = "low_confidence"
+
+# Held-out top-1 roughly ≥65% with usable source counts.
+RELIABLE_CLASSES = {
     "Maruti_Swift",
-    "Maruti_Baleno",
-    "Hyundai_i20",
-    "Hyundai_Creta",
-    "Honda_City",
     "Toyota_Innova",
+    "Hyundai_i20",
+}
+
+# Small source sets / weak top-1 — prone to being confused *with* by reliable
+# classes, and not trustworthy enough to auto-finalize even at high margin.
+LOW_CONFIDENCE_CLASSES = {
+    "Hyundai_Creta",
+    "Maruti_Baleno",
+    "Honda_City",
     "Renault_Kwid",
 }
+
+CLASS_RELIABILITY_TIER: dict[str, str] = {
+    **{name: TIER_RELIABLE for name in RELIABLE_CLASSES},
+    **{name: TIER_LOW_CONFIDENCE for name in LOW_CONFIDENCE_CLASSES},
+}
+
+# Catalog models with real (uneven) FGVD training data.
+TRAINED_CATALOG_MODELS = RELIABLE_CLASSES | LOW_CONFIDENCE_CLASSES
 
 # Catalog models with zero FGVD training images — always provisional.
 PROVISIONAL_ONLY_MODELS = {
@@ -101,6 +126,8 @@ class VmmrResult:
     model_available: bool
     identity_confirmed: bool = False
     margin: float = 0.0
+    pricing_basis: str = PRICING_PROVISIONAL
+    reliability_tier: str | None = None
 
 
 def _stub_result() -> VmmrResult:
@@ -117,6 +144,8 @@ def _stub_result() -> VmmrResult:
         model_available=True,
         identity_confirmed=False,
         margin=0.0,
+        pricing_basis=PRICING_PROVISIONAL,
+        reliability_tier=None,
     )
 
 
@@ -229,6 +258,7 @@ def _classify_finetuned(path: Path) -> VmmrResult | None:
     margin = top_score - second_score
     class_key = labels[top_idx]
     make, model_name = _split_class_key(class_key)
+    tier = CLASS_RELIABILITY_TIER.get(class_key)
 
     if margin < _finetuned_margin:
         return VmmrResult(
@@ -239,12 +269,56 @@ def _classify_finetuned(path: Path) -> VmmrResult | None:
             label=class_key,
             detail=(
                 f"Fine-tuned VMMR top guess {make} {model_name} "
-                f"({top_score:.0%}, margin {margin:.2f} < {_finetuned_margin:.2f}); "
+                f"({top_score:.0%}, margin {margin:.2f} < {_finetuned_margin:.2f}, "
+                f"tier={tier or 'unknown'}); "
                 "falling through to provisional ImageNet transfer."
             ),
             model_available=True,
             identity_confirmed=False,
             margin=margin,
+            pricing_basis=PRICING_PROVISIONAL,
+            reliability_tier=tier,
+        )
+
+    if tier == TIER_LOW_CONFIDENCE:
+        return VmmrResult(
+            make=make,
+            model=model_name,
+            year=None,
+            confidence=top_score,
+            label=class_key,
+            detail=(
+                f"Model guess: {make} {model_name} "
+                f"({top_score:.0%}, margin {margin:.2f} via FGVD-7 fine-tune, "
+                f"tier=low_confidence). Requires surveyor confirmation before "
+                "pricing is treated as final."
+            ),
+            model_available=True,
+            identity_confirmed=False,
+            margin=margin,
+            pricing_basis=PRICING_NEEDS_CONFIRMATION,
+            reliability_tier=TIER_LOW_CONFIDENCE,
+        )
+
+    # reliable tier (or unknown trained class treated as reliable only if listed)
+    if tier != TIER_RELIABLE:
+        # Should not happen for FGVD-7 labels; treat as needs_confirmation.
+        return VmmrResult(
+            make=make,
+            model=model_name,
+            year=None,
+            confidence=top_score,
+            label=class_key,
+            detail=(
+                f"Model guess: {make} {model_name} "
+                f"({top_score:.0%}, margin {margin:.2f}); unlisted tier — "
+                "needs surveyor confirmation."
+            ),
+            model_available=True,
+            identity_confirmed=False,
+            margin=margin,
+            pricing_basis=PRICING_NEEDS_CONFIRMATION,
+            reliability_tier=tier,
         )
 
     return VmmrResult(
@@ -255,11 +329,14 @@ def _classify_finetuned(path: Path) -> VmmrResult | None:
         label=class_key,
         detail=(
             f"Identity: {make} {model_name} "
-            f"({top_score:.0%}, margin {margin:.2f} via FGVD-7 fine-tune)."
+            f"({top_score:.0%}, margin {margin:.2f} via FGVD-7 fine-tune, "
+            f"tier=reliable)."
         ),
         model_available=True,
         identity_confirmed=True,
         margin=margin,
+        pricing_basis=PRICING_CONFIRMED,
+        reliability_tier=TIER_RELIABLE,
     )
 
 
@@ -282,6 +359,8 @@ def _classify_imagenet_fallback(path: Path, prior: VmmrResult | None = None) -> 
             model_available=False,
             identity_confirmed=False,
             margin=0.0,
+            pricing_basis=PRICING_PROVISIONAL,
+            reliability_tier=None,
         )
 
     with Image.open(path) as img:
@@ -303,8 +382,11 @@ def _classify_imagenet_fallback(path: Path, prior: VmmrResult | None = None) -> 
 
     label = labels[chosen_idx]
     prior_note = ""
-    if prior is not None and not prior.identity_confirmed and prior.label:
-        prior_note = f" Fine-tuned head was inconclusive ({prior.label}, margin {prior.margin:.2f})."
+    if prior is not None and prior.label:
+        prior_note = (
+            f" Fine-tuned head was inconclusive ({prior.label}, "
+            f"margin {prior.margin:.2f}, tier={prior.reliability_tier})."
+        )
 
     detail = (
         f"Provisional identity: Unknown {label.replace('_', ' ').title()} "
@@ -322,13 +404,22 @@ def _classify_imagenet_fallback(path: Path, prior: VmmrResult | None = None) -> 
         model_available=True,
         identity_confirmed=False,
         margin=0.0,
+        pricing_basis=PRICING_PROVISIONAL,
+        reliability_tier=None,
     )
 
 
 def _classify_live(path: Path) -> VmmrResult:
     finetuned = _classify_finetuned(path)
-    if finetuned is not None and finetuned.identity_confirmed:
+    if finetuned is None:
+        return _classify_imagenet_fallback(path)
+    # Auto-finalize only for reliable tier + margin.
+    if finetuned.identity_confirmed:
         return finetuned
+    # Low-confidence tier with margin OK: keep specific guess, surveyor confirm.
+    if finetuned.pricing_basis == PRICING_NEEDS_CONFIRMATION:
+        return finetuned
+    # Low margin (any tier): ImageNet provisional path.
     return _classify_imagenet_fallback(path, prior=finetuned)
 
 
@@ -350,14 +441,18 @@ def classify_claim_images(paths: list[Path]) -> VmmrResult:
             model_available=False,
             identity_confirmed=False,
             margin=0.0,
+            pricing_basis=PRICING_PROVISIONAL,
+            reliability_tier=None,
         )
 
     if not get_settings().ml_live:
         return _stub_result()
 
     results = [classify_image(path) for path in paths]
-    # Prefer any confirmed identity; otherwise highest confidence provisional.
     confirmed = [r for r in results if r.identity_confirmed]
     if confirmed:
         return max(confirmed, key=lambda item: item.confidence)
+    needs = [r for r in results if r.pricing_basis == PRICING_NEEDS_CONFIRMATION]
+    if needs:
+        return max(needs, key=lambda item: item.confidence)
     return max(results, key=lambda item: item.confidence)

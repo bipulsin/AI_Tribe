@@ -52,6 +52,18 @@
       · damage confidence up to {{ '%.0f'|format(max_confidence * 100) }}%
       {% endif %}
     </p>
+    {% elif vehicle and estimate.pricing_basis == "needs_confirmation" %}
+    <p class="mt-2 text-xl font-semibold text-navy dark:text-mist">
+      {{ vehicle.make or "Unknown" }}
+      {{ vehicle.model or "" }}
+      <span class="font-normal text-navy/50 dark:text-mist/45">· needs confirmation</span>
+    </p>
+    <p class="mt-1 text-sm text-navy/55 dark:text-mist/50">
+      Model guess only — low-confidence tier, surveyor must confirm before final pricing
+      {% if max_confidence is not none %}
+      · damage confidence up to {{ '%.0f'|format(max_confidence * 100) }}%
+      {% endif %}
+    </p>
     {% else %}
     <p class="mt-2 text-xl font-semibold text-navy dark:text-mist">Vehicle identity unconfirmed</p>
     <p class="mt-1 text-sm text-navy/55 dark:text-mist/50">
@@ -71,6 +83,15 @@
       priced against the nearest matched catalogue entry
       ({{ catalogue_vehicle_label or "catalogue fallback" }}) and should be treated as
       indicative until a surveyor confirms the vehicle.
+    </p>
+  </section>
+  {% elif estimate.pricing_basis == "needs_confirmation" %}
+  <section class="notice mb-6" role="status">
+    <p class="notice-title">Surveyor confirmation required</p>
+    <p class="notice-body">
+      The model suggested {{ catalogue_vehicle_label or "a catalogue vehicle" }}, but that
+      class is in the low-confidence tier. This total is priced against that guess and
+      must not be treated as final until a surveyor confirms the vehicle.
     </p>
   </section>
   {% endif %}
@@ -127,6 +148,8 @@
         <span class="text-base font-semibold text-navy dark:text-mist">
           {% if estimate.pricing_basis == "provisional_fallback" %}
           Provisional total
+          {% elif estimate.pricing_basis == "needs_confirmation" %}
+          Indicative total (needs confirmation)
           {% else %}
           Grand total
           {% endif %}

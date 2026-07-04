@@ -13,6 +13,7 @@ from app.models import Estimate, Vehicle
 from app.models.enums import Severity
 from app.services.parts.parts_matcher import (
     PRICING_CONFIRMED,
+    PRICING_NEEDS_CONFIRMATION,
     PRICING_PROVISIONAL,
     PartMatch,
     match_detections,
@@ -78,6 +79,13 @@ def _reason_summary(
             f"this estimate is priced against the nearest matched catalogue entry "
             f"({catalogue_vehicle_label}) and should be treated as indicative "
             "until a surveyor confirms the vehicle. "
+        )
+        vehicle_label = catalogue_vehicle_label
+    elif pricing_basis == PRICING_NEEDS_CONFIRMATION:
+        lead = (
+            f"The model suggested {catalogue_vehicle_label}, but that class is in "
+            "the low-confidence tier and must be confirmed by a surveyor before "
+            "this estimate is treated as final. "
         )
         vehicle_label = catalogue_vehicle_label
     else:

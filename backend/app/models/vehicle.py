@@ -14,8 +14,12 @@ class Vehicle(Base):
     year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     vin: Mapped[str | None] = mapped_column(String(32), nullable=True)
     plate_number: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    # True only when VMMR produced a non-stub, non-Unknown make and model.
+    # True only when VMMR auto-finalizes (reliable tier + margin gate).
     identity_confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # confirmed | needs_confirmation | provisional_fallback
+    pricing_basis: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="provisional_fallback"
+    )
     source_claim_id: Mapped[int] = mapped_column(
         ForeignKey("claims.id"), nullable=False, index=True
     )

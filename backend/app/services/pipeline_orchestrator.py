@@ -237,8 +237,9 @@ async def stage_vehicle_id(db: Session, claim: Claim) -> StageResult:
     paths = [path for _, path in images]
     result = await asyncio.to_thread(vmmr_classifier.classify_claim_images, paths)
 
-    # Prefer the classifier's own confirmation (fine-tune margin gate).
+    # Prefer the classifier's own confirmation (margin + reliability tier).
     identity_confirmed = bool(getattr(result, "identity_confirmed", False))
+    pricing_basis = getattr(result, "pricing_basis", None) or "provisional_fallback"
 
     existing = db.scalar(select(Vehicle).where(Vehicle.source_claim_id == claim.id))
     if existing:
@@ -246,6 +247,7 @@ async def stage_vehicle_id(db: Session, claim: Claim) -> StageResult:
         existing.model = result.model
         existing.year = result.year
         existing.identity_confirmed = identity_confirmed
+        existing.pricing_basis = pricing_basis
     else:
         db.add(
             Vehicle(
@@ -253,6 +255,7 @@ async def stage_vehicle_id(db: Session, claim: Claim) -> StageResult:
                 model=result.model,
                 year=result.year,
                 identity_confirmed=identity_confirmed,
+                pricing_basis=pricing_basis,
                 source_claim_id=claim.id,
             )
         )

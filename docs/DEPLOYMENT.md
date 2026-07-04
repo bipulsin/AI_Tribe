@@ -124,20 +124,43 @@ tree — that copy is enough to run without `/mnt/ml-scratch` mounted.
 | Meta / metrics | `backend/app/ml_weights/vmmr/meta.json` |
 | Scratch run | `/mnt/ml-scratch/vmmr_runs/20260703T214155Z/` |
 | Registry row | `model_runs.run_id=20260703T214155Z` |
-| Accept rule | top-1 − top-2 probability **margin ≥ 0.39** (started at 0.4; tuned from held-out correct-prediction margin p25 ≈ 0.39) |
-| Below margin | ImageNet-transfer path, `identity_confirmed=false`, `pricing_basis=provisional_fallback` |
+| Accept rule | margin ≥ **0.39** **and** predicted class tier = **reliable** → `identity_confirmed`, `pricing_basis=confirmed` |
+| Low-confidence tier (margin OK) | Keep specific guess; `identity_confirmed=false`, `pricing_basis=needs_confirmation` (surveyor must confirm) |
+| Below margin | ImageNet-transfer path, `pricing_basis=provisional_fallback` |
+
+### Class reliability tiers (on top of margin gate)
+
+| Tier | Classes | Auto-finalize when margin OK? |
+| --- | --- | --- |
+| **reliable** | Swift, Innova, i20 | Yes (`pricing_basis=confirmed`) |
+| **low_confidence** | Creta, Baleno, City, Kwid | No — `pricing_basis=needs_confirmation` even at high margin |
+| **provisional only** | Nexon, XUV700, Seltos | Never (no class in head) |
+
+`needs_confirmation` is distinct from `provisional_fallback`: the model made a
+specific catalogue guess, but that class is not trusted enough to skip surveyor
+review. `provisional_fallback` means no usable fine-tuned identity (low margin or
+untrained class shape).
+
+#### Known residual risk (not fixed by tier gating)
+
+A **real City** (or Baleno/Creta/Kwid) **misclassified as Swift/Innova/i20** still
+auto-finalizes, because the *predicted* class is reliable-tier. Tier gating only
+blocks auto-trust when the model lands on a low_confidence class; it does not
+catch the reverse confusion. That needs more City (and peer) training images, not
+a post-hoc gate. Observed example: held-out City crop `test_5091_3.jpg` predicts
+Maruti Swift at high margin (~0.84) and remains `pricing_basis=confirmed`.
 
 ### Catalog models: trained vs provisional-only
 
-| Catalog model | FGVD source images | Status |
+| Catalog model | FGVD source images | Tier / status |
 | --- | --- | --- |
-| Maruti Swift | ~451 | **Trained** (held-out meaningful) |
-| Toyota Innova | ~500 | **Trained** (held-out meaningful) |
-| Hyundai i20 | ~123 | **Trained** (held-out meaningful) |
-| Hyundai Creta | ~107 | **Trained** (held-out barely meaningful; accuracy weak) |
-| Maruti Baleno | ~91 | **Trained**, held-out **not** statistically meaningful |
-| Honda City | ~84 | **Trained**, held-out **not** statistically meaningful |
-| Renault Kwid | ~23 | **Trained**, held-out **not** statistically meaningful (n_test≈5 — do not trust accuracy) |
+| Maruti Swift | ~451 | **reliable** (held-out meaningful) |
+| Toyota Innova | ~500 | **reliable** (held-out meaningful) |
+| Hyundai i20 | ~123 | **reliable** (held-out meaningful) |
+| Hyundai Creta | ~107 | **low_confidence** (weak top-1) |
+| Maruti Baleno | ~91 | **low_confidence** (held-out not meaningful) |
+| Honda City | ~84 | **low_confidence** (held-out not meaningful) |
+| Renault Kwid | ~23 | **low_confidence** (n_test≈5 — do not trust accuracy) |
 | Tata Nexon | 2 (unused) | **Provisional only** — no class in head |
 | Mahindra XUV700 | 0 | **Provisional only** |
 | Kia Seltos | 0 | **Provisional only** |

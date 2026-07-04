@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.models import DamageDetection, PartsCatalog, Vehicle
 
 PRICING_CONFIRMED = "confirmed"
+PRICING_NEEDS_CONFIRMATION = "needs_confirmation"
 PRICING_PROVISIONAL = "provisional_fallback"
 DEFAULT_FALLBACK_MAKE = "Maruti"
 DEFAULT_FALLBACK_MODEL = "Swift"
@@ -72,14 +73,31 @@ def _find_catalog_row(
 
 def _pricing_identity(vehicle: Vehicle | None) -> tuple[str, str | None, str, str]:
     """Return make, model, pricing_basis, catalogue_vehicle_label."""
-    confirmed = bool(vehicle and vehicle.identity_confirmed)
-    if confirmed and vehicle is not None:
+    if vehicle is not None and vehicle.identity_confirmed:
         make = vehicle.make or DEFAULT_FALLBACK_MAKE
         model = vehicle.model or DEFAULT_FALLBACK_MODEL
         label = f"{make} {model}".strip()
         return make, model, PRICING_CONFIRMED, label
 
-    # Nearest-match / stub fallback — never treat as confirmed identity.
+    # Specific fine-tuned guess in a low_confidence tier — price against that
+    # catalogue entry but require surveyor confirmation (not auto-final).
+    basis = getattr(vehicle, "pricing_basis", None) if vehicle else None
+    if (
+        vehicle is not None
+        and basis == PRICING_NEEDS_CONFIRMATION
+        and vehicle.make
+        and vehicle.make != "Unknown"
+    ):
+        make = vehicle.make
+        model = (
+            vehicle.model
+            if vehicle.model and vehicle.model != "Unknown"
+            else None
+        )
+        label = f"{make} {model}".strip() if model else make
+        return make, model, PRICING_NEEDS_CONFIRMATION, label
+
+    # Nearest-match / ImageNet / stub fallback — never treat as confirmed identity.
     make = DEFAULT_FALLBACK_MAKE
     model = DEFAULT_FALLBACK_MODEL
     if vehicle and vehicle.make and vehicle.make != "Unknown":
@@ -90,10 +108,12 @@ def _pricing_identity(vehicle: Vehicle | None) -> tuple[str, str | None, str, st
             else None
         )
     label = f"{make} {model}".strip() if model else make
-    if not model:
-        # Resolve a concrete catalogue model for messaging when only make is known.
-        pass
-    return make, model, PRICING_PROVISIONAL, label or f"{DEFAULT_FALLBACK_MAKE} {DEFAULT_FALLBACK_MODEL}"
+    return (
+        make,
+        model,
+        PRICING_PROVISIONAL,
+        label or f"{DEFAULT_FALLBACK_MAKE} {DEFAULT_FALLBACK_MODEL}",
+    )
 
 
 def match_detections(db: Session, claim_id: int) -> MatchContext:
@@ -143,7 +163,7 @@ def match_detections(db: Session, claim_id: int) -> MatchContext:
                 )
             )
 
-    if pricing_basis == PRICING_PROVISIONAL and matches:
+    if pricing_basis in {PRICING_PROVISIONAL, PRICING_NEEDS_CONFIRMATION} and matches:
         # Prefer the concrete catalogue vehicle actually used for pricing copy.
         for match in matches:
             if match.catalog_row:
@@ -170,4 +190,8 @@ def match_summary(db: Session, claim_id: int) -> tuple[int, int, str]:
     detail = f"Matched {matched} of {len(matches)} parts to the pricing catalogue."
     if context.pricing_basis == PRICING_PROVISIONAL:
         detail += f" Provisional pricing against {context.catalogue_vehicle_label}."
+    elif context.pricing_basis == PRICING_NEEDS_CONFIRMATION:
+        detail += (
+            f" Model guess {context.catalogue_vehicle_label} needs surveyor confirmation."
+        )
     return matched, len(matches), detail
