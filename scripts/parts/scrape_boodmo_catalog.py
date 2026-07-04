@@ -158,6 +158,16 @@ MAKES: dict[str, dict[str, int | None]] = {
         "Gloster": 12518,
         "Windsor EV": None,  # not on boodmo
     },
+    "Toyota": {
+        "Innova": 11392,
+        "Innova Hycross": None,  # not listed separately from Innova on boodmo
+        "Fortuner": 11391,
+        "Urban Cruiser Hyryder": 12580,
+        "Glanza": 12329,
+        "Rumion": 12716,
+        "Camry": 11386,
+        "Land Cruiser": 11388,  # low-volume; may be thin
+    },
 }
 
 
@@ -324,7 +334,7 @@ def write_csv(rows: list[dict]) -> None:
             writer.writerow(out)
 
 
-def main() -> None:
+def main(only_makes: set[str] | None = None) -> None:
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     existing = load_seed_rows()
     # index existing seed by (make, model, part_name)
@@ -333,12 +343,21 @@ def main() -> None:
         key = (row["make"], row["model"], row["part_name"])
         seed_index[key] = row
 
-    all_rows: list[dict] = []
+    # When scraping a subset, keep all existing non-target rows intact.
+    retained: list[dict] = []
+    if only_makes:
+        for row in existing:
+            if row["make"] not in only_makes:
+                retained.append(row)
+
+    all_rows: list[dict] = list(retained)
     limited: list[str] = []
     session = BoodmoSession()
     session.start()
     try:
         for make, models in MAKES.items():
+            if only_makes and make not in only_makes:
+                continue
             make_rows: list[dict] = []
             print(f"\n=== {make} ===")
             for model, model_line_id in models.items():
@@ -376,14 +395,21 @@ def main() -> None:
     finally:
         session.close()
 
-    # Merge: scraped wins; keep seed only for (make,model,part) not scraped
-    scraped_keys = {(r["make"], r["model"], r["part_name"]) for r in all_rows}
+    # Merge: scraped wins; keep prior seed only for (make,model,part) not scraped
+    # within the makes we just scraped.
+    scraped_keys = {
+        (r["make"], r["model"], r["part_name"])
+        for r in all_rows
+        if r.get("source") == SOURCE
+    }
     kept_seed = 0
+    target_makes = only_makes or set(MAKES)
     for key, row in seed_index.items():
         if key in scraped_keys:
             continue
-        # only keep seed for models we still care about
         make, model, _part = key
+        if make not in target_makes:
+            continue
         if make in MAKES and model in MAKES[make]:
             out = dict(row)
             out.setdefault("sourced_at", "2026-07-03")
@@ -409,4 +435,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+
+    only = {a for a in sys.argv[1:] if a}
+    main(only_makes=only or None)

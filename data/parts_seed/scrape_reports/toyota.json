@@ -1,0 +1,14 @@
+{
+  "make": "Toyota",
+  "rows": 164,
+  "models": {
+    "Innova": 24,
+    "Innova Hycross": 0,
+    "Fortuner": 24,
+    "Urban Cruiser Hyryder": 23,
+    "Glanza": 24,
+    "Rumion": 21,
+    "Camry": 24,
+    "Land Cruiser": 24
+  }
+}

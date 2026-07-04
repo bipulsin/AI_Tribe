@@ -1,14 +1,10 @@
 {
   "sourced_at": "2026-07-04",
   "source": "boodmo.com",
-  "total_rows": 1089,
-  "scraped_rows": 1073,
-  "kept_seed_rows": 16,
+  "total_rows": 1253,
+  "scraped_rows": 1237,
+  "kept_seed_rows": 0,
   "limited_aftermarket": [
-    "Maruti Alto K10: limited aftermarket data available for this model (0 parts found)",
-    "Kia Syros: limited aftermarket data available for this model (not listed on boodmo)",
-    "Kia EV6: limited aftermarket data available for this model (1 parts found)",
-    "Honda Elevate: limited aftermarket data available for this model (2 parts found)",
-    "MG Windsor EV: limited aftermarket data available for this model (not listed on boodmo)"
+    "Toyota Innova Hycross: limited aftermarket data available for this model (not listed on boodmo)"
   ]
 }
