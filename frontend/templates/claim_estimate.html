@@ -2,30 +2,28 @@
 
 {% block title %}Estimate{% endblock %}
 
-{% block body_class %}h-dvh overflow-hidden bg-canvas text-navy antialiased dark:bg-ink dark:text-mist{% endblock %}
-
 {% block body %}
-<div class="page-viewport mx-auto flex max-w-3xl flex-col px-4 py-2" x-data="{ showTech: false }">
-  <header class="mb-2 flex shrink-0 items-center justify-between gap-3">
+<div class="mx-auto max-w-3xl px-6 py-8" x-data="{ showTech: false }">
+  <header class="mb-6 flex items-start justify-between gap-4">
     <div>
-      <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-gold">AI Tribe</p>
-      <h1 class="text-lg font-semibold tracking-tight text-navy dark:text-mist">Survey estimate</h1>
+      <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gold">AI Tribe</p>
+      <h1 class="mt-2 text-3xl font-semibold tracking-tight text-navy dark:text-mist">Survey estimate</h1>
       {% if claim %}
-      <p class="text-xs text-navy/55 dark:text-mist/50">{{ claim.claim_reference }}</p>
+      <p class="mt-2 text-sm text-navy/60 dark:text-mist/55">{{ claim.claim_reference }}</p>
       {% endif %}
     </div>
-    <div class="flex flex-wrap items-center justify-end gap-1.5">
+    <div class="flex flex-wrap items-center justify-end gap-2">
       {% if claim %}
       <a
         href="/claims/{{ claim.id }}/processing"
-        class="rounded-md border border-gold/40 bg-gold/10 px-2.5 py-1 text-xs font-semibold text-navy transition hover:border-gold/60 hover:bg-gold/20 dark:border-gold/50 dark:bg-gold/15 dark:text-mist dark:hover:bg-gold/25"
+        class="rounded-lg border border-gold/40 bg-gold/10 px-3 py-1.5 text-sm font-semibold text-navy transition hover:border-gold/60 hover:bg-gold/20 dark:border-gold/50 dark:bg-gold/15 dark:text-mist dark:hover:bg-gold/25"
       >
         View assessment
       </a>
       {% endif %}
       <a
         href="/claims/new"
-        class="rounded-md border border-navy/10 bg-white px-2.5 py-1 text-xs text-navy/70 transition hover:border-navy/20 hover:text-navy dark:border-white/10 dark:bg-navy dark:text-mist/70 dark:hover:border-white/20 dark:hover:text-mist"
+        class="rounded-lg border border-navy/10 bg-white px-3 py-1.5 text-sm text-navy/70 transition hover:border-navy/20 hover:text-navy dark:border-white/10 dark:bg-navy dark:text-mist/70 dark:hover:border-white/20 dark:hover:text-mist"
       >
         New claim
       </a>
@@ -33,62 +31,60 @@
   </header>
 
   {% if error %}
-  <section class="notice shrink-0" role="status">
+  <section class="notice" role="status">
     <p class="notice-title">Estimate unavailable</p>
     <p class="notice-body">{{ error }}</p>
   </section>
   {% else %}
 
-  <div class="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden">
-
-  <section class="shrink-0 rounded-xl border border-navy/10 bg-white px-3 py-2 dark:border-white/10 dark:bg-navy">
-    <div class="flex flex-wrap items-baseline justify-between gap-2">
+  <section class="rounded-2xl border border-navy/10 bg-white px-5 py-4 dark:border-white/10 dark:bg-navy">
+    <div class="flex flex-wrap items-baseline justify-between gap-4">
       <div>
-        <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">Vehicle</p>
+        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">Vehicle</p>
         {% if vehicle and vehicle.identity_confirmed %}
-        <p class="text-base font-semibold text-navy dark:text-mist">
+        <p class="mt-2 text-xl font-semibold text-navy dark:text-mist">
           {{ vehicle.make or "Unknown" }}
           {{ vehicle.model or "" }}
           {% if vehicle.year %}<span class="font-normal text-navy/50 dark:text-mist/45">· {{ vehicle.year }}</span>{% endif %}
         </p>
-        <p class="text-[11px] text-navy/55 dark:text-mist/50">
+        <p class="mt-1 text-sm text-navy/55 dark:text-mist/50">
           Identity confirmed
           {% if max_confidence is not none %}
-          · damage conf. up to {{ '%.0f'|format(max_confidence * 100) }}%
+          · damage confidence up to {{ '%.0f'|format(max_confidence * 100) }}%
           {% endif %}
         </p>
         {% elif vehicle and identity_pricing_basis == "needs_confirmation" %}
-        <p class="text-base font-semibold text-navy dark:text-mist">
+        <p class="mt-2 text-xl font-semibold text-navy dark:text-mist">
           {{ vehicle.make or "Unknown" }}
           {{ vehicle.model or "" }}
           <span class="font-normal text-navy/50 dark:text-mist/45">· needs confirmation</span>
         </p>
-        <p class="text-[11px] text-navy/55 dark:text-mist/50">
+        <p class="mt-1 text-sm text-navy/55 dark:text-mist/50">
           Low-confidence tier — confirm before final pricing
           {% if max_confidence is not none %}
-          · damage conf. up to {{ '%.0f'|format(max_confidence * 100) }}%
+          · damage confidence up to {{ '%.0f'|format(max_confidence * 100) }}%
           {% endif %}
         </p>
         {% elif vehicle and estimate.pricing_basis == "model_fallback_priced" %}
-        <p class="text-base font-semibold text-navy dark:text-mist">
+        <p class="mt-2 text-xl font-semibold text-navy dark:text-mist">
           {{ vehicle.make or "Unknown" }}
           {{ vehicle.model or "" }}
         </p>
-        <p class="text-[11px] text-navy/55 dark:text-mist/50">
+        <p class="mt-1 text-sm text-navy/55 dark:text-mist/50">
           Priced via catalogue approximation
           {% if max_confidence is not none %}
-          · damage conf. up to {{ '%.0f'|format(max_confidence * 100) }}%
+          · damage confidence up to {{ '%.0f'|format(max_confidence * 100) }}%
           {% endif %}
         </p>
         {% else %}
-        <p class="text-base font-semibold text-navy dark:text-mist">Vehicle identity unconfirmed</p>
-        <p class="text-[11px] text-navy/55 dark:text-mist/50">
+        <p class="mt-2 text-xl font-semibold text-navy dark:text-mist">Vehicle identity unconfirmed</p>
+        <p class="mt-1 text-sm text-navy/55 dark:text-mist/50">
           Provisional vs {{ catalogue_vehicle_label or "nearest catalogue entry" }}
         </p>
         {% endif %}
       </div>
       <div class="text-right">
-        <p class="text-[10px] uppercase tracking-wide text-navy/45 dark:text-mist/40">
+        <p class="text-xs uppercase tracking-wide text-navy/45 dark:text-mist/40">
           {% if estimate.pricing_basis == "provisional_fallback" %}
           Provisional total
           {% elif identity_pricing_basis == "needs_confirmation" %}
@@ -99,15 +95,15 @@
           Grand total
           {% endif %}
         </p>
-        <p class="text-xl font-semibold tabular-nums text-navy dark:text-white">₹{{ '%.2f'|format(estimate.grand_total) }}</p>
-        <p class="text-[11px] tabular-nums text-navy/50 dark:text-mist/45">
+        <p class="mt-1 text-2xl font-semibold tabular-nums text-navy dark:text-white">₹{{ '%.2f'|format(estimate.grand_total) }}</p>
+        <p class="mt-1 text-sm tabular-nums text-navy/50 dark:text-mist/45">
           Subtotal ₹{{ '%.2f'|format(estimate.subtotal) }} · GST ₹{{ '%.2f'|format(estimate.tax) }}
         </p>
       </div>
     </div>
   </section>
 
-  <section class="notice shrink-0" role="status">
+  <section class="notice mt-4" role="status">
     <p class="notice-body">
       Indicative pricing only — not for binding settlement.
       {% if identity_pricing_basis == "needs_confirmation" %}
@@ -122,35 +118,36 @@
     </p>
   </section>
 
-  <section class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-navy/10 bg-white dark:border-white/10 dark:bg-navy">
-    <div class="shrink-0 border-b border-navy/10 px-3 py-1.5 dark:border-white/10">
-      <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">Parts and pricing</p>
+  {# Sizes to row count; scrolls only when content exceeds max-height. #}
+  <section class="parts-table-panel mt-4 overflow-hidden rounded-2xl border border-navy/10 bg-white dark:border-white/10 dark:bg-navy">
+    <div class="border-b border-navy/10 px-5 py-3 dark:border-white/10">
+      <p class="text-xs font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">Parts and pricing</p>
     </div>
-    <div class="min-h-0 flex-1 overflow-auto">
-      <table class="w-full min-w-[32rem] text-left text-xs">
+    <div class="parts-table-scroll overflow-x-auto">
+      <table class="w-full min-w-[36rem] text-left text-sm">
         <thead class="sticky top-0 bg-canvas text-navy/50 dark:bg-ink/95 dark:text-mist/45">
           <tr>
-            <th class="px-3 py-1.5 font-medium">Part</th>
-            <th class="px-2 py-1.5 font-medium">Damage</th>
-            <th class="px-2 py-1.5 font-medium">Action</th>
-            <th class="px-2 py-1.5 font-medium text-right">Unit</th>
-            <th class="px-2 py-1.5 font-medium text-right">Labour</th>
-            <th class="px-3 py-1.5 font-medium text-right">Line total</th>
+            <th class="px-5 py-3 font-medium">Part</th>
+            <th class="px-3 py-3 font-medium">Damage</th>
+            <th class="px-3 py-3 font-medium">Action</th>
+            <th class="px-3 py-3 font-medium text-right">Unit</th>
+            <th class="px-3 py-3 font-medium text-right">Labour</th>
+            <th class="px-5 py-3 font-medium text-right">Line total</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-navy/5 dark:divide-white/5">
           {% for item in line_items %}
           <tr>
-            <td class="px-3 py-1.5 font-medium text-navy dark:text-mist">{{ item.part_name }}</td>
-            <td class="px-2 py-1.5 capitalize text-navy/70 dark:text-mist/65">{{ item.damage_type | replace('_', ' ') }}</td>
-            <td class="px-2 py-1.5 capitalize text-navy/70 dark:text-mist/65">{{ item.repair_or_replace }}</td>
-            <td class="px-2 py-1.5 text-right tabular-nums text-navy/80 dark:text-mist/75">₹{{ '%.2f'|format(item.unit_price) }}</td>
-            <td class="px-2 py-1.5 text-right tabular-nums text-navy/80 dark:text-mist/75">₹{{ '%.2f'|format(item.labor_cost) }}</td>
-            <td class="px-3 py-1.5 text-right tabular-nums font-medium text-navy dark:text-mist">₹{{ '%.2f'|format(item.total) }}</td>
+            <td class="px-5 py-3 font-medium text-navy dark:text-mist">{{ item.part_name }}</td>
+            <td class="px-3 py-3 capitalize text-navy/70 dark:text-mist/65">{{ item.damage_type | replace('_', ' ') }}</td>
+            <td class="px-3 py-3 capitalize text-navy/70 dark:text-mist/65">{{ item.repair_or_replace }}</td>
+            <td class="px-3 py-3 text-right tabular-nums text-navy/80 dark:text-mist/75">₹{{ '%.2f'|format(item.unit_price) }}</td>
+            <td class="px-3 py-3 text-right tabular-nums text-navy/80 dark:text-mist/75">₹{{ '%.2f'|format(item.labor_cost) }}</td>
+            <td class="px-5 py-3 text-right tabular-nums font-medium text-navy dark:text-mist">₹{{ '%.2f'|format(item.total) }}</td>
           </tr>
           {% else %}
           <tr>
-            <td colspan="6" class="px-3 py-4 text-center text-navy/50 dark:text-mist/45">No line items on this estimate.</td>
+            <td colspan="6" class="px-5 py-6 text-center text-navy/50 dark:text-mist/45">No line items on this estimate.</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -158,38 +155,38 @@
     </div>
   </section>
 
-  <section class="shrink-0 rounded-xl border border-navy/10 bg-white px-3 py-1.5 dark:border-white/10 dark:bg-navy">
+  <section class="mt-4 rounded-2xl border border-navy/10 bg-white px-5 py-4 dark:border-white/10 dark:bg-navy">
     <button
       type="button"
       class="flex w-full items-center justify-between text-left"
       @click="showTech = !showTech"
       :aria-expanded="showTech.toString()"
     >
-      <span class="text-xs font-medium text-navy dark:text-mist">Technical detail</span>
-      <span class="text-navy/40 dark:text-mist/40" x-text="showTech ? '−' : '+'"></span>
+      <span class="text-sm font-medium text-navy dark:text-mist">Technical detail</span>
+      <span class="text-navy/40 dark:text-mist/40" x-text="showTech ? '−' : '+'">+</span>
     </button>
 
-    <div class="mt-2 max-h-[28vh] space-y-2 overflow-y-auto border-t border-navy/10 pt-2 dark:border-white/10" x-show="showTech" x-cloak>
-      <p class="text-[11px] leading-snug text-navy/60 dark:text-mist/55">{{ estimate.reason_summary }}</p>
+    <div class="mt-4 space-y-4 border-t border-navy/10 pt-4 dark:border-white/10" x-show="showTech" x-cloak>
+      <p class="text-sm leading-relaxed text-navy/65 dark:text-mist/60">{{ estimate.reason_summary }}</p>
       <div>
-        <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">Damage confidence</p>
-        <ul class="mt-1 space-y-0.5">
+        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">Damage confidence</p>
+        <ul class="mt-2 space-y-1">
           {% for item in line_items %}
-          <li class="flex justify-between text-[11px] text-navy/70 dark:text-mist/65">
+          <li class="flex justify-between text-sm text-navy/70 dark:text-mist/65">
             <span>{{ item.part_name }} · {{ item.damage_type | replace('_', ' ') }}</span>
             <span class="tabular-nums">{{ '%.0f'|format((item.confidence_score or 0) * 100) }}%</span>
           </li>
           {% else %}
-          <li class="text-[11px] text-navy/50 dark:text-mist/45">No detection scores recorded.</li>
+          <li class="text-sm text-navy/50 dark:text-mist/45">No detection scores recorded.</li>
           {% endfor %}
         </ul>
       </div>
       {% if fraud_signals %}
       <div>
-        <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">Fraud risk signals</p>
-        <ul class="mt-1 space-y-0.5">
+        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">Fraud risk signals</p>
+        <ul class="mt-2 space-y-1">
           {% for signal in fraud_signals %}
-          <li class="flex justify-between text-[11px] text-navy/70 dark:text-mist/65">
+          <li class="flex justify-between text-sm text-navy/70 dark:text-mist/65">
             <span>{{ signal.reason_code }}</span>
             <span class="tabular-nums">{{ signal.risk_score }}/100</span>
           </li>
@@ -199,8 +196,6 @@
       {% endif %}
     </div>
   </section>
-
-  </div>
 
   {% endif %}
 </div>

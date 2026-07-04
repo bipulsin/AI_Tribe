@@ -354,29 +354,10 @@ body.help-guide-open {
   overflow: hidden;
 }
 
-/* Fixed-viewport pages — outer page does not scroll; inner panes do */
-.page-viewport {
-  height: 100dvh;
-  max-height: 100dvh;
-  overflow: hidden;
-}
-
-.stage-window {
-  scroll-behavior: smooth;
-}
-
-.stage-row {
-  padding-bottom: 0.45rem;
-}
-
-.stage-row:last-child {
-  padding-bottom: 0;
-}
-
-.stage-icon {
-  width: 1.5rem;
-  height: 1.5rem;
-  font-size: 0.7rem;
+/* Parts table: height follows rows; scroll only when content is tall. */
+.parts-table-scroll {
+  max-height: min(40vh, 22rem);
+  overflow-y: auto;
 }
 
 /* Organised fraud graph — compact always-on neighborhood diagram */
