@@ -13,10 +13,12 @@ REPO = Path(__file__).resolve().parents[2]
 RUN_ROOT = Path("/mnt/ml-scratch/vmmr_runs")
 DATA_ROOT = Path("/mnt/ml-scratch/vmmr_data")
 DEST = REPO / "backend" / "app" / "ml_weights" / "vmmr"
-CKPT_NAME = "vmmr_resnet50_fgvd7.pt"
+CKPT_NAME = "vmmr_resnet50_fgvd8.pt"
 MIN_RELIABLE_SOURCE = 100
 
 PROVISIONAL_ONLY = ["Tata_Nexon", "Mahindra_XUV700", "Kia_Seltos"]
+# Always low_confidence regardless of held-out accuracy.
+FORCED_LOW_CONFIDENCE = {"Mahindra_XUV500"}
 
 
 def latest_run() -> Path:
@@ -95,7 +97,23 @@ def reevaluate(ckpt_path: Path) -> tuple[dict, float]:
     for name in class_names:
         n = total[name]
         n_source = source_totals[name]
-        reliable = n_source >= MIN_RELIABLE_SOURCE and n >= 20
+        reliable = (
+            name not in FORCED_LOW_CONFIDENCE
+            and n_source >= MIN_RELIABLE_SOURCE
+            and n >= 20
+        )
+        note = None
+        if name in FORCED_LOW_CONFIDENCE:
+            note = (
+                f"Forced low_confidence tier ({n_source} source images); "
+                "sample size does not support reliable auto-finalize."
+            )
+        elif not reliable:
+            note = (
+                f"Not statistically meaningful: {n_source} source images, "
+                f"{n} held-out test images. Report the number but do not "
+                "treat accuracy as reliable."
+            )
         per_class[name] = {
             "n_source": n_source,
             "n_test": n,
@@ -118,15 +136,8 @@ def reevaluate(ckpt_path: Path) -> tuple[dict, float]:
             "correct_margin_p25": _percentile(correct_margins_by_class[name], 25),
             "correct_margin_p50": _percentile(correct_margins_by_class[name], 50),
             "statistically_meaningful": reliable,
-            "reliability_note": (
-                None
-                if reliable
-                else (
-                    f"Not statistically meaningful: {n_source} source images, "
-                    f"{n} held-out test images. Report the number but do not "
-                    "treat accuracy as reliable."
-                )
-            ),
+            "reliability_note": note,
+            "tier": "low_confidence" if not reliable else "reliable",
         }
 
     overall_n = sum(total.values())
@@ -184,7 +195,7 @@ def deploy(run_dir: Path) -> Path:
 
     ckpt = torch.load(dest_ckpt, map_location="cpu")
     ckpt["margin_threshold"] = margin_thr
-    ckpt["dataset_version"] = "FGVD_IDD_v1_catalog7"
+    ckpt["dataset_version"] = "FGVD_IDD_v1_catalog8"
     torch.save(ckpt, dest_ckpt)
 
     # Also refresh run-dir metrics for the registry.
@@ -201,17 +212,18 @@ def deploy(run_dir: Path) -> Path:
     meta = {
         "class_names": list(ckpt["class_names"]),
         "margin_threshold": margin_thr,
-        "dataset_version": "FGVD_IDD_v1_catalog7",
+        "dataset_version": "FGVD_IDD_v1_catalog8",
         "trained_catalog_models": list(ckpt["class_names"]),
         "provisional_only_catalog_models": PROVISIONAL_ONLY,
         "source_run": run_dir.name,
         "metrics_summary": metrics,
         "notes": (
-            "Seven catalog models have real (uneven) FGVD training data. "
-            "Baleno/City/Kwid have <100 source images — held-out accuracy is "
-            "reported but not statistically meaningful (Kwid n_test≈5 especially). "
-            "Nexon, XUV700, and Seltos have zero usable training data and always "
-            "use identity_confirmed=false / pricing_basis=provisional_fallback."
+            "Eight catalog models have real (uneven) FGVD training data. "
+            "Baleno/City/Kwid/XUV500 have <100 source images — held-out accuracy "
+            "is reported but not statistically meaningful. XUV500 is forced "
+            "low_confidence and prices via same-make XUV700 fallback with "
+            "pricing_basis=model_fallback_priced. Nexon, XUV700, and Seltos "
+            "have zero usable training data and stay provisional_fallback."
         ),
     }
     (DEST / "meta.json").write_text(json.dumps(meta, indent=2))

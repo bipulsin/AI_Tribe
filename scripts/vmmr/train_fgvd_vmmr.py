@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fine-tune ResNet50 on FGVD 7-class India catalog subset."""
+"""Fine-tune ResNet50 on FGVD 8-class India catalog subset."""
 
 from __future__ import annotations
 
@@ -28,8 +28,14 @@ LR_HEAD = 1e-3
 LR_FINETUNE = 1e-4
 DEVICE = "cpu"
 
-# Stronger augmentation for minority classes
-MINORITY = {"Renault_Kwid", "Honda_City", "Hyundai_Creta", "Maruti_Baleno"}
+# Stronger augmentation for minority / under-100-image classes
+MINORITY = {
+    "Renault_Kwid",
+    "Honda_City",
+    "Hyundai_Creta",
+    "Maruti_Baleno",
+    "Mahindra_XUV500",
+}
 
 
 class CropDataset(Dataset):
@@ -238,6 +244,7 @@ def main() -> None:
         "Honda_City",
         "Toyota_Innova",
         "Renault_Kwid",
+        "Mahindra_XUV500",
     ]
     class_to_idx = {n: i for i, n in enumerate(class_names)}
 
@@ -328,14 +335,14 @@ def main() -> None:
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     run_dir = RUN_ROOT / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
-    ckpt_path = run_dir / "vmmr_resnet50_fgvd7.pt"
+    ckpt_path = run_dir / "vmmr_resnet50_fgvd8.pt"
     torch.save(
         {
             "model_state": model.state_dict(),
             "class_names": class_names,
             "margin_threshold": suggested,
             "arch": "resnet50",
-            "dataset_version": "FGVD_IDD_v1_catalog7",
+            "dataset_version": "FGVD_IDD_v1_catalog8",
         },
         ckpt_path,
     )
@@ -351,6 +358,7 @@ def main() -> None:
         "margin_threshold": suggested,
         "excluded_catalog_models": ["Tata_Nexon", "Mahindra_XUV700", "Kia_Seltos"],
         "trained_catalog_models": class_names,
+        "forced_low_confidence": ["Mahindra_XUV500"],
     }
     (run_dir / "deploy.json").write_text(json.dumps(deploy_hint, indent=2))
 

@@ -20,7 +20,8 @@ Catalog coverage (10 models in india_parts_seed.csv):
 
   Real (uneven) FGVD training data:
     reliable: Maruti Swift, Toyota Innova, Hyundai i20
-    low_confidence: Hyundai Creta, Maruti Baleno, Honda City, Renault Kwid
+    low_confidence: Hyundai Creta, Maruti Baleno, Honda City, Renault Kwid,
+      Mahindra XUV500 (forced low_confidence; ~64 images, no exact catalogue)
 
   Provisional only — zero usable training images (no class in head):
     Tata Nexon, Mahindra XUV700, Kia Seltos.
@@ -43,7 +44,9 @@ logger = logging.getLogger("ai_tribe.vmmr")
 
 MODEL_NAME = "resnet50"
 VMMR_DIR = REPO_ROOT / "backend" / "app" / "ml_weights" / "vmmr"
-CHECKPOINT_PATH = VMMR_DIR / "vmmr_resnet50_fgvd7.pt"
+CHECKPOINT_PATH = VMMR_DIR / "vmmr_resnet50_fgvd8.pt"
+# Prefer fgvd8; fall back to fgvd7 if only the prior checkpoint is present.
+LEGACY_CHECKPOINT_PATH = VMMR_DIR / "vmmr_resnet50_fgvd7.pt"
 META_PATH = VMMR_DIR / "meta.json"
 
 PRICING_CONFIRMED = "confirmed"
@@ -62,11 +65,13 @@ RELIABLE_CLASSES = {
 
 # Small source sets / weak top-1 — prone to being confused *with* by reliable
 # classes, and not trustworthy enough to auto-finalize even at high margin.
+# XUV500 is forced low_confidence regardless of held-out accuracy (n≈64).
 LOW_CONFIDENCE_CLASSES = {
     "Hyundai_Creta",
     "Maruti_Baleno",
     "Honda_City",
     "Renault_Kwid",
+    "Mahindra_XUV500",
 }
 
 CLASS_RELIABILITY_TIER: dict[str, str] = {
@@ -174,14 +179,15 @@ def _load_finetuned():
     with _lock:
         if _finetuned is not None or _load_error is not None:
             return _finetuned, _finetuned_labels
-        if not CHECKPOINT_PATH.exists():
+        ckpt_path = CHECKPOINT_PATH if CHECKPOINT_PATH.exists() else LEGACY_CHECKPOINT_PATH
+        if not ckpt_path.exists():
             logger.warning("Fine-tuned VMMR checkpoint missing at %s", CHECKPOINT_PATH)
             return None, None
         try:
             import torch  # noqa: PLC0415
             from torchvision.models import resnet50  # noqa: PLC0415
 
-            ckpt = torch.load(CHECKPOINT_PATH, map_location="cpu")
+            ckpt = torch.load(ckpt_path, map_location="cpu")
             class_names = ckpt.get("class_names") or []
             margin = float(ckpt.get("margin_threshold", DEFAULT_MARGIN_THRESHOLD))
             model = resnet50(weights=None)
@@ -196,7 +202,7 @@ def _load_finetuned():
                 "Loaded fine-tuned VMMR (%s classes, margin>=%.2f) from %s",
                 len(class_names),
                 margin,
-                CHECKPOINT_PATH,
+                ckpt_path,
             )
         except Exception as exc:
             _load_error = str(exc)

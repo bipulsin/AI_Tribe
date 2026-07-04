@@ -135,7 +135,7 @@ tree — that copy is enough to run without `/mnt/ml-scratch` mounted.
 | Tier | Classes | Auto-finalize when margin OK? |
 | --- | --- | --- |
 | **reliable** | Swift, Innova, i20 | Yes (`pricing_basis=confirmed`) |
-| **low_confidence** | Creta, Baleno, City, Kwid | No — `pricing_basis=needs_confirmation` even at high margin |
+| **low_confidence** | Creta, Baleno, City, Kwid, **XUV500** (forced) | No — `needs_confirmation` even at high margin |
 | **provisional only** | Nexon, XUV700, Seltos | Never (no class in head) |
 
 `needs_confirmation` is distinct from `provisional_fallback`: the model made a
@@ -154,18 +154,23 @@ Maruti Swift at high margin (~0.84) and remains `pricing_basis=confirmed`.
 
 ### Catalog models: trained vs provisional-only
 
-| Catalog model | FGVD source images | Tier / status |
-| --- | --- | --- |
-| Maruti Swift | ~451 | **reliable** (held-out meaningful) |
-| Toyota Innova | ~500 | **reliable** (held-out meaningful) |
-| Hyundai i20 | ~123 | **reliable** (held-out meaningful) |
-| Hyundai Creta | ~107 | **low_confidence** (weak top-1) |
-| Maruti Baleno | ~91 | **low_confidence** (held-out not meaningful) |
-| Honda City | ~84 | **low_confidence** (held-out not meaningful) |
-| Renault Kwid | ~23 | **low_confidence** (n_test≈5 — do not trust accuracy) |
-| Tata Nexon | 2 (unused) | **Provisional only** — no class in head |
-| Mahindra XUV700 | 0 | **Provisional only** |
-| Kia Seltos | 0 | **Provisional only** |
+| Catalog model | FGVD source images | Tier / status | Parts catalogue |
+| --- | --- | --- | --- |
+| Maruti Swift | ~451 | **reliable** | Exact seed rows |
+| Toyota Innova | ~500 | **reliable** | Exact seed rows |
+| Hyundai i20 | ~123 | **reliable** | Exact seed rows |
+| Hyundai Creta | ~107 | **low_confidence** | Exact seed rows |
+| Maruti Baleno | ~91 | **low_confidence** | Exact seed rows |
+| Honda City | ~84 | **low_confidence** | Exact seed rows |
+| Renault Kwid | ~23 | **low_confidence** | Exact seed rows |
+| **Mahindra XUV500** | **64** (`car_Mahindra_XUV500`) | **low_confidence** (forced) | **No exact rows** — same-make fallback to **XUV700** with `model_fallback_priced` disclosure |
+| Tata Nexon | 2 (unused) | **Provisional only** | Exact seed rows (identity never confirmed) |
+| Mahindra XUV700 | 0 | **Provisional only** | Exact seed rows (identity never confirmed from VMMR) |
+| Kia Seltos | 0 | **Provisional only** | Exact seed rows |
+
+XUV500 has no Autorox/live pricing integration yet; seed catalogue only has XUV700.
+Estimates for identified XUV500 use XUV700 unit prices with an explicit
+“Approximate pricing” banner naming both models.
 
 Training used inverse-frequency `WeightedRandomSampler` + class-weighted CE, with
 stronger augmentation on Kwid / City / Creta / Baleno.

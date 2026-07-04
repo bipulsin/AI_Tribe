@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extract FGVD crops for the 7 catalog classes with usable counts."""
+"""Extract FGVD crops for the 8 catalog classes with usable counts."""
 
 from __future__ import annotations
 
@@ -24,6 +24,7 @@ LABEL_MAP = {
     "car_Honda_City": "Honda_City",
     "car_Toyota_Innova": "Toyota_Innova",
     "car_Renault_Kwid": "Renault_Kwid",
+    "car_Mahindra_XUV500": "Mahindra_XUV500",
 }
 
 CLASS_ORDER = [
@@ -34,6 +35,7 @@ CLASS_ORDER = [
     "Honda_City",
     "Toyota_Innova",
     "Renault_Kwid",
+    "Mahindra_XUV500",
 ]
 
 
