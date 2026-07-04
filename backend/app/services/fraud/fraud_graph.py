@@ -4,8 +4,7 @@ Uses networkx. Signals are intentionally simple and inspectable:
 - node degree at or above DEGREE_FLAG_THRESHOLD
 - garage–surveyor co-occurrence at or above PAIR_FLAG_THRESHOLD
 
-This is a demo-scale graph (DEMO- claims + optional live garage selection),
-not production claim-history analytics.
+Graph over claimants, surveyors, and garages linked by shared claims.
 """
 
 from __future__ import annotations
@@ -46,10 +45,7 @@ class ClaimNetworkView:
     edges: list[GraphEdge]
     flagged_node_ids: list[str]
     clear: bool
-    caption: str = (
-        "Network view built on demo data (DEMO-prefixed claims), illustrating "
-        "the approach. Not built on production claim history."
-    )
+    caption: str = "Network view of claims sharing this garage or surveyor."
     signals: list[FraudSignalDraft] = field(default_factory=list)
 
 

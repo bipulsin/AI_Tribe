@@ -1,6 +1,7 @@
 /**
  * Per-claim organised-fraud neighborhood diagram (vis-network CDN).
  * Always renders: clear single-node + green badge, or local neighborhood.
+ * Caption: network of claims sharing garage/surveyor.
  */
 function renderFraudNetwork(containerId, payload) {
   const container = document.getElementById(containerId);

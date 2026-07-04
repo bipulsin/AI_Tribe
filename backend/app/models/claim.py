@@ -16,7 +16,7 @@ class Claim(Base):
     garage_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("garages.id"), nullable=True, index=True
     )
-    # Display labels for fraud-graph nodes (demo claims use synthetic names).
+    # Display labels for fraud-graph nodes (optional overrides of creator/surveyor).
     claimant_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
     surveyor_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
     status: Mapped[ClaimStatus] = mapped_column(
