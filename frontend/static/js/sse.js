@@ -62,12 +62,48 @@ function pipelineTracker({
         }
         this.freezeTotalFromStages();
         this.refreshTimers();
+        this.$nextTick(() => this.scrollToActiveStage({ instant: true }));
         return;
       }
 
       this.connecting = initialEvents.length === 0;
       this.startTicker();
       this.connect();
+      this.$nextTick(() => this.scrollToActiveStage({ instant: true }));
+    },
+
+    activeStageKey() {
+      const started = this.stages.find((stage) => stage.status === "started");
+      if (started) return started.key;
+      for (let i = this.stages.length - 1; i >= 0; i -= 1) {
+        const stage = this.stages[i];
+        if (
+          stage.status === "passed" ||
+          stage.status === "failed" ||
+          stage.status === "warning"
+        ) {
+          return stage.key;
+        }
+      }
+      return this.stages[0] ? this.stages[0].key : null;
+    },
+
+    scrollToActiveStage({ instant = false } = {}) {
+      const windowEl = this.$refs.stageWindow;
+      if (!windowEl) return;
+      const key = this.activeStageKey();
+      if (!key) return;
+      const row = windowEl.querySelector(`[data-stage-key="${key}"]`);
+      if (!row) return;
+      // Keep the in-progress stage roughly centered in the ~5-row window.
+      const rowTop = row.offsetTop;
+      const rowHeight = row.offsetHeight;
+      const target =
+        rowTop - windowEl.clientHeight / 2 + rowHeight / 2;
+      windowEl.scrollTo({
+        top: Math.max(0, target),
+        behavior: instant ? "auto" : "smooth",
+      });
     },
 
     connect() {
@@ -205,6 +241,10 @@ function pipelineTracker({
           }
           if (Object.prototype.hasOwnProperty.call(event, "detail")) {
             stage.detail = event.detail;
+          }
+
+          if (!fromHistory) {
+            this.$nextTick(() => this.scrollToActiveStage());
           }
         }
       }

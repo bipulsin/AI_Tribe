@@ -353,3 +353,15 @@ body {
 body.help-guide-open {
   overflow: hidden;
 }
+
+/* Fixed-viewport pages — outer page does not scroll; inner panes do */
+.page-viewport {
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+.stage-window {
+  /* ~5 stage rows visible; user can scroll for the rest */
+  scroll-behavior: smooth;
+}

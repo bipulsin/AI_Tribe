@@ -3,11 +3,11 @@
 {% block title %}Estimate{% endblock %}
 
 {% block body %}
-<div class="mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-10" x-data="{ showTech: false }">
-  <header class="mb-10 flex items-start justify-between gap-4">
+<div class="page-viewport mx-auto flex max-w-3xl flex-col px-6 py-4" x-data="{ showTech: false }">
+  <header class="mb-3 flex shrink-0 items-start justify-between gap-4">
     <div>
       <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gold">AI Tribe</p>
-      <h1 class="mt-2 text-3xl font-semibold tracking-tight text-navy dark:text-mist">Survey estimate</h1>
+      <h1 class="mt-1 text-2xl font-semibold tracking-tight text-navy dark:text-mist">Survey estimate</h1>
       {% if claim %}
       <p class="mt-2 text-sm text-navy/60 dark:text-mist/55">{{ claim.claim_reference }}</p>
       {% endif %}
@@ -31,14 +31,17 @@
   </header>
 
   {% if error %}
-  <section class="notice" role="status">
+  <section class="notice shrink-0" role="status">
     <p class="notice-title">Estimate unavailable</p>
     <p class="notice-body">{{ error }}</p>
   </section>
   {% else %}
 
+  <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+  <div class="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+
   {# Vehicle summary — identity from vehicle record, independent of catalog fallback #}
-  <section class="mb-6 rounded-2xl border border-navy/10 bg-white px-6 py-5 dark:border-white/10 dark:bg-navy">
+  <section class="rounded-2xl border border-navy/10 bg-white px-5 py-4 dark:border-white/10 dark:bg-navy">
     <p class="text-xs font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">Vehicle</p>
     {% if vehicle and vehicle.identity_confirmed %}
     <p class="mt-2 text-xl font-semibold text-navy dark:text-mist">
@@ -88,7 +91,7 @@
 
   {# Independent banners — identity tier and catalog fallback can both show #}
   {% if identity_pricing_basis == "needs_confirmation" %}
-  <section class="notice mb-6" role="status">
+  <section class="notice" role="status">
     <p class="notice-title">Surveyor confirmation required</p>
     <p class="notice-body">
       The model suggested {{ identified_vehicle_label or "a catalogue vehicle" }}, but that
@@ -99,7 +102,7 @@
   {% endif %}
 
   {% if estimate.pricing_basis == "model_fallback_priced" or fallback_source_model %}
-  <section class="notice mb-6" role="status">
+  <section class="notice" role="status">
     <p class="notice-title">Approximate pricing</p>
     <p class="notice-body">
       Identified vehicle: {{ identified_vehicle_label or "unknown" }}. A priced parts
@@ -112,7 +115,7 @@
   {% endif %}
 
   {% if estimate.pricing_basis == "provisional_fallback" %}
-  <section class="notice mb-6" role="status">
+  <section class="notice" role="status">
     <p class="notice-title">Provisional estimate</p>
     <p class="notice-body">
       Vehicle identity could not be confirmed from the submitted photos. This total is
@@ -123,7 +126,7 @@
   </section>
   {% endif %}
 
-  <section class="notice mb-6" role="status">
+  <section class="notice" role="status">
     <p class="notice-title">Indicative pricing only</p>
     <p class="notice-body">
       Part prices shown are indicative estimates from publicly available sources and have
@@ -131,12 +134,12 @@
     </p>
   </section>
 
-  {# Parts table #}
-  <section class="mb-6 overflow-hidden rounded-2xl border border-navy/10 bg-white dark:border-white/10 dark:bg-navy">
-    <div class="border-b border-navy/10 px-6 py-4 dark:border-white/10">
+  {# Parts table — scrolls within its own pane #}
+  <section class="flex min-h-[10rem] max-h-[40vh] flex-col overflow-hidden rounded-2xl border border-navy/10 bg-white dark:border-white/10 dark:bg-navy">
+    <div class="shrink-0 border-b border-navy/10 px-5 py-3 dark:border-white/10">
       <p class="text-xs font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">Parts and pricing</p>
     </div>
-    <div class="overflow-x-auto">
+    <div class="min-h-0 flex-1 overflow-auto">
       <table class="w-full min-w-[36rem] text-left text-sm">
         <thead class="bg-canvas text-navy/50 dark:bg-ink/80 dark:text-mist/45">
           <tr>
@@ -169,7 +172,7 @@
   </section>
 
   {# Totals #}
-  <section class="mb-6 rounded-2xl border border-navy/10 bg-white px-6 py-6 dark:border-white/10 dark:bg-navy">
+  <section class="rounded-2xl border border-navy/10 bg-white px-5 py-4 dark:border-white/10 dark:bg-navy">
     <div class="flex flex-col gap-2 sm:items-end">
       <div class="flex w-full max-w-xs justify-between text-sm text-navy/60 dark:text-mist/55">
         <span>Subtotal</span>
@@ -202,7 +205,7 @@
   </section>
 
   {# Progressive disclosure — technical detail #}
-  <section class="rounded-2xl border border-navy/10 bg-white px-6 py-5 dark:border-white/10 dark:bg-navy">
+  <section class="rounded-2xl border border-navy/10 bg-white px-5 py-4 dark:border-white/10 dark:bg-navy">
     <button
       type="button"
       class="flex w-full items-center justify-between text-left"
@@ -257,6 +260,9 @@
       </div>
     </div>
   </section>
+
+  </div>
+  </div>
 
   {% endif %}
 </div>
