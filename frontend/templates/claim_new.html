@@ -4,14 +4,14 @@
 
 {% block body %}
 <div
-  class="mx-auto max-w-3xl px-6 py-8"
+  class="mx-auto max-w-3xl px-6 py-4"
   x-data="claimUpload({ maxImages: {{ max_images }}, maxUploadMb: {{ max_upload_mb }}, surveyorName: {{ (full_name or username or '')|tojson }} })"
 >
-  <header class="mb-8 flex items-start justify-between gap-4">
+  <header class="mb-3 flex items-start justify-between gap-4">
     <div>
       <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gold">AI Tribe</p>
-      <h1 class="mt-2 text-3xl font-semibold tracking-tight text-navy dark:text-mist">Claims</h1>
-      <p class="mt-2 text-sm text-navy/60 dark:text-mist/55">
+      <h1 class="mt-1 text-2xl font-semibold tracking-tight text-navy dark:text-mist">Claims</h1>
+      <p class="mt-1 text-sm text-navy/60 dark:text-mist/55">
         Signed in as {{ full_name or username }}
       </p>
     </div>
@@ -25,13 +25,8 @@
     </form>
   </header>
 
-  <section class="rounded-2xl border border-navy/10 bg-white px-5 py-4 dark:border-white/10 dark:bg-navy">
-    <h2 class="text-sm font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">
-      Find an existing claim
-    </h2>
-    <p class="mt-1 text-sm text-navy/55 dark:text-mist/50">
-      Search by claim reference, garage, or surveyor.
-    </p>
+  {# Search only — no section headings; minimal top footprint #}
+  <section class="rounded-xl border border-navy/10 bg-white px-3 py-2 dark:border-white/10 dark:bg-navy">
     <label for="claim_search" class="sr-only">Search claims</label>
     <input
       id="claim_search"
@@ -43,23 +38,19 @@
       hx-trigger="keyup changed delay:300ms, search"
       hx-target="#claim-search-results"
       hx-include="this"
-      class="mt-3 w-full rounded-lg border border-navy/15 bg-canvas px-3 py-2.5 text-sm text-navy outline-none focus:border-gold/50 dark:border-white/15 dark:bg-ink dark:text-mist"
+      class="w-full rounded-lg border border-navy/15 bg-canvas px-3 py-2 text-sm text-navy outline-none focus:border-gold/50 dark:border-white/15 dark:bg-ink dark:text-mist"
     />
     <div
       id="claim-search-results"
-      class="mt-3 max-h-48 overflow-y-auto rounded-xl border border-navy/10 dark:border-white/10"
+      class="mt-1.5 max-h-36 overflow-y-auto rounded-lg border border-navy/10 dark:border-white/10"
     >
-      <p class="px-3 py-2 text-sm text-navy/45 dark:text-mist/40">Type to search.</p>
+      <p class="px-2 py-1 text-xs text-navy/45 dark:text-mist/40">Type to search.</p>
     </div>
   </section>
 
-  <section class="mt-6 rounded-2xl border border-navy/10 bg-white px-5 py-5 dark:border-white/10 dark:bg-navy">
-    <h2 class="text-sm font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">
-      New claim
-    </h2>
-
+  <section class="mt-3 rounded-xl border border-navy/10 bg-white px-4 py-3 dark:border-white/10 dark:bg-navy">
     <div
-      class="upload-zone mt-4 rounded-2xl border border-dashed bg-canvas px-6 py-10 text-center transition dark:bg-ink"
+      class="upload-zone rounded-xl border border-dashed bg-canvas px-4 py-4 transition dark:bg-ink"
       :class="dragOver
         ? 'border-gold bg-gold/5 dark:bg-gold/10'
         : 'border-navy/15 hover:border-navy/30 dark:border-white/15 dark:hover:border-white/25'"
@@ -77,36 +68,46 @@
         @change="onFileSelect($event)"
       />
 
-      <p class="text-lg font-medium text-navy dark:text-mist">Drop damage photos</p>
-      <p class="mt-2 text-sm text-navy/55 dark:text-mist/50">
-        Up to {{ max_images }} images · optional video · max {{ max_upload_mb }} MB
-      </p>
-      <button
-        type="button"
-        class="btn-primary mt-6 rounded-lg px-5 py-2.5 text-sm font-semibold"
-        @click.stop="$refs.fileInput.click()"
-      >
-        Browse files
-      </button>
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+        <div class="min-w-0 flex-1 text-left sm:text-left">
+          <p class="text-lg font-medium text-navy dark:text-mist">Drop damage photos</p>
+          <p class="mt-1 text-sm text-navy/55 dark:text-mist/50">
+            Up to {{ max_images }} images · optional video · max {{ max_upload_mb }} MB
+          </p>
+          <button
+            type="button"
+            class="btn-primary mt-3 rounded-lg px-5 py-2.5 text-sm font-semibold"
+            @click.stop="$refs.fileInput.click()"
+          >
+            Browse files
+          </button>
+        </div>
+        <div class="min-w-0 flex-1 text-left sm:text-right">
+          <p class="text-lg font-medium text-navy dark:text-mist">Find an existing claim</p>
+          <p class="mt-1 text-sm text-navy/55 dark:text-mist/50">
+            Search by claim reference, garage, or surveyor.
+          </p>
+        </div>
+      </div>
     </div>
 
-    <div class="mt-4 flex items-center justify-between gap-4 text-sm text-navy/60 dark:text-mist/55">
+    <div class="mt-2 flex items-center justify-between gap-4 text-sm text-navy/60 dark:text-mist/55">
       <p x-text="imageCounterLabel"></p>
       <p x-show="video" x-cloak>1 video attached</p>
     </div>
 
-    <div class="notice mt-4" x-show="error" x-cloak role="alert">
+    <div class="notice mt-2" x-show="error" x-cloak role="alert">
       <p class="notice-title">Could not add that file</p>
       <p class="notice-body" x-text="error"></p>
     </div>
 
     <ul
-      class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4"
+      class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4"
       x-show="previews.length"
       x-cloak
     >
       <template x-for="item in previews" :key="item.id">
-        <li class="group relative overflow-hidden rounded-xl border border-navy/10 bg-canvas dark:border-white/10 dark:bg-ink">
+        <li class="group relative overflow-hidden rounded-lg border border-navy/10 bg-canvas dark:border-white/10 dark:bg-ink">
           <div class="aspect-square">
             <template x-if="item.isVideo">
               <video
@@ -124,7 +125,7 @@
               />
             </template>
           </div>
-          <div class="flex items-center justify-between gap-2 px-2.5 py-2">
+          <div class="flex items-center justify-between gap-2 px-2 py-1.5">
             <span
               class="truncate text-xs text-navy/60 dark:text-mist/55"
               x-text="item.isVideo ? 'Video' : item.name"
@@ -142,10 +143,9 @@
       </template>
     </ul>
 
-    <div class="mt-6 grid gap-4 sm:grid-cols-2">
+    <div class="mt-3 grid gap-3 sm:grid-cols-2">
       <div class="relative">
         <label for="garage_name" class="block text-sm font-medium text-navy dark:text-mist">Garage</label>
-        <p class="mt-1 text-xs text-navy/50 dark:text-mist/45">Type to search, or enter a new name.</p>
         <input
           id="garage_name"
           name="garage_name"
@@ -156,14 +156,13 @@
           hx-trigger="keyup changed delay:300ms"
           hx-target="#garage-suggestions"
           hx-include="this"
-          class="mt-2 w-full rounded-lg border border-navy/15 bg-canvas px-3 py-2 text-sm text-navy outline-none focus:border-gold/50 dark:border-white/15 dark:bg-ink dark:text-mist"
+          class="mt-1 w-full rounded-lg border border-navy/15 bg-canvas px-3 py-2 text-sm text-navy outline-none focus:border-gold/50 dark:border-white/15 dark:bg-ink dark:text-mist"
           placeholder="Garage name"
         />
         <div id="garage-suggestions" class="suggest-panel" x-ref="garageNameSuggestions"></div>
       </div>
       <div class="relative">
         <label for="surveyor_name" class="block text-sm font-medium text-navy dark:text-mist">Surveyor</label>
-        <p class="mt-1 text-xs text-navy/50 dark:text-mist/45">Prefilled with your name; editable.</p>
         <input
           id="surveyor_name"
           name="surveyor_name"
@@ -174,14 +173,14 @@
           hx-trigger="keyup changed delay:300ms"
           hx-target="#surveyor-suggestions"
           hx-include="this"
-          class="mt-2 w-full rounded-lg border border-navy/15 bg-canvas px-3 py-2 text-sm text-navy outline-none focus:border-gold/50 dark:border-white/15 dark:bg-ink dark:text-mist"
+          class="mt-1 w-full rounded-lg border border-navy/15 bg-canvas px-3 py-2 text-sm text-navy outline-none focus:border-gold/50 dark:border-white/15 dark:bg-ink dark:text-mist"
           placeholder="Surveyor name"
         />
         <div id="surveyor-suggestions" class="suggest-panel" x-ref="surveyorNameSuggestions"></div>
       </div>
     </div>
 
-    <div class="mt-6 flex flex-col items-end gap-2">
+    <div class="mt-3 flex flex-col items-end gap-1">
       <p
         class="text-sm text-navy/45 dark:text-mist/40"
         x-show="!canSubmit && !submitting"
@@ -191,7 +190,7 @@
       </p>
       <button
         type="button"
-        class="btn-primary inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-semibold"
+        class="btn-primary inline-flex items-center justify-center rounded-lg px-10 py-5 text-lg font-semibold"
         :disabled="!canSubmit || submitting"
         @click="submitClaim()"
       >
