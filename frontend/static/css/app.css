@@ -36,22 +36,64 @@ body {
   cursor: not-allowed;
 }
 
-/* Login page — full-bleed video with dark gradient for text contrast */
+/* Login page — full-bleed video, flat left-aligned form (no card) */
 .login-bg-video {
-  filter: saturate(0.9) brightness(0.85);
+  filter: saturate(0.95) brightness(0.92);
 }
 
 .login-bg-video.video-missing {
   display: none;
 }
 
+/* Black-tinted overlay: video stays visible; text stays legible across the loop */
 .login-overlay {
-  background:
-    linear-gradient(160deg, rgba(0, 31, 63, 0.78) 0%, rgba(0, 31, 63, 0.55) 45%, rgba(0, 0, 0, 0.72) 100%);
+  background: rgba(0, 0, 0, 0.48);
 }
 
 .login-stage {
   background-color: #001f3f;
+  /* Sit content slightly above true vertical center */
+  padding-bottom: 6vh;
+}
+
+.login-panel {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.login-input {
+  text-shadow: none;
+  box-shadow: none;
+}
+
+.login-submit {
+  background-color: var(--mist);
+  color: var(--navy);
+  border: 1px solid rgba(232, 236, 241, 0.9);
+  transition: filter 0.15s ease, background-color 0.15s ease;
+  text-shadow: none;
+}
+
+.login-submit:hover:not(:disabled) {
+  filter: brightness(1.04);
+  background-color: #fff;
+}
+
+.login-submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.login-submit-spinner {
+  border-color: rgba(0, 31, 63, 0.25);
+  border-top-color: var(--navy);
+}
+
+.login-link {
+  text-shadow: none;
+}
+
+.login-decor-svg {
+  color: rgba(184, 134, 11, 0.18);
 }
 
 /* Alpine.js cloak — hide unbound templates until Alpine boots */

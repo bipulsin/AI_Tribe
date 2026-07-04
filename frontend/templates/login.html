@@ -13,6 +13,7 @@
             navy: '#001F3F',
             gold: '#B8860B',
             canvas: '#F7F8FA',
+            mist: '#E8ECF1',
           },
         },
       },
@@ -22,7 +23,7 @@
   <link rel="stylesheet" href="/static/css/app.css" />
 </head>
 <body class="min-h-screen overflow-hidden text-white antialiased">
-  <div class="login-stage relative flex min-h-screen items-center justify-center px-4">
+  <div class="login-stage relative flex min-h-screen items-center px-6 sm:px-10 lg:px-16">
     <video
       id="login-bg-video"
       class="login-bg-video absolute inset-0 h-full w-full object-cover"
@@ -36,70 +37,95 @@
     </video>
     <div class="login-overlay absolute inset-0" aria-hidden="true"></div>
 
-    <main class="relative z-10 w-full max-w-md">
-      <div class="glass-card rounded-2xl px-8 py-10 text-white">
-        <div class="mb-8 text-center">
-          <p class="text-xs font-semibold uppercase tracking-[0.28em] text-gold">AI Lab</p>
-          <h1 class="mt-3 text-3xl font-semibold tracking-tight">AI Tribe</h1>
-          <p class="mt-3 text-lg font-bold tracking-tight text-white">Motor Claim Damage Assessment</p>
+    {# Ambient line-art texture — abstract, non-interactive #}
+    <div class="login-decor pointer-events-none absolute inset-y-0 right-0 hidden w-1/2 lg:block" aria-hidden="true">
+      <svg class="login-decor-svg absolute right-[8%] top-[18%] h-16 w-16" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.2">
+        <circle cx="32" cy="32" r="18" />
+        <path d="M20 32h24M32 20v24" />
+      </svg>
+      <svg class="login-decor-svg absolute right-[22%] top-[42%] h-12 w-12" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.2">
+        <rect x="8" y="12" width="32" height="24" rx="3" />
+        <path d="M8 20h32" />
+      </svg>
+      <svg class="login-decor-svg absolute right-[12%] bottom-[22%] h-14 w-14" viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="1.2">
+        <path d="M10 38 L28 12 L46 38 Z" />
+        <circle cx="28" cy="30" r="4" />
+      </svg>
+      <svg class="login-decor-svg absolute right-[30%] bottom-[38%] h-10 w-10" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.2">
+        <path d="M8 20c0-6.6 5.4-12 12-12s12 5.4 12 12-5.4 12-12 12" />
+        <path d="M20 14v12M14 20h12" />
+      </svg>
+    </div>
+
+    <main class="login-panel relative z-10 w-full max-w-sm">
+      <div class="mb-8 flex items-center gap-2.5">
+        <span class="login-mark inline-flex h-7 w-7 items-center justify-center rounded-md border border-gold/50 text-xs font-bold text-gold" aria-hidden="true">AI</span>
+        <p class="text-sm font-semibold tracking-wide text-white">AI Tribe</p>
+      </div>
+
+      <h1 class="text-3xl font-bold leading-tight tracking-tight text-white sm:text-4xl">
+        Motor Claim Damage Detection AI Model
+      </h1>
+      <p class="mt-3 text-sm leading-relaxed text-white/65">
+        Use your username and password to access this instance.
+      </p>
+
+      <form
+        id="login-form"
+        hx-post="/auth/login"
+        hx-target="#login-error"
+        hx-swap="innerHTML"
+        hx-disabled-elt="find button[type=submit]"
+        hx-indicator="#login-spinner"
+        class="mt-8 space-y-5"
+        autocomplete="on"
+      >
+        <div>
+          <label for="username" class="mb-1.5 block text-sm font-medium text-white/85">Username</label>
+          <input
+            id="username"
+            name="username"
+            type="text"
+            required
+            autofocus
+            autocomplete="username"
+            class="login-input w-full rounded-md border border-white/20 bg-navy/55 px-3.5 py-2.5 text-white placeholder-white/35 outline-none transition focus:border-gold/55 focus:ring-1 focus:ring-gold/40"
+            placeholder="admin"
+          />
         </div>
 
-        <form
-          id="login-form"
-          hx-post="/auth/login"
-          hx-target="#login-error"
-          hx-swap="innerHTML"
-          hx-disabled-elt="find button[type=submit]"
-          hx-indicator="#login-spinner"
-          class="space-y-5"
-          autocomplete="on"
+        <div>
+          <label for="password" class="mb-1.5 block text-sm font-medium text-white/85">Password</label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            required
+            autocomplete="current-password"
+            class="login-input w-full rounded-md border border-white/20 bg-navy/55 px-3.5 py-2.5 text-white placeholder-white/35 outline-none transition focus:border-gold/55 focus:ring-1 focus:ring-gold/40"
+            placeholder="••••••••"
+          />
+        </div>
+
+        <div id="login-error" class="min-h-[1.25rem]" aria-live="polite">
+          {% if error %}
+            {% include "partials/login_error.html" %}
+          {% endif %}
+        </div>
+
+        <button
+          type="submit"
+          class="login-submit inline-flex w-full items-center justify-center rounded-md px-4 py-2.5 text-sm font-semibold tracking-wide"
         >
-          <div>
-            <label for="username" class="mb-1.5 block text-sm font-medium text-white/90">Username</label>
-            <input
-              id="username"
-              name="username"
-              type="text"
-              required
-              autofocus
-              autocomplete="username"
-              class="w-full rounded-lg border border-white/20 bg-white/10 px-3.5 py-2.5 text-white placeholder-white/40 outline-none ring-gold/40 transition focus:border-gold/60 focus:bg-white/15 focus:ring-2"
-              placeholder="admin"
-            />
-          </div>
+          <span id="login-spinner" class="btn-spinner login-submit-spinner htmx-indicator"></span>
+          Sign In
+        </button>
+      </form>
 
-          <div>
-            <label for="password" class="mb-1.5 block text-sm font-medium text-white/90">Password</label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              autocomplete="current-password"
-              class="w-full rounded-lg border border-white/20 bg-white/10 px-3.5 py-2.5 text-white placeholder-white/40 outline-none ring-gold/40 transition focus:border-gold/60 focus:bg-white/15 focus:ring-2"
-              placeholder="••••••••"
-            />
-          </div>
-
-          <div id="login-error" class="min-h-[1.25rem]" aria-live="polite">
-            {% if error %}
-              {% include "partials/login_error.html" %}
-            {% endif %}
-          </div>
-
-          <button
-            type="submit"
-            class="btn-primary inline-flex w-full items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold tracking-wide shadow-lg shadow-black/20"
-          >
-            <span id="login-spinner" class="btn-spinner htmx-indicator"></span>
-            Sign in
-          </button>
-        </form>
-
-        <p class="mt-8 text-center text-xs leading-relaxed text-white/55">
-          (C) 2026 AI Tribe Lab Tradentical
-        </p>
-      </div>
+      <p class="mt-6 text-sm text-white/60">
+        Need an account?
+        <a href="mailto:tradentical@gmail.com" class="login-link font-medium text-gold/90 underline-offset-2 hover:text-gold hover:underline">Message us</a>
+      </p>
     </main>
   </div>
 
