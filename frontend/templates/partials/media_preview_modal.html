@@ -1,0 +1,28 @@
+<div
+  id="media-preview-modal"
+  class="media-preview-modal"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Media preview"
+  hidden
+>
+  <div class="media-preview-backdrop" data-media-preview-close></div>
+  <div class="media-preview-panel" tabindex="-1">
+    <button
+      type="button"
+      class="media-preview-close"
+      data-media-preview-close
+      aria-label="Close preview"
+    >
+      ×
+    </button>
+    <img id="media-preview-image" class="media-preview-image" alt="" hidden />
+    <video
+      id="media-preview-video"
+      class="media-preview-video"
+      controls
+      playsinline
+      hidden
+    ></video>
+  </div>
+</div>
