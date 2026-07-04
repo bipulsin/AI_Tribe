@@ -219,6 +219,7 @@ def _seed_image_roots() -> list[Path]:
         [
             REPO_ROOT / "data" / "seed_images",
             Path("/app/data/seed_images"),
+            Path("/mnt/ml-scratch/vmmr_data/crops"),
             Path("/mnt/ml-scratch/vmmr_data"),
             Path("/mnt/ml-scratch/vmmr_data/train"),
             Path("/mnt/ml-scratch/vmmr_data/val"),
@@ -237,6 +238,7 @@ def _find_class_images(class_folder: str, *, limit: int = 2) -> list[Path]:
             continue
         candidates = [
             root / class_folder,
+            root / "crops" / class_folder,
             root / "train" / class_folder,
             root / "val" / class_folder,
             root / "test" / class_folder,

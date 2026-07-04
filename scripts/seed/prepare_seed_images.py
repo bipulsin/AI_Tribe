@@ -37,6 +37,7 @@ def source_roots() -> list[Path]:
         roots.append(Path(env))
     roots.extend(
         [
+            Path("/mnt/ml-scratch/vmmr_data/crops"),
             Path("/mnt/ml-scratch/vmmr_data"),
             Path("/mnt/ml-scratch/vmmr_data/train"),
             Path("/mnt/ml-scratch/vmmr_data/val"),
@@ -53,6 +54,7 @@ def find_images(class_name: str, limit: int = 2) -> list[Path]:
             continue
         for folder in (
             root / class_name,
+            root / "crops" / class_name,
             root / "train" / class_name,
             root / "val" / class_name,
             root / "test" / class_name,
