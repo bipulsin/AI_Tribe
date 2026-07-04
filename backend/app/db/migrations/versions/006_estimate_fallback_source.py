@@ -18,11 +18,19 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "estimates",
-        sa.Column("fallback_source_model", sa.String(length=64), nullable=True),
-    )
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    columns = {col["name"] for col in inspector.get_columns("estimates")}
+    if "fallback_source_model" not in columns:
+        op.add_column(
+            "estimates",
+            sa.Column("fallback_source_model", sa.String(length=64), nullable=True),
+        )
 
 
 def downgrade() -> None:
-    op.drop_column("estimates", "fallback_source_model")
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    columns = {col["name"] for col in inspector.get_columns("estimates")}
+    if "fallback_source_model" in columns:
+        op.drop_column("estimates", "fallback_source_model")
