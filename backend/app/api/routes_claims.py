@@ -148,6 +148,7 @@ async def claim_processing(
             "stage_label": event.stage_label,
             "status": event.status.value if hasattr(event.status, "value") else event.status,
             "detail": event.detail,
+            "work_seconds": event.work_seconds,
             "created_at": event.created_at.isoformat() if event.created_at else None,
         }
         for event in events

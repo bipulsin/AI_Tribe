@@ -18,6 +18,7 @@ function pipelineTracker({
       detail: stage.detail || null,
       startedAtMs: null,
       durationSeconds: null,
+      workSeconds: null,
       timerLabel: "",
     })),
     complete: false,
@@ -227,10 +228,17 @@ function pipelineTracker({
           ) {
             stage.status = event.status;
             if (ts != null && stage.startedAtMs != null) {
+              // Elapsed time includes demo floor padding (started→passed timestamps).
               stage.durationSeconds = Math.max(
                 0,
                 (ts - stage.startedAtMs) / 1000
               );
+            }
+            if (
+              event.work_seconds != null &&
+              !Number.isNaN(Number(event.work_seconds))
+            ) {
+              stage.workSeconds = Number(event.work_seconds);
             }
           } else if (event.status) {
             stage.status = event.status;

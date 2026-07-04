@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable
@@ -449,6 +451,7 @@ def event_to_dict(event: PipelineEvent, **extra: Any) -> dict[str, Any]:
         if isinstance(event.status, PipelineEventStatus)
         else event.status,
         "detail": event.detail,
+        "work_seconds": event.work_seconds,
         "created_at": event.created_at.isoformat() if event.created_at else None,
     }
     payload.update(extra)
@@ -463,6 +466,7 @@ async def _emit(
     stage_label: str,
     status: PipelineEventStatus,
     detail: str | None = None,
+    work_seconds: float | None = None,
     **extra: Any,
 ) -> dict[str, Any]:
     event = PipelineEvent(
@@ -471,6 +475,7 @@ async def _emit(
         stage_label=stage_label,
         status=status,
         detail=detail,
+        work_seconds=work_seconds,
         created_at=datetime.now(timezone.utc),
     )
     db.add(event)
@@ -479,6 +484,21 @@ async def _emit(
     payload = event_to_dict(event, **extra)
     await event_bus.publish(claim_id, payload)
     return payload
+
+
+async def _run_handler_with_floor(
+    handler: StageFn,
+    db: Session,
+    claim: Claim,
+) -> tuple[StageResult, float]:
+    """Run a stage handler; pad to a per-stage random floor in [1.5, 2.1]s if faster."""
+    floor = random.uniform(1.5, 2.1)
+    started = time.perf_counter()
+    result = await handler(db, claim)
+    work_seconds = time.perf_counter() - started
+    if work_seconds < floor:
+        await asyncio.sleep(floor - work_seconds)
+    return result, work_seconds
 
 
 async def run_pipeline(claim_id: int) -> None:
@@ -535,7 +555,7 @@ async def run_pipeline(claim_id: int) -> None:
             handler = STAGE_HANDLERS[stage_key]
             claim = db.get(Claim, claim_id)
             assert claim is not None
-            result = await handler(db, claim)
+            result, work_seconds = await _run_handler_with_floor(handler, db, claim)
 
             resolved_label = RESOLVED_LABELS.get(stage_key, {}).get(
                 result.status.value, stage_label
@@ -553,6 +573,7 @@ async def run_pipeline(claim_id: int) -> None:
                 stage_label=label_out,
                 status=result.status,
                 detail=result.detail,
+                work_seconds=round(work_seconds, 3),
             )
 
             if result.status == PipelineEventStatus.failed and stage_key in HALTING_STAGES:

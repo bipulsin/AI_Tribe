@@ -244,6 +244,27 @@
       </div>
 
       <div>
+        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">Stage timings</p>
+        <ul class="mt-3 space-y-2">
+          {% for timing in stage_timings %}
+          <li class="text-sm text-navy/70 dark:text-mist/65">
+            <span class="font-medium text-navy dark:text-mist">{{ timing.label }}</span>
+            — elapsed time
+            <span class="tabular-nums">
+              {% if timing.elapsed_seconds is not none %}{{ '%.1f'|format(timing.elapsed_seconds) }}s{% else %}—{% endif %}
+            </span>
+            · model inference time
+            <span class="tabular-nums">
+              {% if timing.work_seconds is not none %}{{ '%.2f'|format(timing.work_seconds) }}s{% else %}—{% endif %}
+            </span>
+          </li>
+          {% else %}
+          <li class="text-sm text-navy/50 dark:text-mist/45">No stage timings recorded.</li>
+          {% endfor %}
+        </ul>
+      </div>
+
+      <div>
         <p class="text-xs font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">Fraud risk signals</p>
         {% if fraud_signals %}
         <ul class="mt-3 space-y-2">

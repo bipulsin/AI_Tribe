@@ -86,6 +86,28 @@ async def claim_estimate(
     if vehicle and vehicle.identity_confirmed:
         identity_pricing_basis = "confirmed"
 
+    # Stage timings: elapsed (padded, from event timestamps) vs model inference (unpadded).
+    stage_timings: list[dict] = []
+    events = sorted(claim.pipeline_events, key=lambda e: e.id)
+    started_at: dict[str, object] = {}
+    for event in events:
+        key = event.stage_key
+        status = event.status.value if hasattr(event.status, "value") else event.status
+        if status == "started":
+            started_at[key] = event.created_at
+        elif status in {"passed", "failed", "warning"} and key in started_at:
+            start = started_at[key]
+            elapsed = None
+            if start is not None and event.created_at is not None:
+                elapsed = max(0.0, (event.created_at - start).total_seconds())
+            stage_timings.append(
+                {
+                    "label": event.stage_label,
+                    "elapsed_seconds": elapsed,
+                    "work_seconds": event.work_seconds,
+                }
+            )
+
     return templates.TemplateResponse(
         "claim_estimate.html",
         {
@@ -102,6 +124,7 @@ async def claim_estimate(
             "identified_vehicle_label": identified_vehicle_label,
             "fallback_source_model": fallback_source_model,
             "identity_pricing_basis": identity_pricing_basis,
+            "stage_timings": stage_timings,
             "username": request.session.get("username", ""),
             "full_name": request.session.get("full_name", ""),
         },
