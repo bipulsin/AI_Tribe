@@ -35,6 +35,7 @@ WORKDIR /app
 COPY backend/ /app/backend/
 COPY frontend/ /app/frontend/
 COPY data/parts_seed/ /app/data/parts_seed/
+COPY data/seed_images/ /app/data/seed_images/
 COPY scripts/ /app/scripts/
 
 RUN mkdir -p /app/data/uploads /app/backend/app/ml_weights \

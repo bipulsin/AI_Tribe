@@ -28,7 +28,7 @@
   <link rel="stylesheet" href="/static/css/app.css" />
   {% block head %}{% endblock %}
 </head>
-<body class="min-h-screen bg-canvas text-navy antialiased dark:bg-ink dark:text-mist">
+<body class="{% block body_class %}min-h-screen bg-canvas text-navy antialiased dark:bg-ink dark:text-mist{% endblock %}">
   {% block body %}{% endblock %}
   {% include "partials/help_guide.html" %}
   <script src="/static/js/help_guide.js"></script>

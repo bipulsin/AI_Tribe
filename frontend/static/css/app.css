@@ -121,22 +121,22 @@ body {
 
 /* Calm contextual notices — light defaults, dark overrides for app shell */
 .notice {
-  border-radius: 0.75rem;
+  border-radius: 0.5rem;
   border: 1px solid rgba(180, 83, 9, 0.25);
   background: #fffbeb;
-  padding: 1rem 1.25rem;
+  padding: 0.4rem 0.75rem;
 }
 
 .notice-title {
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 500;
   color: #451a03;
 }
 
 .notice-body {
-  margin-top: 0.25rem;
-  font-size: 0.875rem;
-  line-height: 1.5;
+  margin-top: 0.1rem;
+  font-size: 0.75rem;
+  line-height: 1.35;
   color: rgba(120, 53, 15, 0.85);
 }
 
@@ -362,17 +362,30 @@ body.help-guide-open {
 }
 
 .stage-window {
-  /* ~5 stage rows visible; user can scroll for the rest */
   scroll-behavior: smooth;
 }
 
-/* Organised fraud graph — small, always-on neighborhood diagram */
+.stage-row {
+  padding-bottom: 0.45rem;
+}
+
+.stage-row:last-child {
+  padding-bottom: 0;
+}
+
+.stage-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  font-size: 0.7rem;
+}
+
+/* Organised fraud graph — compact always-on neighborhood diagram */
 .fraud-network-panel {
-  min-height: 12rem;
+  min-height: 0;
 }
 
 .fraud-network-frame {
-  height: 11rem;
+  height: 7.5rem;
   border-radius: 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(10, 15, 26, 0.55);

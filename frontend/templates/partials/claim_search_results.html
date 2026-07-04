@@ -1,25 +1,23 @@
 {% if not searched %}
-<p class="px-1 py-2 text-sm text-navy/45 dark:text-mist/40">Type a claim reference, garage, or surveyor name.</p>
+<p class="px-2 py-1 text-xs text-navy/45 dark:text-mist/40">Type to search.</p>
 {% elif not hits %}
-<p class="px-1 py-2 text-sm text-navy/55 dark:text-mist/50">No claims match “{{ query }}”.</p>
+<p class="px-2 py-1 text-xs text-navy/55 dark:text-mist/50">No claims match “{{ query }}”.</p>
 {% else %}
 <ul class="divide-y divide-navy/10 dark:divide-white/10" role="listbox" aria-label="Claim search results">
   {% for hit in hits %}
   <li>
     <a
       href="{{ hit.href }}"
-      class="block px-3 py-3 transition hover:bg-gold/10 focus:bg-gold/10 focus:outline-none dark:hover:bg-gold/15"
+      class="block px-2 py-1.5 transition hover:bg-gold/10 focus:bg-gold/10 focus:outline-none dark:hover:bg-gold/15"
       role="option"
     >
-      <div class="flex flex-wrap items-baseline justify-between gap-2">
-        <span class="font-semibold text-navy dark:text-mist">{{ hit.claim_reference }}</span>
-        <span class="text-xs font-medium uppercase tracking-wide text-navy/50 dark:text-mist/45">{{ hit.status_label }}</span>
+      <div class="flex flex-wrap items-baseline justify-between gap-1">
+        <span class="text-sm font-semibold text-navy dark:text-mist">{{ hit.claim_reference }}</span>
+        <span class="text-[10px] font-medium uppercase tracking-wide text-navy/50 dark:text-mist/45">{{ hit.status_label }}</span>
       </div>
-      <div class="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-sm text-navy/60 dark:text-mist/55">
+      <div class="mt-0.5 flex flex-wrap gap-x-2 text-xs text-navy/55 dark:text-mist/50">
         {% if hit.vehicle_label %}
         <span>{{ hit.vehicle_label }}</span>
-        {% else %}
-        <span class="text-navy/40 dark:text-mist/40">Vehicle unknown</span>
         {% endif %}
         {% if hit.garage_name %}
         <span>· {{ hit.garage_name }}</span>
@@ -28,9 +26,6 @@
         <span>· {{ hit.surveyor_name }}</span>
         {% endif %}
       </div>
-      {% if hit.created_at %}
-      <p class="mt-1 text-xs text-navy/40 dark:text-mist/40">{{ hit.created_at.strftime("%d %b %Y") }}</p>
-      {% endif %}
     </a>
   </li>
   {% endfor %}

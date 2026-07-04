@@ -60,7 +60,7 @@ def seed_admin(db) -> None:
         admin = User(
             username=DEFAULT_ADMIN_USERNAME,
             password_hash=hash_password(password),
-            full_name="Lab Administrator",
+            full_name="Bipul Sahay",
             role="admin",
         )
         db.add(admin)
@@ -83,6 +83,12 @@ def seed_admin(db) -> None:
                 + "\n"
             )
         return
+
+    # Keep the display name current for the live demo account.
+    if admin.full_name != "Bipul Sahay":
+        admin.full_name = "Bipul Sahay"
+        db.commit()
+        logger.info("Updated admin full_name to Bipul Sahay.")
 
     # Rotate away from the lab default when ADMIN_PASSWORD is provided.
     if explicit and verify_password(DEFAULT_ADMIN_PASSWORD, admin.password_hash):
