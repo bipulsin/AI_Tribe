@@ -125,8 +125,10 @@ tree — that copy is enough to run without `/mnt/ml-scratch` mounted.
 | Scratch run | `/mnt/ml-scratch/vmmr_runs/20260703T214155Z/` |
 | Registry row | `model_runs.run_id=20260703T214155Z` |
 | Accept rule | margin ≥ **0.39** **and** predicted class tier = **reliable** → `identity_confirmed`, `pricing_basis=confirmed` |
-| Low-confidence tier (margin OK) | Keep specific guess; `identity_confirmed=false`, `pricing_basis=needs_confirmation` (surveyor must confirm) |
+| Low-confidence tier (margin OK) | Keep specific guess; `identity_confirmed=false`, vehicle `pricing_basis=needs_confirmation` (surveyor must confirm) |
 | Below margin | ImageNet-transfer path, `pricing_basis=provisional_fallback` |
+| Same-make catalog miss | Exact model has no catalogue rows → price via **same-make only** substitute (never cross-brand); estimate `pricing_basis=model_fallback_priced`, `fallback_source_model` records the substitute (e.g. XUV500 → XUV700). Loud “Approximate pricing” banner names both vehicles. |
+| Both identity + catalog uncertainty | `needs_confirmation` **and** `model_fallback_priced` banners both show — independent signals. |
 
 ### Class reliability tiers (on top of margin gate)
 

@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.models import Estimate, Vehicle
 from app.models.enums import Severity
 from app.services.parts.parts_matcher import (
-    PRICING_CONFIRMED,
+    PRICING_MODEL_FALLBACK,
     PRICING_NEEDS_CONFIRMATION,
     PRICING_PROVISIONAL,
     PartMatch,
@@ -39,6 +39,9 @@ class BuiltEstimate:
     currency: str
     pricing_basis: str
     catalogue_vehicle_label: str
+    identified_vehicle_label: str
+    fallback_source_model: str | None
+    identity_pricing_basis: str
 
 
 def _line_costs(match: PartMatch) -> tuple[float, float, float]:
@@ -71,27 +74,51 @@ def _reason_summary(
     grand_total: float,
     currency: str,
     pricing_basis: str,
+    identity_pricing_basis: str,
+    identified_vehicle_label: str,
     catalogue_vehicle_label: str,
+    fallback_source_model: str | None,
 ) -> str:
-    if pricing_basis == PRICING_PROVISIONAL:
-        lead = (
+    leads: list[str] = []
+
+    # Model-fallback disclosure first when present (same placement as provisional).
+    if fallback_source_model or pricing_basis == PRICING_MODEL_FALLBACK:
+        identified = identified_vehicle_label
+        substitute = catalogue_vehicle_label
+        if fallback_source_model and vehicle and vehicle.make:
+            substitute = f"{vehicle.make} {fallback_source_model}".strip()
+        identified_model = (
+            (vehicle.model if vehicle and vehicle.model else None)
+            or identified.split()[-1]
+        )
+        leads.append(
+            f"Identified vehicle: {identified}. A priced parts catalogue entry "
+            f"for this exact model is not yet available, this estimate uses "
+            f"{substitute} pricing as an interim approximation and will be "
+            f"corrected once {identified_model} catalogue data is added. "
+        )
+
+    if identity_pricing_basis == PRICING_NEEDS_CONFIRMATION:
+        leads.append(
+            f"The model suggested {identified_vehicle_label}, but that class is "
+            "in the low-confidence tier and must be confirmed by a surveyor "
+            "before this estimate is treated as final. "
+        )
+    elif identity_pricing_basis == PRICING_PROVISIONAL and not leads:
+        leads.append(
             "Vehicle identity could not be confirmed from the submitted photos, "
             f"this estimate is priced against the nearest matched catalogue entry "
             f"({catalogue_vehicle_label}) and should be treated as indicative "
             "until a surveyor confirms the vehicle. "
         )
-        vehicle_label = catalogue_vehicle_label
-    elif pricing_basis == PRICING_NEEDS_CONFIRMATION:
-        lead = (
-            f"The model suggested {catalogue_vehicle_label}, but that class is in "
-            "the low-confidence tier and must be confirmed by a surveyor before "
-            "this estimate is treated as final. "
-        )
+
+    lead = "".join(leads)
+
+    if identity_pricing_basis == PRICING_PROVISIONAL and not fallback_source_model:
         vehicle_label = catalogue_vehicle_label
     else:
-        lead = ""
-        vehicle_label = "the assessed vehicle"
-        if vehicle and vehicle.make:
+        vehicle_label = identified_vehicle_label or "the assessed vehicle"
+        if vehicle_label == "the assessed vehicle" and vehicle and vehicle.make:
             bits = [vehicle.make]
             if vehicle.model:
                 bits.append(vehicle.model)
@@ -146,6 +173,7 @@ def build_estimate(db: Session, claim_id: int) -> BuiltEstimate:
                 "confidence_score": float(detection.confidence_score),
                 "catalogue_match": match.matched,
                 "match_note": match.match_note,
+                "used_model_fallback": match.used_model_fallback,
             }
         )
 
@@ -154,8 +182,6 @@ def build_estimate(db: Session, claim_id: int) -> BuiltEstimate:
     tax = round(subtotal * GST_RATE, 2)
     grand_total = round(subtotal + tax, 2)
     currency = line_items[0]["currency"] if line_items else "INR"
-    pricing_basis = context.pricing_basis
-    catalogue_label = context.catalogue_vehicle_label
 
     reason = _reason_summary(
         vehicle=vehicle,
@@ -163,8 +189,11 @@ def build_estimate(db: Session, claim_id: int) -> BuiltEstimate:
         tax=tax,
         grand_total=grand_total,
         currency=currency,
-        pricing_basis=pricing_basis,
-        catalogue_vehicle_label=catalogue_label,
+        pricing_basis=context.pricing_basis,
+        identity_pricing_basis=context.identity_pricing_basis,
+        identified_vehicle_label=context.identified_vehicle_label,
+        catalogue_vehicle_label=context.catalogue_vehicle_label,
+        fallback_source_model=context.fallback_source_model,
     )
 
     return BuiltEstimate(
@@ -174,8 +203,11 @@ def build_estimate(db: Session, claim_id: int) -> BuiltEstimate:
         grand_total=grand_total,
         reason_summary=reason,
         currency=currency,
-        pricing_basis=pricing_basis,
-        catalogue_vehicle_label=catalogue_label,
+        pricing_basis=context.pricing_basis,
+        catalogue_vehicle_label=context.catalogue_vehicle_label,
+        identified_vehicle_label=context.identified_vehicle_label,
+        fallback_source_model=context.fallback_source_model,
+        identity_pricing_basis=context.identity_pricing_basis,
     )
 
 
@@ -190,6 +222,7 @@ def persist_estimate(db: Session, claim_id: int) -> Estimate:
         existing.grand_total = built.grand_total
         existing.reason_summary = built.reason_summary
         existing.pricing_basis = built.pricing_basis
+        existing.fallback_source_model = built.fallback_source_model
         existing.generated_at = datetime.now(timezone.utc)
         estimate = existing
     else:
@@ -201,6 +234,7 @@ def persist_estimate(db: Session, claim_id: int) -> Estimate:
             grand_total=built.grand_total,
             reason_summary=built.reason_summary,
             pricing_basis=built.pricing_basis,
+            fallback_source_model=built.fallback_source_model,
             generated_at=datetime.now(timezone.utc),
         )
         db.add(estimate)

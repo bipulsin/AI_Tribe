@@ -37,10 +37,10 @@
   </section>
   {% else %}
 
-  {# Vehicle summary #}
+  {# Vehicle summary — identity from vehicle record, independent of catalog fallback #}
   <section class="mb-6 rounded-2xl border border-navy/10 bg-white px-6 py-5 dark:border-white/10 dark:bg-navy">
     <p class="text-xs font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">Vehicle</p>
-    {% if vehicle and estimate.pricing_basis == "confirmed" %}
+    {% if vehicle and vehicle.identity_confirmed %}
     <p class="mt-2 text-xl font-semibold text-navy dark:text-mist">
       {{ vehicle.make or "Unknown" }}
       {{ vehicle.model or "" }}
@@ -52,7 +52,7 @@
       · damage confidence up to {{ '%.0f'|format(max_confidence * 100) }}%
       {% endif %}
     </p>
-    {% elif vehicle and estimate.pricing_basis == "needs_confirmation" %}
+    {% elif vehicle and identity_pricing_basis == "needs_confirmation" %}
     <p class="mt-2 text-xl font-semibold text-navy dark:text-mist">
       {{ vehicle.make or "Unknown" }}
       {{ vehicle.model or "" }}
@@ -60,6 +60,17 @@
     </p>
     <p class="mt-1 text-sm text-navy/55 dark:text-mist/50">
       Model guess only — low-confidence tier, surveyor must confirm before final pricing
+      {% if max_confidence is not none %}
+      · damage confidence up to {{ '%.0f'|format(max_confidence * 100) }}%
+      {% endif %}
+    </p>
+    {% elif vehicle and estimate.pricing_basis == "model_fallback_priced" %}
+    <p class="mt-2 text-xl font-semibold text-navy dark:text-mist">
+      {{ vehicle.make or "Unknown" }}
+      {{ vehicle.model or "" }}
+    </p>
+    <p class="mt-1 text-sm text-navy/55 dark:text-mist/50">
+      Identified model — priced via same-make catalogue approximation
       {% if max_confidence is not none %}
       · damage confidence up to {{ '%.0f'|format(max_confidence * 100) }}%
       {% endif %}
@@ -75,6 +86,31 @@
     {% endif %}
   </section>
 
+  {# Independent banners — identity tier and catalog fallback can both show #}
+  {% if identity_pricing_basis == "needs_confirmation" %}
+  <section class="notice mb-6" role="status">
+    <p class="notice-title">Surveyor confirmation required</p>
+    <p class="notice-body">
+      The model suggested {{ identified_vehicle_label or "a catalogue vehicle" }}, but that
+      class is in the low-confidence tier. This total is priced against that guess and
+      must not be treated as final until a surveyor confirms the vehicle.
+    </p>
+  </section>
+  {% endif %}
+
+  {% if estimate.pricing_basis == "model_fallback_priced" or fallback_source_model %}
+  <section class="notice mb-6" role="status">
+    <p class="notice-title">Approximate pricing</p>
+    <p class="notice-body">
+      Identified vehicle: {{ identified_vehicle_label or "unknown" }}. A priced parts
+      catalogue entry for this exact model is not yet available; this estimate uses
+      {{ catalogue_vehicle_label or fallback_source_model or "a same-make substitute" }}
+      pricing as an interim approximation and will be corrected once live catalogue
+      data is added.
+    </p>
+  </section>
+  {% endif %}
+
   {% if estimate.pricing_basis == "provisional_fallback" %}
   <section class="notice mb-6" role="status">
     <p class="notice-title">Provisional estimate</p>
@@ -83,15 +119,6 @@
       priced against the nearest matched catalogue entry
       ({{ catalogue_vehicle_label or "catalogue fallback" }}) and should be treated as
       indicative until a surveyor confirms the vehicle.
-    </p>
-  </section>
-  {% elif estimate.pricing_basis == "needs_confirmation" %}
-  <section class="notice mb-6" role="status">
-    <p class="notice-title">Surveyor confirmation required</p>
-    <p class="notice-body">
-      The model suggested {{ catalogue_vehicle_label or "a catalogue vehicle" }}, but that
-      class is in the low-confidence tier. This total is priced against that guess and
-      must not be treated as final until a surveyor confirms the vehicle.
     </p>
   </section>
   {% endif %}
@@ -148,8 +175,12 @@
         <span class="text-base font-semibold text-navy dark:text-mist">
           {% if estimate.pricing_basis == "provisional_fallback" %}
           Provisional total
-          {% elif estimate.pricing_basis == "needs_confirmation" %}
+          {% elif identity_pricing_basis == "needs_confirmation" and (estimate.pricing_basis == "model_fallback_priced" or fallback_source_model) %}
+          Indicative total (needs confirmation · approximate pricing)
+          {% elif identity_pricing_basis == "needs_confirmation" %}
           Indicative total (needs confirmation)
+          {% elif estimate.pricing_basis == "model_fallback_priced" or fallback_source_model %}
+          Approximate total
           {% else %}
           Grand total
           {% endif %}

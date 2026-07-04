@@ -63,14 +63,28 @@ async def claim_estimate(
     confidences = [float(d.confidence_score) for d in detections]
     max_confidence = max(confidences) if confidences else None
 
+    identified_vehicle_label = None
+    if vehicle and vehicle.make and vehicle.make != "Unknown":
+        identified_vehicle_label = f"{vehicle.make} {vehicle.model or ''}".strip()
+
     catalogue_vehicle_label = None
-    for item in line_items:
-        note = item.get("match_note") or ""
-        if " · " in note:
-            catalogue_vehicle_label = note.split(" · ", 1)[0].strip()
-            break
+    fallback_source_model = getattr(estimate, "fallback_source_model", None)
+    if fallback_source_model and vehicle and vehicle.make:
+        catalogue_vehicle_label = f"{vehicle.make} {fallback_source_model}".strip()
+    else:
+        for item in line_items:
+            note = item.get("match_note") or ""
+            if " · " in note:
+                catalogue_vehicle_label = note.split(" · ", 1)[0].strip()
+                break
     if not catalogue_vehicle_label and vehicle and vehicle.make:
         catalogue_vehicle_label = f"{vehicle.make} {vehicle.model or ''}".strip()
+
+    identity_pricing_basis = (
+        getattr(vehicle, "pricing_basis", None) if vehicle else None
+    ) or "provisional_fallback"
+    if vehicle and vehicle.identity_confirmed:
+        identity_pricing_basis = "confirmed"
 
     return templates.TemplateResponse(
         "claim_estimate.html",
@@ -85,6 +99,9 @@ async def claim_estimate(
             "detections": detections,
             "max_confidence": max_confidence,
             "catalogue_vehicle_label": catalogue_vehicle_label,
+            "identified_vehicle_label": identified_vehicle_label,
+            "fallback_source_model": fallback_source_model,
+            "identity_pricing_basis": identity_pricing_basis,
             "username": request.session.get("username", ""),
             "full_name": request.session.get("full_name", ""),
         },
