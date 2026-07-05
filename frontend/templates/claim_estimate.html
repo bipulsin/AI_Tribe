@@ -3,7 +3,7 @@
 {% block title %}Estimate{% endblock %}
 
 {% block body %}
-<div class="mx-auto max-w-3xl px-6 py-8" x-data="{ showTech: false }">
+<div class="mx-auto max-w-3xl px-6 py-8" x-data="estimatePage({{ claim.id if claim else 'null' }}, {{ 'true' if pricing_complete else 'false' }})" x-init="init()">
   <header class="mb-6 flex items-start justify-between gap-4">
     <div>
       <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gold">AI Tribe</p>
@@ -97,7 +97,9 @@
       {% if estimate.pricing_basis != "extensive_damage_manual_review" %}
       <div class="text-right">
         <p class="text-xs uppercase tracking-wide text-navy/45 dark:text-mist/40">
-          {% if estimate.pricing_basis == "provisional_fallback" %}
+          {% if not pricing_complete or estimate.pricing_basis == "pending_manual_prices" %}
+          Total pending manual prices
+          {% elif estimate.pricing_basis == "provisional_fallback" %}
           Provisional total
           {% elif identity_pricing_basis == "needs_confirmation" %}
           Indicative total
@@ -107,10 +109,15 @@
           Grand total
           {% endif %}
         </p>
+        {% if pricing_complete and estimate.pricing_basis != "pending_manual_prices" %}
         <p class="mt-1 text-2xl font-semibold tabular-nums text-navy dark:text-white">₹{{ '%.2f'|format(estimate.grand_total) }}</p>
         <p class="mt-1 text-sm tabular-nums text-navy/50 dark:text-mist/45">
           Subtotal ₹{{ '%.2f'|format(estimate.subtotal) }} · GST ₹{{ '%.2f'|format(estimate.tax) }}
         </p>
+        {% else %}
+        <p class="mt-1 text-lg font-semibold text-navy/55 dark:text-mist/50">Enter prices below</p>
+        <p class="mt-1 text-sm text-navy/50 dark:text-mist/45">Grand total unlocks when every line is priced</p>
+        {% endif %}
       </div>
       {% else %}
       <div class="text-right">
@@ -126,6 +133,8 @@
       Indicative pricing only — not for binding settlement.
       {% if estimate.pricing_basis == "extensive_damage_manual_review" %}
       Extensive-damage review state — no priced total until surveyor confirmation.
+      {% elif not pricing_complete or estimate.pricing_basis == "pending_manual_prices" %}
+      Some parts have no catalogue price — enter amounts manually to finalize the total.
       {% endif %}
       {% if identity_pricing_basis == "needs_confirmation" %}
       Surveyor must confirm {{ identified_vehicle_label or "vehicle identity" }}.
@@ -159,12 +168,36 @@
         <tbody class="divide-y divide-navy/5 dark:divide-white/5">
           {% for item in line_items %}
           <tr>
-            <td class="px-5 py-3 font-medium text-navy dark:text-mist">{{ item.part_name }}</td>
+            <td class="px-5 py-3 font-medium text-navy dark:text-mist">
+              {{ item.part_name }}
+              {% if item.price_source == "manual" %}
+              <span class="ml-1 text-xs font-normal text-amber-700 dark:text-amber-300">(manual)</span>
+              {% elif item.price_source == "unpriced" or not item.catalogue_match %}
+              <span class="ml-1 text-xs font-normal text-navy/45 dark:text-mist/40">(no catalogue match)</span>
+              {% endif %}
+            </td>
             <td class="px-3 py-3 capitalize text-navy/70 dark:text-mist/65">{{ item.damage_type | replace('_', ' ') }}</td>
             <td class="px-3 py-3 capitalize text-navy/70 dark:text-mist/65">{{ item.repair_or_replace }}</td>
-            <td class="px-3 py-3 text-right tabular-nums text-navy/80 dark:text-mist/75">₹{{ '%.2f'|format(item.unit_price) }}</td>
-            <td class="px-3 py-3 text-right tabular-nums text-navy/80 dark:text-mist/75">₹{{ '%.2f'|format(item.labor_cost) }}</td>
-            <td class="px-5 py-3 text-right tabular-nums font-medium text-navy dark:text-mist">₹{{ '%.2f'|format(item.total) }}</td>
+            <td class="px-3 py-3 text-right tabular-nums text-navy/80 dark:text-mist/75">
+              {% if item.price_source == "unpriced" or item.unit_price is none %}
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                class="w-28 rounded-md border border-navy/15 bg-canvas px-2 py-1 text-right text-sm outline-none focus:border-gold/50 dark:border-white/15 dark:bg-ink dark:text-mist"
+                placeholder="Enter ₹"
+                x-model="draftPrices['{{ item.part_name | e }}::{{ item.damage_type | e }}']"
+              />
+              {% else %}
+              ₹{{ '%.2f'|format(item.unit_price) }}
+              {% endif %}
+            </td>
+            <td class="px-3 py-3 text-right tabular-nums text-navy/80 dark:text-mist/75">
+              {% if item.labor_cost is not none %}₹{{ '%.2f'|format(item.labor_cost) }}{% else %}—{% endif %}
+            </td>
+            <td class="px-5 py-3 text-right tabular-nums font-medium text-navy dark:text-mist">
+              {% if item.total is not none %}₹{{ '%.2f'|format(item.total) }}{% else %}—{% endif %}
+            </td>
           </tr>
           {% else %}
           <tr>
@@ -174,6 +207,25 @@
         </tbody>
       </table>
     </div>
+    <div class="border-t border-navy/10 px-5 py-3 dark:border-white/10" x-show="hasUnpriced" x-cloak>
+      <p class="text-sm text-navy/60 dark:text-mist/55">Price not available for some parts — enter unit prices above, then save.</p>
+      <button
+        type="button"
+        class="btn-primary mt-2 rounded-lg px-4 py-2 text-sm font-semibold"
+        :disabled="saving || !canSave"
+        @click="saveManualPrices()"
+      >
+        <span x-show="!saving">Save manual prices</span>
+        <span x-show="saving" x-cloak>Saving…</span>
+      </button>
+      <p class="mt-2 text-xs text-navy/45 dark:text-mist/40" x-show="saveError" x-text="saveError" x-cloak></p>
+    </div>
+  </section>
+
+  <section class="mt-4 rounded-2xl border border-navy/10 bg-white px-5 py-4 dark:border-white/10 dark:bg-navy" x-show="pricingComplete" x-cloak>
+    <p class="text-xs uppercase tracking-wide text-navy/45 dark:text-mist/40">Finalized total</p>
+    <p class="mt-1 text-2xl font-semibold tabular-nums text-navy dark:text-white" x-text="totalLabel"></p>
+    <p class="mt-1 text-sm tabular-nums text-navy/50 dark:text-mist/45" x-text="subtotalLabel"></p>
   </section>
 
   <section class="mt-4 rounded-2xl border border-navy/10 bg-white px-5 py-4 dark:border-white/10 dark:bg-navy">
@@ -188,7 +240,7 @@
     </button>
 
     <div class="mt-4 space-y-4 border-t border-navy/10 pt-4 dark:border-white/10" x-show="showTech" x-cloak>
-      <p class="text-sm leading-relaxed text-navy/65 dark:text-mist/60">{{ estimate.reason_summary }}</p>
+      <p class="text-sm leading-relaxed text-navy/65 dark:text-mist/60" id="reason-summary">{{ estimate.reason_summary }}</p>
       <div>
         <p class="text-xs font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">Damage confidence</p>
         <ul class="mt-2 space-y-1">
@@ -220,4 +272,82 @@
 
   {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function estimatePage(claimId, pricingCompleteInitial) {
+    return {
+      showTech: false,
+      claimId,
+      pricingComplete: Boolean(pricingCompleteInitial),
+      hasUnpriced: !pricingCompleteInitial,
+      draftPrices: {},
+      saving: false,
+      saveError: "",
+      totalLabel: "",
+      subtotalLabel: "",
+      init() {
+        this.refreshTotalsFromDom();
+      },
+      refreshTotalsFromDom() {
+        {% if pricing_complete and estimate.pricing_basis != "pending_manual_prices" %}
+        this.totalLabel = "₹{{ '%.2f'|format(estimate.grand_total) }}";
+        this.subtotalLabel = "Subtotal ₹{{ '%.2f'|format(estimate.subtotal) }} · GST ₹{{ '%.2f'|format(estimate.tax) }}";
+        {% endif %}
+      },
+      get canSave() {
+        return Object.values(this.draftPrices).some(
+          (value) => value !== "" && value != null && !Number.isNaN(Number(value))
+        );
+      },
+      async saveManualPrices() {
+        if (!this.claimId || this.saving) return;
+        const prices = [];
+        for (const [key, value] of Object.entries(this.draftPrices)) {
+          if (value === "" || value == null) continue;
+          const amount = Number(value);
+          if (Number.isNaN(amount) || amount < 0) continue;
+          const [part_name, damage_type] = key.split("::");
+          prices.push({ part_name, damage_type, unit_price: amount });
+        }
+        if (!prices.length) return;
+
+        this.saving = true;
+        this.saveError = "";
+        try {
+          const response = await fetch(`/api/claims/${this.claimId}/estimate/prices`, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ prices }),
+          });
+          if (!response.ok) {
+            this.saveError = "Could not save prices. Try again.";
+            return;
+          }
+          const data = await response.json();
+          this.pricingComplete = Boolean(data.pricing_complete);
+          this.hasUnpriced = !this.pricingComplete;
+          if (data.reason_summary) {
+            const el = document.getElementById("reason-summary");
+            if (el) el.textContent = data.reason_summary;
+          }
+          if (this.pricingComplete) {
+            this.totalLabel = `₹${Number(data.grand_total).toFixed(2)}`;
+            this.subtotalLabel = `Subtotal ₹${Number(data.subtotal).toFixed(2)} · GST ₹${Number(data.tax).toFixed(2)}`;
+            window.location.reload();
+          }
+        } catch (_err) {
+          this.saveError = "Could not save prices. Try again.";
+        } finally {
+          this.saving = false;
+        }
+      },
+    };
+  }
+</script>
 {% endblock %}

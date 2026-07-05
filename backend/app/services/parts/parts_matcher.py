@@ -14,6 +14,7 @@ PRICING_CONFIRMED = "confirmed"
 PRICING_NEEDS_CONFIRMATION = "needs_confirmation"
 PRICING_PROVISIONAL = "provisional_fallback"
 PRICING_MODEL_FALLBACK = "model_fallback_priced"
+PRICING_PENDING_MANUAL = "pending_manual_prices"
 DEFAULT_FALLBACK_MAKE = "Maruti"
 DEFAULT_FALLBACK_MODEL = "Swift"
 
@@ -225,11 +226,11 @@ def match_detections(db: Session, claim_id: int) -> MatchContext:
                 PartMatch(
                     detection=detection,
                     catalog_row=None,
-                    unit_price=5000.0,
-                    labor_hours=2.0,
+                    unit_price=0.0,
+                    labor_hours=0.0,
                     currency="INR",
                     matched=False,
-                    match_note="Catalogue miss — provisional price applied",
+                    match_note="Price not available — enter manually",
                     used_model_fallback=False,
                 )
             )

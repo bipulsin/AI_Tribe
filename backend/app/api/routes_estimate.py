@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -12,10 +15,27 @@ from app.core.config import get_settings
 from app.core.database import get_db
 from app.models import Claim
 from app.services.parts import estimate_builder
+from app.services.parts.estimate_builder import PRICE_SOURCE_UNPRICED
 
 router = APIRouter(tags=["estimate"])
 settings = get_settings()
 templates = Jinja2Templates(directory=str(settings.templates_dir))
+
+
+class ManualPriceRow(BaseModel):
+    part_name: str
+    damage_type: str
+    unit_price: float = Field(ge=0)
+
+
+class ManualPricesPayload(BaseModel):
+    prices: list[ManualPriceRow]
+
+
+def _pricing_complete(line_items: list[dict[str, Any]]) -> bool:
+    if not line_items:
+        return True
+    return all(item.get("price_source") != PRICE_SOURCE_UNPRICED for item in line_items)
 
 
 @router.get("/claims/{claim_id}/estimate", response_class=HTMLResponse)
@@ -124,8 +144,48 @@ async def claim_estimate(
             "identified_vehicle_label": identified_vehicle_label,
             "fallback_source_model": fallback_source_model,
             "identity_pricing_basis": identity_pricing_basis,
+            "pricing_complete": _pricing_complete(line_items),
             "stage_timings": stage_timings,
             "username": request.session.get("username", ""),
             "full_name": request.session.get("full_name", ""),
         },
+    )
+
+
+@router.post("/api/claims/{claim_id}/estimate/prices")
+async def update_manual_prices(
+    claim_id: int,
+    payload: ManualPricesPayload,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    user_id = request.session.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+
+    claim = db.scalar(select(Claim).where(Claim.id == claim_id))
+    if not claim:
+        raise HTTPException(status_code=404, detail="Claim not found.")
+    if claim.created_by != user_id:
+        raise HTTPException(status_code=403, detail="Access denied.")
+
+    estimate = estimate_builder.apply_manual_line_prices(
+        db,
+        claim_id,
+        prices=[row.model_dump() for row in payload.prices],
+        entered_by=user_id,
+        entered_by_username=request.session.get("username", ""),
+    )
+    line_items = estimate.line_items or []
+    return JSONResponse(
+        {
+            "ok": True,
+            "pricing_complete": _pricing_complete(line_items),
+            "subtotal": float(estimate.subtotal),
+            "tax": float(estimate.tax),
+            "grand_total": float(estimate.grand_total),
+            "pricing_basis": estimate.pricing_basis,
+            "reason_summary": estimate.reason_summary,
+            "line_items": line_items,
+        }
     )
