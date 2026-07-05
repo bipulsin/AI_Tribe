@@ -270,6 +270,24 @@ python scripts/damage/build_vehide_manifest.py --root /mnt/ml-scratch/vehide/raw
 python scripts/damage/eval_damage_classifier.py --root /mnt/ml-scratch/vehide/raw --split val
 ```
 
+**Dataset license record (2026-07-05):** VehiDE author terms confirmed NC research/education only (Flickr/Shutterstock underlying; Kaggle Apache tag overridden) — approved for personal non-commercial lab use on ml-scratch; download predates this check and is now on record. CarDD: PIC Lab terms confirmed NC research with prior consent required — **do not download until licensing form is submitted and acknowledged in LICENSE_ACK.json**.
+
+### Known live-model weaknesses (damage classifier)
+
+Live pipeline uses **`beingamit99/car_damage_detection`** (`damage_segmenter.classify_image()`).
+Each image gets a single top-1 damage class, then a hardcoded part via `PART_FOR_DAMAGE`
+(e.g. crack → Rear Bumper, scratch → Front Door, dent → Front Bumper).
+
+**VehiDE val benchmark (2026-07-05, 2,161 scored images):** overall top-1 **57.9%**.
+Per-class crack recall **2.0% (2/102)** — the model almost never emits `crack` on
+VehiDE puncture/crack-labeled images. In production today, true crack damage is
+therefore likely mislabeled as dent, scratch, etc., and mapped to the wrong part.
+**Crack detection is effectively non-functional per VehiDE benchmark; treat any
+`crack` label with skepticism.** No fix in this release — future work should apply
+an uncertainty / needs-confirmation pattern at the damage-type level (similar to VMMR).
+
+Benchmark report: `/mnt/ml-scratch/damage_eval/runs/eval_raw_20260705T141711Z.json`
+
 ## Co-located stacks (must remain untouched)
 
 | Name | Role |
