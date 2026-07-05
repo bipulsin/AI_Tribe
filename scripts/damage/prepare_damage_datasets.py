@@ -124,6 +124,16 @@ def main() -> int:
     print(f"  License: {ACK_PATH}")
 
     try_kaggle_vehide()
+
+    manifest_script = Path(__file__).resolve().parent / "build_vehide_manifest.py"
+    vehide_raw = VEHIDE_ROOT / "raw"
+    if (vehide_raw / "0Train_via_annos.json").is_file() and manifest_script.is_file():
+        print("Building VehiDE manifest.csv from VIA JSON ...")
+        subprocess.run(
+            [sys.executable, str(manifest_script), "--root", str(vehide_raw)],
+            check=False,
+        )
+
     print(_disk_report())
     return 0
 

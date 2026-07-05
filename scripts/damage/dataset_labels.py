@@ -12,6 +12,17 @@ CARDD_CLASS_NAMES = (
     "tire flat",
 )
 
+# VehiDE VIA JSON uses romanized Vietnamese region class codes (see KSE 2023 paper).
+VEHIDE_VIETNAMESE_CODES: dict[str, str | None] = {
+    "tray_son": "scratch",  # paint scratch / scuff
+    "mop_lom": "dent",  # dent / deformation
+    "rach": "scratch",  # tear — nearest app class
+    "vo_kinh": "glass_shatter",  # broken glass
+    "be_den": "lamp_broken",  # broken lamp
+    "thung": "crack",  # puncture / perforation
+    "mat_bo_phan": None,  # lost part — no app enum
+}
+
 # VehiDE adds categories beyond CarDD; map to nearest app class or None to skip.
 VEHIDE_TO_APP: dict[str, str | None] = {
     "dent": "dent",
@@ -36,9 +47,18 @@ VEHIDE_TO_APP: dict[str, str | None] = {
 }
 
 
+def normalize_vehide_code(code: str) -> str | None:
+    key = code.strip().lower().replace("-", "_")
+    if key in VEHIDE_VIETNAMESE_CODES:
+        return VEHIDE_VIETNAMESE_CODES[key]
+    return normalize_label(key)
+
+
 def normalize_label(raw: str) -> str | None:
     key = raw.strip().lower().replace("_", " ")
     key = " ".join(key.split())
+    if key.replace(" ", "_") in VEHIDE_VIETNAMESE_CODES:
+        return VEHIDE_VIETNAMESE_CODES[key.replace(" ", "_")]
     if key in {"glass shatter", "glass shatter"}:
         return "glass_shatter"
     mapping = {

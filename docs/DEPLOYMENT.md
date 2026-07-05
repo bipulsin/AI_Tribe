@@ -226,9 +226,15 @@ ml-scratch bind mount — create the corrections root on the **host** with write
 for that uid:
 
 ```bash
-sudo mkdir -p /mnt/ml-scratch/vmmr_corrections
-sudo chown 1000:1000 /mnt/ml-scratch/vmmr_corrections
-sudo chmod 775 /mnt/ml-scratch/vmmr_corrections
+sudo mkdir -p /mnt/ml-scratch/vmmr_corrections \
+  /mnt/ml-scratch/cardd /mnt/ml-scratch/vehide \
+  /mnt/ml-scratch/damage_eval /mnt/ml-scratch/damage_datasets
+sudo chown -R 1000:1000 /mnt/ml-scratch/vmmr_corrections \
+  /mnt/ml-scratch/cardd /mnt/ml-scratch/vehide \
+  /mnt/ml-scratch/damage_eval /mnt/ml-scratch/damage_datasets
+sudo chmod -R 775 /mnt/ml-scratch/vmmr_corrections \
+  /mnt/ml-scratch/cardd /mnt/ml-scratch/vehide \
+  /mnt/ml-scratch/damage_eval /mnt/ml-scratch/damage_datasets
 docker exec ai_tribe_app_ml test -w /mnt/ml-scratch/vmmr_corrections && echo OK
 ```
 
@@ -260,7 +266,8 @@ scratch paths. Lab prep:
 # on paperclip-vm only — writes under /mnt/ml-scratch
 python scripts/damage/prepare_damage_datasets.py
 # after LICENSE_ACK.json acknowledged and VehiDE/CarDD extracted:
-python scripts/damage/eval_damage_classifier.py --root /mnt/ml-scratch/vehide/raw
+python scripts/damage/build_vehide_manifest.py --root /mnt/ml-scratch/vehide/raw
+python scripts/damage/eval_damage_classifier.py --root /mnt/ml-scratch/vehide/raw --split val
 ```
 
 ## Co-located stacks (must remain untouched)

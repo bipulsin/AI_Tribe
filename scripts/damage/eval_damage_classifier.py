@@ -39,12 +39,14 @@ from dataset_labels import normalize_label  # noqa: E402
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 
 
-def _collect_labeled(root: Path) -> list[tuple[Path, str]]:
+def _collect_labeled(root: Path, split: str | None = None) -> list[tuple[Path, str]]:
     labeled: list[tuple[Path, str]] = []
     manifest = root / "manifest.csv"
     if manifest.is_file():
         with manifest.open(newline="", encoding="utf-8") as fh:
             for row in csv.DictReader(fh):
+                if split and row.get("split") and row["split"] != split:
+                    continue
                 rel = row.get("path") or row.get("file") or row.get("image")
                 label = row.get("label") or row.get("class")
                 if not rel or not label:
@@ -86,6 +88,12 @@ def main() -> int:
     )
     parser.add_argument("--limit", type=int, default=0, help="Max images (0=all)")
     parser.add_argument(
+        "--split",
+        choices=("train", "val"),
+        default=None,
+        help="When manifest.csv has a split column, evaluate that subset only",
+    )
+    parser.add_argument(
         "--out",
         type=Path,
         default=Path("/mnt/ml-scratch/damage_eval/runs"),
@@ -100,7 +108,7 @@ def main() -> int:
 
     labeled: list[tuple[Path, str]] = []
     for candidate in _find_image_roots(args.root):
-        labeled.extend(_collect_labeled(candidate))
+        labeled.extend(_collect_labeled(candidate, split=args.split))
 
     # De-dupe paths
     seen: set[Path] = set()
@@ -152,6 +160,7 @@ def main() -> int:
     report = {
         "model": damage_segmenter.MODEL_ID,
         "dataset_root": str(args.root),
+        "split": args.split,
         "n_images": len(labeled),
         "top1_accuracy": round(acc, 4),
         "per_class": {
