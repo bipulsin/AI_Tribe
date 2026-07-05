@@ -103,6 +103,8 @@ Collect 50 to 100 real damaged-vehicle photos (your own claim archive if availab
 
 Both the deepfake detector and the damage classifier are pretrained on datasets that do not perfectly match your real distribution (face-forgery datasets for deepfake, a mostly-Western vehicle mix for CarDD and beingamit99). Do not fine-tune either on day one. Instead, run them as-is against real claim photos as they arrive, log every prediction alongside the eventual human surveyor's verdict (agree, override, and why) into the `damage_detections` and `pipeline_events` tables you already have, and only fine-tune once you have a few hundred of these labelled disagreement cases. That disagreement log is a far more valuable and cheaper-to-collect training set than trying to build a labelled dataset from scratch, and it directly targets the cases where the pretrained model is actually wrong for your market.
 
+**Lab benchmark (paperclip-vm):** CarDD and VehiDE may be staged on `/mnt/ml-scratch` for offline top-1 evaluation of `beingamit99/car_damage_detection` — see `docs/DATASET_LICENSES.md` and `scripts/damage/prepare_damage_datasets.py` + `eval_damage_classifier.py`. Neither dataset is license-cleared for live commercial deployment; the live app keeps the HF classifier until a segmentation upgrade (CarDD model zoo) is separately evaluated.
+
 ### Step 4: labelling tooling, if and when you do need to hand-label
 
 Use **Label Studio** (open source, `pip install label-studio`, runs locally) or **CVAT** (Computer Vision Annotation Tool, open source, self-hostable) for any bounding-box or segmentation-mask labelling you end up doing for the damage model. Both integrate cleanly with a local Postgres-backed workflow and neither requires a cloud account.

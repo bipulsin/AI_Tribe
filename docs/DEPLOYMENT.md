@@ -253,6 +253,16 @@ make/model on **undamaged** traffic-scene crops only. No usable public dataset
 combines severe collision imagery with per-image make/model ground truth was
 found — the correction queue remains the intended in-production data path.
 
+See **`docs/DATASET_LICENSES.md`** for CarDD/VehiDE non-commercial terms and
+scratch paths. Lab prep:
+
+```bash
+# on paperclip-vm only — writes under /mnt/ml-scratch
+python scripts/damage/prepare_damage_datasets.py
+# after LICENSE_ACK.json acknowledged and VehiDE/CarDD extracted:
+python scripts/damage/eval_damage_classifier.py --root /mnt/ml-scratch/vehide/raw
+```
+
 ## Co-located stacks (must remain untouched)
 
 | Name | Role |
