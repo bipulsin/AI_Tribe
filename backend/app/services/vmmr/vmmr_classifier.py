@@ -435,6 +435,31 @@ def classify_image(path: Path) -> VmmrResult:
     return _classify_live(path)
 
 
+def detect_identity_inconsistency(results: list[VmmrResult]) -> str | None:
+    """Flag when multiple images disagree on a specific catalogue identity."""
+    confident: dict[str, int] = {}
+    for result in results:
+        if result.pricing_basis not in {PRICING_CONFIRMED, PRICING_NEEDS_CONFIRMATION}:
+            continue
+        if not result.make or result.make == "Unknown":
+            continue
+        label = result.label or f"{result.make}_{result.model}"
+        confident[label] = confident.get(label, 0) + 1
+
+    if len(confident) < 2:
+        return None
+
+    parts = [
+        f"{label.replace('_', ' ')} ({count} image{'s' if count != 1 else ''})"
+        for label, count in sorted(confident.items(), key=lambda item: -item[1])
+    ]
+    return (
+        "Per-image vehicle identities are inconsistent across this claim "
+        f"({'; '.join(parts)}). Surveyor must confirm the vehicle before "
+        "pricing is treated as final."
+    )
+
+
 def classify_claim_images(paths: list[Path]) -> VmmrResult:
     if not paths:
         return VmmrResult(
@@ -462,3 +487,20 @@ def classify_claim_images(paths: list[Path]) -> VmmrResult:
     if needs:
         return max(needs, key=lambda item: item.confidence)
     return max(results, key=lambda item: item.confidence)
+
+
+def classify_claim_images_audited(
+    paths: list[Path],
+) -> tuple[VmmrResult, list[VmmrResult], str | None]:
+    """Return claim aggregate, per-image results, and optional inconsistency note."""
+    if not paths:
+        empty = classify_claim_images(paths)
+        return empty, [], None
+    if not get_settings().ml_live:
+        stub = _stub_result()
+        return stub, [stub], None
+
+    results = [classify_image(path) for path in paths]
+    aggregate = classify_claim_images(paths)
+    inconsistency = detect_identity_inconsistency(results)
+    return aggregate, results, inconsistency

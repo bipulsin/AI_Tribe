@@ -34,6 +34,7 @@ services:
       DEBUG: "false"
       ML_MODE: stub
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production-use-a-long-random-string}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       DATABASE_URL: postgresql+psycopg://ai_tribe:ai_tribe@db:5432/ai_tribe
       UPLOAD_DIR: /app/data/uploads
       HOST: 0.0.0.0
@@ -62,6 +63,7 @@ services:
       DEBUG: "false"
       ML_MODE: live
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production-use-a-long-random-string}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       DATABASE_URL: postgresql+psycopg://ai_tribe:ai_tribe@db:5432/ai_tribe
       UPLOAD_DIR: /app/data/uploads
       HF_HOME: /app/backend/app/ml_weights/huggingface

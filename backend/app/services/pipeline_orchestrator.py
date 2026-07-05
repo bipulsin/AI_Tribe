@@ -273,11 +273,16 @@ async def stage_sensor_consistency(db: Session, claim: Claim) -> StageResult:
 async def stage_vehicle_id(db: Session, claim: Claim) -> StageResult:
     images = _paths(db, claim)
     paths = [path for _, path in images]
-    result = await asyncio.to_thread(vmmr_classifier.classify_claim_images, paths)
+    result, _per_image, inconsistency = await asyncio.to_thread(
+        vmmr_classifier.classify_claim_images_audited, paths
+    )
 
     # Prefer the classifier's own confirmation (margin + reliability tier).
     identity_confirmed = bool(getattr(result, "identity_confirmed", False))
     pricing_basis = getattr(result, "pricing_basis", None) or "provisional_fallback"
+    detail = result.detail
+    if inconsistency:
+        detail = f"{detail} {inconsistency}"
 
     existing = db.scalar(select(Vehicle).where(Vehicle.source_claim_id == claim.id))
     if existing:
@@ -301,10 +306,10 @@ async def stage_vehicle_id(db: Session, claim: Claim) -> StageResult:
 
     status = (
         PipelineEventStatus.warning
-        if not result.model_available
+        if not result.model_available or inconsistency
         else PipelineEventStatus.passed
     )
-    return StageResult(status=status, detail=result.detail)
+    return StageResult(status=status, detail=detail)
 
 
 async def stage_consistency_check(db: Session, claim: Claim) -> StageResult:

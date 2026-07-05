@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import DamageDetection, PartsCatalog, Vehicle
+from app.services.parts.damage_aggregation import aggregate_detections
 
 PRICING_CONFIRMED = "confirmed"
 PRICING_NEEDS_CONFIRMATION = "needs_confirmation"
@@ -164,6 +165,7 @@ def match_detections(db: Session, claim_id: int) -> MatchContext:
         .where(DamageDetection.claim_id == claim_id)
         .order_by(DamageDetection.id.asc())
     ).all()
+    detections = aggregate_detections(list(detections))
     vehicle = _vehicle_for_claim(db, claim_id)
     make, model, identity_basis, identified_label, has_specific_model = (
         _pricing_identity(vehicle)

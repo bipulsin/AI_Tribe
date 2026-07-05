@@ -9,8 +9,12 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Estimate, Vehicle
+from app.models import DamageDetection, Estimate, PipelineEvent, Vehicle
 from app.models.enums import Severity
+from app.services.parts.damage_aggregation import (
+    PRICING_EXTENSIVE_DAMAGE,
+    assess_extensive_damage,
+)
 from app.services.parts.parts_matcher import (
     PRICING_MODEL_FALLBACK,
     PRICING_NEEDS_CONFIRMATION,
@@ -84,8 +88,12 @@ def _reason_summary(
     identified_vehicle_label: str,
     catalogue_vehicle_label: str,
     fallback_source_model: str | None,
+    vmmr_inconsistency: str | None = None,
 ) -> str:
     leads: list[str] = []
+
+    if vmmr_inconsistency:
+        leads.append(f"{vmmr_inconsistency} ")
 
     # Model-fallback disclosure first when present (same placement as provisional).
     if fallback_source_model or pricing_basis == PRICING_MODEL_FALLBACK:
@@ -151,9 +159,79 @@ def _reason_summary(
     return f"{lead}{body}"
 
 
+def _extensive_damage_summary(
+    *,
+    escalate_reason: str,
+    identity_pricing_basis: str,
+    identified_vehicle_label: str,
+    vmmr_inconsistency: str | None = None,
+) -> str:
+    leads: list[str] = []
+    if vmmr_inconsistency:
+        leads.append(f"{vmmr_inconsistency} ")
+    leads.append(
+        f"Extensive damage signal: {escalate_reason} "
+        "A specific priced total has not been auto-generated. "
+        "Surveyor confirmation is required before any settlement figure is shown. "
+    )
+    if identity_pricing_basis == PRICING_NEEDS_CONFIRMATION:
+        leads.append(
+            f"Vehicle identity ({identified_vehicle_label}) also needs surveyor confirmation. "
+        )
+    leads.append(PRICE_DISCLAIMER)
+    return "".join(leads)
+
+
+def _vehicle_id_inconsistency(db: Session, claim_id: int) -> str | None:
+    event = db.scalar(
+        select(PipelineEvent)
+        .where(
+            PipelineEvent.claim_id == claim_id,
+            PipelineEvent.stage_key == "vehicle_id",
+        )
+        .order_by(PipelineEvent.id.desc())
+    )
+    if not event or not event.detail:
+        return None
+    if "inconsistent" in event.detail.lower():
+        return event.detail
+    return None
+
+
 def build_estimate(db: Session, claim_id: int) -> BuiltEstimate:
+    raw_detections = list(
+        db.scalars(
+            select(DamageDetection)
+            .where(DamageDetection.claim_id == claim_id)
+            .order_by(DamageDetection.id.asc())
+        ).all()
+    )
+    escalate, escalate_reason = assess_extensive_damage(raw_detections)
+    vmmr_inconsistency = _vehicle_id_inconsistency(db, claim_id)
+
     context = match_detections(db, claim_id)
     vehicle = db.scalar(select(Vehicle).where(Vehicle.source_claim_id == claim_id))
+
+    if escalate:
+        reason = _extensive_damage_summary(
+            escalate_reason=escalate_reason,
+            identity_pricing_basis=context.identity_pricing_basis,
+            identified_vehicle_label=context.identified_vehicle_label,
+            vmmr_inconsistency=vmmr_inconsistency,
+        )
+        return BuiltEstimate(
+            line_items=[],
+            subtotal=0.0,
+            tax=0.0,
+            grand_total=0.0,
+            reason_summary=reason,
+            currency="INR",
+            pricing_basis=PRICING_EXTENSIVE_DAMAGE,
+            catalogue_vehicle_label=context.catalogue_vehicle_label,
+            identified_vehicle_label=context.identified_vehicle_label,
+            fallback_source_model=context.fallback_source_model,
+            identity_pricing_basis=context.identity_pricing_basis,
+        )
 
     line_items: list[dict[str, Any]] = []
     for match in context.matches:
@@ -201,6 +279,7 @@ def build_estimate(db: Session, claim_id: int) -> BuiltEstimate:
         identified_vehicle_label=context.identified_vehicle_label,
         catalogue_vehicle_label=context.catalogue_vehicle_label,
         fallback_source_model=context.fallback_source_model,
+        vmmr_inconsistency=vmmr_inconsistency,
     )
 
     return BuiltEstimate(

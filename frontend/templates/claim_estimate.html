@@ -37,6 +37,17 @@
   </section>
   {% else %}
 
+  {% if estimate.pricing_basis == "extensive_damage_manual_review" %}
+  <section class="notice notice-warning" role="status">
+    <p class="notice-title">Extensive damage — manual review required</p>
+    <p class="notice-body">
+      The assessment detected a possible extensive or total-loss pattern across multiple images.
+      No auto-generated settlement total is shown. A surveyor must confirm damage scope and
+      vehicle identity before pricing.
+    </p>
+  </section>
+  {% endif %}
+
   <section class="rounded-2xl border border-navy/10 bg-white px-5 py-4 dark:border-white/10 dark:bg-navy">
     <div class="flex flex-wrap items-baseline justify-between gap-4">
       <div>
@@ -83,6 +94,7 @@
         </p>
         {% endif %}
       </div>
+      {% if estimate.pricing_basis != "extensive_damage_manual_review" %}
       <div class="text-right">
         <p class="text-xs uppercase tracking-wide text-navy/45 dark:text-mist/40">
           {% if estimate.pricing_basis == "provisional_fallback" %}
@@ -100,12 +112,21 @@
           Subtotal ₹{{ '%.2f'|format(estimate.subtotal) }} · GST ₹{{ '%.2f'|format(estimate.tax) }}
         </p>
       </div>
+      {% else %}
+      <div class="text-right">
+        <p class="text-xs uppercase tracking-wide text-navy/45 dark:text-mist/40">Settlement total</p>
+        <p class="mt-1 text-lg font-semibold text-navy/55 dark:text-mist/50">Pending surveyor review</p>
+      </div>
+      {% endif %}
     </div>
   </section>
 
   <section class="notice mt-4" role="status">
     <p class="notice-body">
       Indicative pricing only — not for binding settlement.
+      {% if estimate.pricing_basis == "extensive_damage_manual_review" %}
+      Extensive-damage review state — no priced total until surveyor confirmation.
+      {% endif %}
       {% if identity_pricing_basis == "needs_confirmation" %}
       Surveyor must confirm {{ identified_vehicle_label or "vehicle identity" }}.
       {% endif %}
