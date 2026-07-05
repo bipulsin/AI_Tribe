@@ -220,6 +220,23 @@ with `identity_source=manual_entry` on the vehicle row.
 | Admin summary | `GET /api/admin/vmmr-corrections/summary` (admin session only) |
 | Retrain trigger | **Manual only** — same as FGVD-8; no automatic retrain at any threshold |
 
+**Scratch directory setup (required on paperclip-vm):** The `app_ml` container runs as
+`appuser` (uid **1000**). On first deploy — and after any rebuild that adds the
+ml-scratch bind mount — create the corrections root on the **host** with write access
+for that uid:
+
+```bash
+sudo mkdir -p /mnt/ml-scratch/vmmr_corrections
+sudo chown 1000:1000 /mnt/ml-scratch/vmmr_corrections
+sudo chmod 775 /mnt/ml-scratch/vmmr_corrections
+docker exec ai_tribe_app_ml test -w /mnt/ml-scratch/vmmr_corrections && echo OK
+```
+
+Without this, manual vehicle confirmations still log queue rows in Postgres but
+`scratch_image_paths` stays null (Permission denied on copy). Upload originals remain
+in `claim_images.image_paths`; scratch copies are the retrain assembly path on
+`/mnt/ml-scratch` only.
+
 **Important:** Corrections do **not** update the live model in real time. They
 accumulate into a human-reviewed queue for a **deliberate, periodically initiated**
 retrain — the only practical path to fine-tune VMMR on **damaged** vehicles, since
