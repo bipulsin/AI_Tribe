@@ -130,11 +130,23 @@ def main() -> int:
 
     print(f"Evaluating {len(labeled)} images from {args.root}")
     correct = 0
+    skipped = 0
     per_class: dict[str, Counter] = defaultdict(Counter)
     examples_wrong: list[dict] = []
 
     for path, gold in labeled:
-        pred = damage_segmenter.classify_image(path)
+        try:
+            pred = damage_segmenter.classify_image(path)
+        except OSError as exc:
+            skipped += 1
+            if skipped <= 5:
+                print(f"SKIP unreadable {path}: {exc}", file=sys.stderr)
+            continue
+        except Exception as exc:  # noqa: BLE001 — lab harness should finish the run
+            skipped += 1
+            if skipped <= 5:
+                print(f"SKIP error {path}: {exc}", file=sys.stderr)
+            continue
         pred_label = pred.damage_type.value
         hit = pred_label == gold
         if hit:
@@ -155,13 +167,15 @@ def main() -> int:
         if hit:
             per_class[gold]["correct"] += 1
 
-    acc = correct / len(labeled)
+    acc = correct / (len(labeled) - skipped) if (len(labeled) - skipped) else 0.0
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     report = {
         "model": damage_segmenter.MODEL_ID,
         "dataset_root": str(args.root),
         "split": args.split,
         "n_images": len(labeled),
+        "n_skipped": skipped,
+        "n_scored": len(labeled) - skipped,
         "top1_accuracy": round(acc, 4),
         "per_class": {
             cls: {
@@ -181,7 +195,10 @@ def main() -> int:
     out_file = args.out / f"eval_{args.root.name}_{ts}.json"
     out_file.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 
-    print(f"Top-1 accuracy: {acc:.1%} ({correct}/{len(labeled)})")
+    print(
+        f"Top-1 accuracy: {acc:.1%} ({correct}/{len(labeled) - skipped})"
+        + (f", skipped {skipped} unreadable" if skipped else "")
+    )
     print(f"Report: {out_file}")
     return 0
 
