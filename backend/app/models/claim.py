@@ -50,3 +50,6 @@ class Claim(Base):
     estimate = relationship(
         "Estimate", back_populates="claim", uselist=False, cascade="all, delete-orphan"
     )
+    vmmr_corrections = relationship(
+        "VmmrCorrectionQueue", back_populates="claim", cascade="all, delete-orphan"
+    )

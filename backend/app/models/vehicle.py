@@ -20,6 +20,10 @@ class Vehicle(Base):
     pricing_basis: Mapped[str] = mapped_column(
         String(32), nullable=False, default="provisional_fallback"
     )
+    # vmmr | manual_entry — how identity was established.
+    identity_source: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="vmmr"
+    )
     source_claim_id: Mapped[int] = mapped_column(
         ForeignKey("claims.id"), nullable=False, index=True
     )

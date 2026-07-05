@@ -11,6 +11,7 @@ function pipelineTracker({
   stages = [],
   initialEvents = [],
   claimStatus = null,
+  catalogMakes = [],
 } = {}) {
   const DEFAULT_STAGE_SECONDS = 1.8;
 
@@ -29,6 +30,11 @@ function pipelineTracker({
     complete: false,
     halted: false,
     haltMessage: "",
+    awaitingVehicleConfirmation: false,
+    confirmMake: "",
+    confirmModel: "",
+    confirmSubmitting: false,
+    catalogMakes: catalogMakes || [],
     reviewSent: false,
     connecting: false,
     estimateUrl: claimId ? `/claims/${claimId}/estimate` : "#",
@@ -51,14 +57,18 @@ function pipelineTracker({
         claimStatus === "estimate_ready" ||
         claimStatus === "authenticity_failed" ||
         claimStatus === "review_required" ||
+        claimStatus === "paused_awaiting_vehicle_confirmation" ||
         claimStatus === "closed";
 
       if (terminal) {
         this.complete = true;
         this.connecting = false;
+        this.awaitingVehicleConfirmation =
+          claimStatus === "paused_awaiting_vehicle_confirmation";
         this.halted =
           claimStatus === "authenticity_failed" ||
-          claimStatus === "review_required";
+          claimStatus === "review_required" ||
+          this.awaitingVehicleConfirmation;
         if (this.halted && !this.haltMessage) {
           this.haltMessage =
             "This claim is paused and waiting for a surveyor to review it.";
@@ -263,7 +273,20 @@ function pipelineTracker({
       const ts = this.parseTs(event.created_at);
 
       if (event.stage_key && event.stage_key !== "pipeline_error") {
-        const stage = this.stages.find((item) => item.key === event.stage_key);
+        let stage = this.stages.find((item) => item.key === event.stage_key);
+        if (!stage) {
+          stage = {
+            key: event.stage_key,
+            label: event.stage_label || event.stage_key,
+            status: "pending",
+            detail: null,
+            startedAtMs: null,
+            durationSeconds: null,
+            workSeconds: null,
+            timerLabel: "",
+          };
+          this.stages.push(stage);
+        }
         if (stage) {
           if (event.status === "started") {
             stage.status = "started";
@@ -320,7 +343,10 @@ function pipelineTracker({
 
       if (event.pipeline_complete) {
         this.complete = true;
-        this.halted = Boolean(event.halted);
+        this.awaitingVehicleConfirmation = Boolean(
+          event.awaiting_vehicle_confirmation
+        );
+        this.halted = Boolean(event.halted) || this.awaitingVehicleConfirmation;
         if (event.halt_message) {
           this.haltMessage = event.halt_message;
         }
@@ -402,6 +428,40 @@ function pipelineTracker({
         }
       } catch (_err) {
         // Keep the button available if the request fails.
+      }
+    },
+
+    async submitVehicleConfirmation() {
+      if (!this.claimId || this.confirmSubmitting) return;
+      const make = (this.confirmMake || "").trim();
+      const model = (this.confirmModel || "").trim();
+      if (!make || !model) return;
+
+      this.confirmSubmitting = true;
+      try {
+        const response = await fetch(
+          `/api/pipeline/${this.claimId}/confirm-vehicle`,
+          {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ make, model }),
+          }
+        );
+        if (!response.ok) return;
+
+        this.awaitingVehicleConfirmation = false;
+        this.halted = false;
+        this.complete = false;
+        this.connecting = true;
+        this.connect();
+      } catch (_err) {
+        // Keep form available on failure.
+      } finally {
+        this.confirmSubmitting = false;
       }
     },
   };

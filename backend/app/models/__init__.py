@@ -9,6 +9,7 @@ from app.models.parts_catalog import PartsCatalog
 from app.models.pipeline_event import PipelineEvent
 from app.models.user import User
 from app.models.vehicle import Vehicle
+from app.models.vmmr_correction_queue import VmmrCorrectionQueue
 
 __all__ = [
     "User",
@@ -16,6 +17,7 @@ __all__ = [
     "ClaimImage",
     "PipelineEvent",
     "Vehicle",
+    "VmmrCorrectionQueue",
     "PartsCatalog",
     "Estimate",
     "DamageDetection",

@@ -44,6 +44,12 @@ from app.services.forensics import (
 from app.services.fraud import risk_scorer, rules_engine
 from app.services.image_utils import claim_image_paths
 from app.services.vmmr import vmmr_classifier
+from app.services.vmmr.vehicle_confirmation import (
+    PAUSE_MESSAGE,
+    PAUSE_STAGE_KEY,
+    PAUSE_STAGE_LABEL,
+    should_pause_for_vehicle_confirmation,
+)
 
 logger = logging.getLogger("ai_tribe.pipeline")
 
@@ -291,6 +297,7 @@ async def stage_vehicle_id(db: Session, claim: Claim) -> StageResult:
         existing.year = result.year
         existing.identity_confirmed = identity_confirmed
         existing.pricing_basis = pricing_basis
+        existing.identity_source = "vmmr"
     else:
         db.add(
             Vehicle(
@@ -299,6 +306,7 @@ async def stage_vehicle_id(db: Session, claim: Claim) -> StageResult:
                 year=result.year,
                 identity_confirmed=identity_confirmed,
                 pricing_basis=pricing_basis,
+                identity_source="vmmr",
                 source_claim_id=claim.id,
             )
         )
@@ -543,7 +551,57 @@ async def _run_handler_with_floor(
     return result, work_seconds
 
 
-async def run_pipeline(claim_id: int) -> None:
+def _completed_stage_keys(db: Session, claim_id: int) -> set[str]:
+    events = db.scalars(
+        select(PipelineEvent).where(PipelineEvent.claim_id == claim_id)
+    ).all()
+    done: set[str] = set()
+    for event in events:
+        status = event.status.value if hasattr(event.status, "value") else event.status
+        if status in {"passed", "failed", "warning"}:
+            done.add(event.stage_key)
+    return done
+
+
+async def _pause_for_vehicle_confirmation(
+    db: Session,
+    claim_id: int,
+    *,
+    detail: str,
+) -> None:
+    claim = db.get(Claim, claim_id)
+    assert claim is not None
+    claim.status = ClaimStatus.paused_awaiting_vehicle_confirmation
+    db.commit()
+
+    pause_at = datetime.now(timezone.utc)
+    await _emit(
+        db,
+        claim_id=claim_id,
+        stage_key=PAUSE_STAGE_KEY,
+        stage_label=PAUSE_STAGE_LABEL,
+        status=PipelineEventStatus.warning,
+        detail=detail or PAUSE_MESSAGE,
+    )
+    await event_bus.publish(
+        claim_id,
+        {
+            "claim_id": claim_id,
+            "stage_key": PAUSE_STAGE_KEY,
+            "stage_label": PAUSE_STAGE_LABEL,
+            "status": PipelineEventStatus.warning.value,
+            "detail": detail or PAUSE_MESSAGE,
+            "created_at": pause_at.isoformat(),
+            "pipeline_complete": True,
+            "halted": True,
+            "awaiting_vehicle_confirmation": True,
+            "claim_status": claim.status.value,
+            "halt_message": detail or PAUSE_MESSAGE,
+        },
+    )
+
+
+async def run_pipeline(claim_id: int, *, resume: bool = False) -> None:
     async with _running_lock:
         if claim_id in _running_claims:
             logger.info("Pipeline already running for claim %s", claim_id)
@@ -562,30 +620,22 @@ async def run_pipeline(claim_id: int) -> None:
             ClaimStatus.authenticity_failed,
             ClaimStatus.review_required,
             ClaimStatus.closed,
-        }:
+            ClaimStatus.paused_awaiting_vehicle_confirmation,
+        } and not resume:
             return
 
-        existing = db.scalars(
-            select(PipelineEvent).where(PipelineEvent.claim_id == claim_id)
-        ).all()
-        if existing and claim.status == ClaimStatus.processing:
-            finished_keys = {
-                e.stage_key
-                for e in existing
-                if e.status
-                in {
-                    PipelineEventStatus.passed,
-                    PipelineEventStatus.failed,
-                    PipelineEventStatus.warning,
-                }
-            }
-            if "estimate_ready" in finished_keys:
+        completed = _completed_stage_keys(db, claim_id)
+        if completed and claim.status == ClaimStatus.processing and not resume:
+            if "estimate_ready" in completed:
                 return
 
         claim.status = ClaimStatus.processing
         db.commit()
 
         for stage_key, stage_label in PIPELINE_STAGES:
+            if stage_key in completed:
+                continue
+
             await _emit(
                 db,
                 claim_id=claim_id,
@@ -602,7 +652,6 @@ async def run_pipeline(claim_id: int) -> None:
             resolved_label = RESOLVED_LABELS.get(stage_key, {}).get(
                 result.status.value, stage_label
             )
-            # Warnings keep the in-process label unless a resolved label exists.
             if result.status == PipelineEventStatus.warning:
                 label_out = stage_label
             else:
@@ -636,6 +685,14 @@ async def run_pipeline(claim_id: int) -> None:
                     },
                 )
                 return
+
+            if stage_key == "severity_grading":
+                pause, pause_detail = should_pause_for_vehicle_confirmation(db, claim_id)
+                if pause:
+                    await _pause_for_vehicle_confirmation(
+                        db, claim_id, detail=pause_detail
+                    )
+                    return
 
         claim.status = ClaimStatus.estimate_ready
         db.commit()
@@ -699,6 +756,7 @@ async def ensure_pipeline_started(claim_id: int) -> None:
             ClaimStatus.authenticity_failed,
             ClaimStatus.review_required,
             ClaimStatus.closed,
+            ClaimStatus.paused_awaiting_vehicle_confirmation,
         }:
             return
         if claim.status == ClaimStatus.processing:
@@ -716,3 +774,8 @@ async def ensure_pipeline_started(claim_id: int) -> None:
         db.close()
 
     await run_pipeline(claim_id)
+
+
+async def resume_pipeline_after_vehicle_confirmation(claim_id: int) -> None:
+    """Continue pipeline after manual make/model confirmation."""
+    await run_pipeline(claim_id, resume=True)

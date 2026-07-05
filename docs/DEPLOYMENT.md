@@ -206,6 +206,36 @@ python scripts/vmmr/train_fgvd_vmmr.py
 python scripts/vmmr/deploy_and_smoke.py
 ```
 
+### Manual VMMR correction queue (damaged-vehicle retrain path)
+
+When VMMR cannot reliably identify a vehicle (or extensive-damage signals fire),
+the pipeline pauses at **`paused_awaiting_vehicle_confirmation`**. The surveyor
+enters make/model manually; each correction is logged to **`vmmr_correction_queue`**
+with `identity_source=manual_entry` on the vehicle row.
+
+| Item | Value |
+| --- | --- |
+| Queue table | `vmmr_correction_queue` (claim_id, image_paths, confirmed_make/model, submitted_by, used_in_training) |
+| Scratch copies | `/mnt/ml-scratch/vmmr_corrections/<claim_id>/` (never root disk) |
+| Admin summary | `GET /api/admin/vmmr-corrections/summary` (admin session only) |
+| Retrain trigger | **Manual only** — same as FGVD-8; no automatic retrain at any threshold |
+
+**Important:** Corrections do **not** update the live model in real time. They
+accumulate into a human-reviewed queue for a **deliberate, periodically initiated**
+retrain — the only practical path to fine-tune VMMR on **damaged** vehicles, since
+FGVD and other public sets label intact cars only.
+
+**Minimum before a meaningful retrain:** use the same bar as the original ML
+playbook — roughly **80–150 images per class** (uneven counts are fine, but a
+handful of claims does not move held-out accuracy). This is a slow-accumulating
+asset, not an instant fix.
+
+**Open-dataset check (2026-07):** CarDD, CDDM, and TQVCD provide damage-type /
+component labels on damaged photos but **no make/model labels**. FGVD provides
+make/model on **undamaged** traffic-scene crops only. No usable public dataset
+combines severe collision imagery with per-image make/model ground truth was
+found — the correction queue remains the intended in-production data path.
+
 ## Co-located stacks (must remain untouched)
 
 | Name | Role |

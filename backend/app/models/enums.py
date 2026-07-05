@@ -4,6 +4,7 @@ import enum
 class ClaimStatus(str, enum.Enum):
     submitted = "submitted"
     processing = "processing"
+    paused_awaiting_vehicle_confirmation = "paused_awaiting_vehicle_confirmation"
     authenticity_failed = "authenticity_failed"
     review_required = "review_required"
     estimate_ready = "estimate_ready"

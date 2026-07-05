@@ -19,6 +19,7 @@ from app.services.claim_search import search_claims
 from app.services.claim_service import ClaimValidationError, create_claim_with_uploads
 from app.services.fraud.fraud_graph import claim_network_view
 from app.services.pipeline_orchestrator import PIPELINE_STAGES, ensure_pipeline_started
+from app.services.vmmr.vehicle_confirmation import catalog_makes_models
 
 router = APIRouter(tags=["claims"])
 settings = get_settings()
@@ -309,6 +310,7 @@ async def claim_processing(
                     "initialEvents": initial_events,
                     "claimStatus": claim.status.value,
                     "network": network_payload,
+                    "catalogMakes": catalog_makes_models(db),
                 }
             ),
         },

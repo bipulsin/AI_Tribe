@@ -160,6 +160,9 @@ try:
     app.include_router(routes_claims.router)
     app.include_router(routes_pipeline.router)
     app.include_router(routes_estimate.router)
+    from app.api import routes_admin
+
+    app.include_router(routes_admin.router)
 except ImportError:
     # Partial scaffold during early milestones — routes land incrementally.
     pass

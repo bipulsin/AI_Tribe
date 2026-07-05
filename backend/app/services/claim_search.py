@@ -19,7 +19,7 @@ _STATUS_LABELS = {
     ClaimStatus.submitted: "Submitted",
     ClaimStatus.processing: "Processing",
     ClaimStatus.authenticity_failed: "Authenticity failed",
-    ClaimStatus.review_required: "Review required",
+    ClaimStatus.paused_awaiting_vehicle_confirmation: "Awaiting vehicle confirmation",
     ClaimStatus.estimate_ready: "Estimate ready",
     ClaimStatus.closed: "Closed",
 }

@@ -51,6 +51,7 @@ async def pipeline_stream(
         ClaimStatus.authenticity_failed.value,
         ClaimStatus.review_required.value,
         ClaimStatus.closed.value,
+        ClaimStatus.paused_awaiting_vehicle_confirmation.value,
     }
 
     async def event_generator():
@@ -77,6 +78,13 @@ async def pipeline_stream(
                 terminal["halt_message"] = (
                     "Authenticity or forensic checks did not pass. "
                     "This claim is paused for manual review."
+                )
+            elif claim_status == ClaimStatus.paused_awaiting_vehicle_confirmation.value:
+                terminal["halted"] = True
+                terminal["awaiting_vehicle_confirmation"] = True
+                terminal["halt_message"] = (
+                    "This vehicle shows severe damage and could not be reliably "
+                    "identified. Please confirm the make and model to continue."
                 )
             yield {"event": "stage", "data": json.dumps(terminal)}
             return
