@@ -163,6 +163,9 @@ try:
     from app.api import routes_admin
 
     app.include_router(routes_admin.router)
+    from app.api import routes_lab_labeling
+
+    app.include_router(routes_lab_labeling.router)
 except ImportError:
     # Partial scaffold during early milestones — routes land incrementally.
     pass

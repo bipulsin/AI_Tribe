@@ -29,7 +29,7 @@ Last reviewed: **2026-07-05** (VehiDE terms re-checked; CarDD pre-download gate 
 - **Paper addendum ([CarDD.pdf](https://cardd-ustc.github.io/docs/CarDD.pdf)):** Images sourced from **Flickr and Shutterstock**; researcher accepts full responsibility and may use CarDD **only for non-commercial research and educational purposes**, complying with those platform licenses.
 - **GitHub (code + model zoo):** `CarDD-USTC/CarDD-USTC.github.io` — clone for inference tooling; **dataset zip is separate** and requires the form process above.
 - **Scratch path:** `/mnt/ml-scratch/cardd/` (layout only until form approved)
-- **Pre-download gate (2026-07-05):** **Do not request or download CarDD** until PIC Lab terms are reviewed and `LICENSE_ACK.json` is updated with CarDD-specific acknowledgement. VehiDE was downloaded out of order; CarDD must not repeat that gap.
+- **Pre-download gate (2026-07-05):** **Do not request or download CarDD** until PIC Lab terms are reviewed and `LICENSE_ACK.json` is updated with CarDD-specific acknowledgement. VehiDE was downloaded out of order; CarDD must not repeat that gap. Request draft: `docs/CARDD_ACCESS_REQUEST.md`.
 
 ## VehiDE (Vehicle Damage Detection)
 

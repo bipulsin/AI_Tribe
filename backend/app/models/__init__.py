@@ -10,6 +10,7 @@ from app.models.pipeline_event import PipelineEvent
 from app.models.user import User
 from app.models.vehicle import Vehicle
 from app.models.vmmr_correction_queue import VmmrCorrectionQueue
+from app.models.vmmr_lab_label import VmmrLabLabel
 
 __all__ = [
     "User",
@@ -18,6 +19,7 @@ __all__ = [
     "PipelineEvent",
     "Vehicle",
     "VmmrCorrectionQueue",
+    "VmmrLabLabel",
     "PartsCatalog",
     "Estimate",
     "DamageDetection",

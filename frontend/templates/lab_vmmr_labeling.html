@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}Lab VMMR labeling{% endblock %}
+{% block body %}
+<div
+  class="min-h-screen px-4 py-8 sm:px-6 lg:px-8"
+  x-data="labVmmrLabeling()"
+  x-init="init()"
+>
+  <div class="mx-auto max-w-4xl">
+    <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wide text-gold">Lab tool · admin only</p>
+        <h1 class="mt-1 text-2xl font-semibold text-navy dark:text-mist">Make/model labeling (VehiDE)</h1>
+        <p class="mt-2 text-sm text-navy/60 dark:text-mist/55">
+          Vision-assisted guess + human review. CarDD is not included until PIC Lab access is granted.
+        </p>
+      </div>
+      <a href="/claims/new" class="text-sm font-medium text-gold hover:underline">← Back to claims</a>
+    </div>
+
+    <div class="notice mb-6 border-amber-400/30 bg-amber-500/5" role="note">
+      <p class="notice-title text-amber-800 dark:text-amber-200">Non-commercial lab research only</p>
+      <p class="notice-body text-sm">{{ lab_notice }}</p>
+    </div>
+
+    <div class="mb-6 grid gap-3 sm:grid-cols-4" x-show="stats">
+      <div class="rounded-xl border border-navy/10 bg-white px-4 py-3 dark:border-white/10 dark:bg-navy/40">
+        <p class="text-xs text-navy/50 dark:text-mist/50">Pending</p>
+        <p class="text-xl font-semibold tabular-nums" x-text="stats.pending ?? '—'"></p>
+      </div>
+      <div class="rounded-xl border border-navy/10 bg-white px-4 py-3 dark:border-white/10 dark:bg-navy/40">
+        <p class="text-xs text-navy/50 dark:text-mist/50">Confirmed</p>
+        <p class="text-xl font-semibold tabular-nums" x-text="stats.confirmed ?? '—'"></p>
+      </div>
+      <div class="rounded-xl border border-navy/10 bg-white px-4 py-3 dark:border-white/10 dark:bg-navy/40">
+        <p class="text-xs text-navy/50 dark:text-mist/50">Skipped</p>
+        <p class="text-xl font-semibold tabular-nums" x-text="stats.skipped ?? '—'"></p>
+      </div>
+      <div class="rounded-xl border border-navy/10 bg-white px-4 py-3 dark:border-white/10 dark:bg-navy/40">
+        <p class="text-xs text-navy/50 dark:text-mist/50">Source</p>
+        <p class="text-sm font-medium" x-text="stats.source_dataset ?? 'vehide'"></p>
+      </div>
+    </div>
+
+    <div class="mb-4 flex flex-wrap gap-2">
+      <button
+        type="button"
+        class="rounded-lg border border-navy/15 px-3 py-1.5 text-xs font-medium dark:border-white/15"
+        :disabled="busy"
+        @click="buildQueue()"
+      >
+        Rebuild overlap queue
+      </button>
+      <button
+        type="button"
+        class="rounded-lg border border-navy/15 px-3 py-1.5 text-xs font-medium dark:border-white/15"
+        :disabled="busy"
+        @click="importQueue()"
+      >
+        Import queue to DB
+      </button>
+    </div>
+
+    <template x-if="!item && !loading">
+      <div class="rounded-2xl border border-navy/10 bg-white px-6 py-10 text-center dark:border-white/10 dark:bg-navy/40">
+        <p class="text-sm text-navy/60 dark:text-mist/55">No pending labels. Build and import the VehiDE overlap queue first.</p>
+      </div>
+    </template>
+
+    <template x-if="item">
+      <div class="rounded-2xl border border-navy/10 bg-white p-5 dark:border-white/10 dark:bg-navy/40">
+        <div class="grid gap-6 lg:grid-cols-2">
+          <div>
+            <img
+              :src="item.image_url"
+              alt="VehiDE damaged vehicle"
+              class="max-h-80 w-full rounded-lg object-contain bg-navy/5 dark:bg-black/20"
+            />
+            <p class="mt-2 text-xs text-navy/50 dark:text-mist/50">
+              Damage hint: <span x-text="item.damage_hint || '—'"></span>
+              · License: <span x-text="item.license_tag"></span>
+            </p>
+          </div>
+          <div>
+            <div class="rounded-lg border border-navy/10 bg-canvas/80 px-4 py-3 dark:border-white/10 dark:bg-ink/50">
+              <p class="text-xs font-semibold uppercase tracking-wide text-navy/45 dark:text-mist/45">AI suggestion</p>
+              <p class="mt-1 text-lg font-semibold">
+                <span x-text="item.suggested_make"></span>
+                <span x-text="item.suggested_model"></span>
+              </p>
+              <p class="mt-1 text-sm text-navy/60 dark:text-mist/55" x-text="item.guess_detail"></p>
+              <p class="mt-1 text-xs text-navy/45 dark:text-mist/45">
+                Source: <span x-text="item.guess_source"></span>
+                · <span x-text="Math.round((item.suggested_confidence || 0) * 100)"></span>%
+              </p>
+              <template x-if="item.alternatives && item.alternatives.length">
+                <ul class="mt-2 space-y-1 text-xs text-navy/55 dark:text-mist/50">
+                  <template x-for="(alt, idx) in item.alternatives.slice(0, 4)" :key="idx">
+                    <li>
+                      <button
+                        type="button"
+                        class="hover:text-gold"
+                        @click="applyAlt(alt)"
+                        x-text="`${alt.make} ${alt.model} (${Math.round((alt.confidence || 0) * 100)}%)`"
+                      ></button>
+                    </li>
+                  </template>
+                </ul>
+              </template>
+            </div>
+
+            <form class="mt-4 grid gap-3 sm:grid-cols-2" @submit.prevent="confirmLabel()">
+              <div>
+                <label for="lab_make" class="block text-sm font-medium">Confirmed make</label>
+                <input
+                  id="lab_make"
+                  type="text"
+                  list="catalog-makes"
+                  x-model="make"
+                  class="mt-1 w-full rounded-lg border border-navy/15 bg-canvas px-3 py-2 text-sm dark:border-white/15 dark:bg-ink"
+                  required
+                />
+              </div>
+              <div>
+                <label for="lab_model" class="block text-sm font-medium">Confirmed model</label>
+                <input
+                  id="lab_model"
+                  type="text"
+                  x-model="model"
+                  class="mt-1 w-full rounded-lg border border-navy/15 bg-canvas px-3 py-2 text-sm dark:border-white/15 dark:bg-ink"
+                  required
+                />
+              </div>
+              <datalist id="catalog-makes">
+                <template x-for="entry in catalog" :key="entry.make">
+                  <option :value="entry.make"></option>
+                </template>
+              </datalist>
+              <div class="sm:col-span-2 flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  class="rounded-lg border border-navy/15 px-4 py-2 text-sm font-medium dark:border-white/15"
+                  :disabled="busy"
+                  @click="skipLabel()"
+                >
+                  Skip
+                </button>
+                <button
+                  type="button"
+                  class="rounded-lg border border-navy/15 px-4 py-2 text-sm font-medium dark:border-white/15"
+                  :disabled="busy"
+                  @click="useSuggestion()"
+                >
+                  Use suggestion
+                </button>
+                <button type="submit" class="btn-primary rounded-lg px-4 py-2 text-sm font-semibold" :disabled="busy">
+                  Confirm label
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <p class="mt-4 text-xs text-navy/45 dark:text-mist/45" x-show="message" x-text="message" x-cloak></p>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/lab_vmmr_labeling.js"></script>
+{% endblock %}

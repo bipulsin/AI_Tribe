@@ -228,13 +228,16 @@ for that uid:
 ```bash
 sudo mkdir -p /mnt/ml-scratch/vmmr_corrections \
   /mnt/ml-scratch/cardd /mnt/ml-scratch/vehide \
-  /mnt/ml-scratch/damage_eval /mnt/ml-scratch/damage_datasets
+  /mnt/ml-scratch/damage_eval /mnt/ml-scratch/damage_datasets \
+  /mnt/ml-scratch/vmmr_labeling/vehide
 sudo chown -R 1000:1000 /mnt/ml-scratch/vmmr_corrections \
   /mnt/ml-scratch/cardd /mnt/ml-scratch/vehide \
-  /mnt/ml-scratch/damage_eval /mnt/ml-scratch/damage_datasets
+  /mnt/ml-scratch/damage_eval /mnt/ml-scratch/damage_datasets \
+  /mnt/ml-scratch/vmmr_labeling
 sudo chmod -R 775 /mnt/ml-scratch/vmmr_corrections \
   /mnt/ml-scratch/cardd /mnt/ml-scratch/vehide \
-  /mnt/ml-scratch/damage_eval /mnt/ml-scratch/damage_datasets
+  /mnt/ml-scratch/damage_eval /mnt/ml-scratch/damage_datasets \
+  /mnt/ml-scratch/vmmr_labeling
 docker exec ai_tribe_app_ml test -w /mnt/ml-scratch/vmmr_corrections && echo OK
 ```
 
@@ -287,6 +290,37 @@ therefore likely mislabeled as dent, scratch, etc., and mapped to the wrong part
 an uncertainty / needs-confirmation pattern at the damage-type level (similar to VMMR).
 
 Benchmark report: `/mnt/ml-scratch/damage_eval/runs/eval_raw_20260705T141711Z.json`
+
+## Lab VMMR labeling tool (VehiDE only)
+
+Admin-only page: **`/lab/vmmr-labeling`**. Assists human make/model labeling on
+**VehiDE** damaged-car images whose FGVD VMMR top-5 guesses overlap the parts
+catalog — not live claim photos. CarDD is excluded until PIC Lab access; see
+`docs/CARDD_ACCESS_REQUEST.md` (human submit only).
+
+| Item | Value |
+| --- | --- |
+| Queue build | `scripts/vmmr/build_vehide_lab_queue.py --split val [--import-db]` |
+| Overlap manifest | `/mnt/ml-scratch/vmmr_labeling/vehide/overlap_queue.json` |
+| Confirmed export | `/mnt/ml-scratch/vmmr_labeling/vehide/confirmed_labels.jsonl` |
+| Postgres table | `vmmr_lab_labels` (separate from `vmmr_correction_queue`) |
+| Vision assist | `OPENAI_API_KEY` optional; else local FGVD VMMR top-k |
+
+**License / pipeline separation (required):** Any labels or training data produced
+from VehiDE-derived images are **lab-research-only** (VehiDE NC terms). They
+**must not** be merged into any dataset used to retrain a model serving the live
+`tribe.tradentical.com` pipeline without separately re-confirming compatibility
+with VehiDE's terms at that time. The labeling UI displays this notice; confirmed
+rows are written only under `/mnt/ml-scratch/vmmr_labeling/`, never into
+`backend/app/ml_weights/vmmr/` or live deploy paths automatically.
+
+Scratch setup (extend existing ml-scratch chown block):
+
+```bash
+sudo mkdir -p /mnt/ml-scratch/vmmr_labeling/vehide
+sudo chown -R 1000:1000 /mnt/ml-scratch/vmmr_labeling
+sudo chmod -R 775 /mnt/ml-scratch/vmmr_labeling
+```
 
 ## Co-located stacks (must remain untouched)
 

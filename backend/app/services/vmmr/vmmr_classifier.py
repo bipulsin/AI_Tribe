@@ -135,6 +135,14 @@ class VmmrResult:
     reliability_tier: str | None = None
 
 
+@dataclass
+class VmmrTopGuess:
+    make: str
+    model: str
+    confidence: float
+    class_key: str
+
+
 def _stub_result() -> VmmrResult:
     return VmmrResult(
         make="Maruti",
@@ -433,6 +441,44 @@ def classify_image(path: Path) -> VmmrResult:
     if not get_settings().ml_live:
         return _stub_result()
     return _classify_live(path)
+
+
+def guess_top_k(path: Path, k: int = 5) -> list[VmmrTopGuess]:
+    """Top-k FGVD class probabilities for lab labeling / overlap scans."""
+    if not get_settings().ml_live:
+        return [
+            VmmrTopGuess("Maruti", "Swift", 0.55, "Maruti_Swift"),
+            VmmrTopGuess("Hyundai", "i20", 0.22, "Hyundai_i20"),
+        ][:k]
+
+    import torch  # noqa: PLC0415
+    from PIL import Image  # noqa: PLC0415
+
+    model, labels = _load_finetuned()
+    if model is None or labels is None or _preprocess is None:
+        return []
+
+    with Image.open(path) as img:
+        tensor = _preprocess(img.convert("RGB")).unsqueeze(0)
+
+    with torch.no_grad():
+        probs = torch.softmax(model(tensor)[0], dim=0)
+
+    k = min(k, probs.numel())
+    topk = torch.topk(probs, k=k)
+    out: list[VmmrTopGuess] = []
+    for idx, score in zip(topk.indices.tolist(), topk.values.tolist(), strict=False):
+        class_key = labels[int(idx)]
+        make, model_name = _split_class_key(class_key)
+        out.append(
+            VmmrTopGuess(
+                make=make,
+                model=model_name,
+                confidence=float(score),
+                class_key=class_key,
+            )
+        )
+    return out
 
 
 def detect_identity_inconsistency(results: list[VmmrResult]) -> str | None:
