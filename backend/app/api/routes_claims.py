@@ -18,7 +18,7 @@ from app.models.enums import ClaimStatus
 from app.services.claim_search import search_claims
 from app.services.claim_service import ClaimValidationError, create_claim_with_uploads
 from app.services.fraud.fraud_graph import claim_network_view
-from app.services.pipeline_orchestrator import PIPELINE_STAGES, ensure_pipeline_started
+from app.services.pipeline_orchestrator import ensure_pipeline_started
 from app.services.vmmr.vehicle_confirmation import catalog_makes_models
 
 router = APIRouter(tags=["claims"])
@@ -258,17 +258,8 @@ async def claim_processing(
         for event in events
     ]
 
-    # Full chain rendered on load; SSE only transitions status/timers.
-    stages = [
-        {
-            "key": key,
-            "label": label,
-            "status": "pending",
-            "detail": None,
-            "timerLabel": "",
-        }
-        for key, label in PIPELINE_STAGES
-    ]
+    # Stages append incrementally via SSE; do not pre-render the full chain.
+    stages: list[dict] = []
 
     network = claim_network_view(db, claim)
     network_payload = {

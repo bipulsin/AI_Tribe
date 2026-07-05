@@ -580,6 +580,14 @@ async def _pause_for_vehicle_confirmation(
         claim_id=claim_id,
         stage_key=PAUSE_STAGE_KEY,
         stage_label=PAUSE_STAGE_LABEL,
+        status=PipelineEventStatus.started,
+        detail=detail or PAUSE_MESSAGE,
+    )
+    await _emit(
+        db,
+        claim_id=claim_id,
+        stage_key=PAUSE_STAGE_KEY,
+        stage_label=PAUSE_STAGE_LABEL,
         status=PipelineEventStatus.warning,
         detail=detail or PAUSE_MESSAGE,
     )

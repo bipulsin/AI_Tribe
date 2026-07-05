@@ -1,11 +1,26 @@
 /**
  * Live pipeline stage tracker via Server-Sent Events.
  *
+ * Stages append only when they start (no pre-rendered placeholders).
  * Windowed stage list (~5 rows): current/focus stage is centered and gold;
- * completed stages show green checks + elapsed timers; pending stay neutral.
- * Completed claims without pipeline_events (seeded demo claims) synthesize
- * a full passed history so the view is not a flat grey list.
+ * completed stages show green checks + elapsed timers.
  */
+const CANONICAL_PIPELINE_STAGES = [
+  ["intake", "Image rendering"],
+  ["quality_gate", "Checking image quality"],
+  ["deepfake_check", "Deepfake identification in process"],
+  ["vehicle_forensics", "Vehicle forensics in process"],
+  ["duplicate_check", "Checking for reused images"],
+  ["sensor_consistency", "Checking sensor consistency across photos"],
+  ["vehicle_id", "Identifying make and model"],
+  ["consistency_check", "Confirming all images match the same vehicle"],
+  ["damage_detection", "Mapping damage to vehicle parts"],
+  ["severity_grading", "Grading damage severity"],
+  ["fraud_scoring", "Running fraud intelligence checks"],
+  ["parts_matching", "Matching parts to pricing catalogue"],
+  ["estimate_ready", "Survey estimate ready"],
+];
+
 function pipelineTracker({
   claimId,
   stages = [],
@@ -107,25 +122,31 @@ function pipelineTracker({
       const haltEarly =
         claimStatus === "authenticity_failed" ||
         claimStatus === "review_required";
-      // Halt after early forensic stages when the claim never finished.
       const haltAfterKey = haltEarly ? "duplicate_check" : null;
-      let cursor = Date.now() - this.stages.length * defaultSec * 1000;
+      const seedStages = CANONICAL_PIPELINE_STAGES.map(([key, label]) => ({
+        key,
+        label,
+        status: "pending",
+        detail: null,
+        startedAtMs: null,
+        durationSeconds: null,
+        workSeconds: null,
+        timerLabel: "",
+      }));
+      let cursor = Date.now() - seedStages.length * defaultSec * 1000;
       this.pipelineStartedAtMs = cursor;
       let halted = false;
+      this.stages = [];
 
-      for (const stage of this.stages) {
-        if (halted) {
-          stage.status = "pending";
-          stage.durationSeconds = null;
-          stage.timerLabel = "";
-          continue;
-        }
+      for (const stage of seedStages) {
+        if (halted) break;
         stage.status =
           haltEarly && stage.key === haltAfterKey ? "failed" : "passed";
         stage.startedAtMs = cursor;
         stage.durationSeconds = defaultSec;
         stage.workSeconds = defaultSec;
         cursor += defaultSec * 1000;
+        this.stages.push(stage);
         if (haltEarly && stage.key === haltAfterKey) {
           halted = true;
         }
@@ -274,7 +295,8 @@ function pipelineTracker({
 
       if (event.stage_key && event.stage_key !== "pipeline_error") {
         let stage = this.stages.find((item) => item.key === event.stage_key);
-        if (!stage) {
+        const isStart = event.status === "started";
+        if (!stage && (isStart || fromHistory)) {
           stage = {
             key: event.stage_key,
             label: event.stage_label || event.stage_key,
@@ -286,6 +308,9 @@ function pipelineTracker({
             timerLabel: "",
           };
           this.stages.push(stage);
+        }
+        if (!stage) {
+          return;
         }
         if (stage) {
           if (event.status === "started") {
