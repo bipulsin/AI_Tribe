@@ -8,6 +8,7 @@ from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.models import DamageDetection, Estimate, PipelineEvent, Vehicle
 from app.models.enums import Severity
@@ -473,10 +474,11 @@ def apply_manual_line_prices(
     subtotal, tax, grand_total, currency = _recompute_totals(line_items)
 
     built = build_estimate(db, claim_id, existing_line_items=line_items)
-    estimate.line_items = line_items
+    estimate.line_items = [dict(item) for item in line_items]
+    flag_modified(estimate, "line_items")
     estimate.subtotal = subtotal
     estimate.tax = tax
-    estimate.grand_total = grand_total
+    estimate.grand_total = grand_total if pricing_complete else 0.0
     estimate.reason_summary = built.reason_summary
     estimate.pricing_basis = (
         built.pricing_basis if pricing_complete else PRICING_PENDING_MANUAL
