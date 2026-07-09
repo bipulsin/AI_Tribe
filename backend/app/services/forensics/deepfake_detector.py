@@ -33,6 +33,8 @@ class DeepfakeResult:
     score: float
     detail: str
     model_available: bool
+    fake_score: float = 0.0
+    real_score: float = 0.0
 
 
 def _stub_result(_path: Path) -> DeepfakeResult:
@@ -43,6 +45,8 @@ def _stub_result(_path: Path) -> DeepfakeResult:
         score=0.92,
         detail="Image cleared (realism 92%, deepfake 8%).",
         model_available=True,
+        fake_score=0.08,
+        real_score=0.92,
     )
 
 
@@ -129,6 +133,8 @@ def _classify_live(path: Path) -> DeepfakeResult:
         score=score,
         detail=detail,
         model_available=True,
+        fake_score=fake_score,
+        real_score=real_score,
     )
 
 

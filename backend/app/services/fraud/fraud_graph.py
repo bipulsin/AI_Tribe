@@ -265,3 +265,27 @@ def claim_network_view(db: Session, claim: Claim) -> ClaimNetworkView:
         clear=clear,
         signals=signals,
     )
+
+
+def graph_summary_text(network: ClaimNetworkView) -> str:
+    """Plain-text graph summary for LLM fraud assist."""
+    lines = [
+        f"Caption: {network.caption}",
+        f"Network clear (no notable pattern): {network.clear}",
+        f"Flagged node count: {len(network.flagged_node_ids)}",
+    ]
+    for node in network.nodes:
+        lines.append(
+            f"- Node {node.label} ({node.kind}): degree={node.degree}, "
+            f"flagged={node.flagged}"
+        )
+    for edge in network.edges:
+        lines.append(
+            f"- Edge {edge.source} <-> {edge.target} "
+            f"(claim ref: {edge.claim_reference or 'n/a'})"
+        )
+    for signal in network.signals:
+        lines.append(
+            f"- Signal {signal.reason_code}: risk_score={signal.risk_score}"
+        )
+    return "\n".join(lines)

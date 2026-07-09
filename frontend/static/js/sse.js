@@ -27,6 +27,7 @@ function pipelineTracker({
   initialEvents = [],
   claimStatus = null,
   catalogMakes = [],
+  vehicleLlmSuggest = null,
 } = {}) {
   const DEFAULT_STAGE_SECONDS = 1.8;
 
@@ -62,6 +63,11 @@ function pipelineTracker({
 
     init() {
       if (!this.claimId) return;
+
+      if (vehicleLlmSuggest) {
+        this.confirmMake = vehicleLlmSuggest.make || "";
+        this.confirmModel = vehicleLlmSuggest.model || "";
+      }
 
       for (const event of initialEvents) {
         this.applyEvent(event, { fromHistory: true });

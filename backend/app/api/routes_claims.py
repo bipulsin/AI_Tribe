@@ -13,7 +13,7 @@ from starlette.datastructures import UploadFile
 
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.models import Claim, Garage, PipelineEvent
+from app.models import Claim, Garage, LlmAssistLog, PipelineEvent, Vehicle
 from app.models.enums import ClaimStatus
 from app.services.claim_search import search_claims
 from app.services.claim_service import ClaimValidationError, create_claim_with_uploads
@@ -262,10 +262,27 @@ async def claim_processing(
     stages: list[dict] = []
 
     network = claim_network_view(db, claim)
+    fraud_assist = db.scalar(
+        select(LlmAssistLog)
+        .where(
+            LlmAssistLog.claim_id == claim.id,
+            LlmAssistLog.stage == "fraud_scoring",
+        )
+        .order_by(LlmAssistLog.id.desc())
+    )
+    vehicle = db.scalar(select(Vehicle).where(Vehicle.source_claim_id == claim.id))
+    vehicle_llm_suggest = None
+    if vehicle and vehicle.llm_suggest_make:
+        vehicle_llm_suggest = {
+            "make": vehicle.llm_suggest_make,
+            "model": vehicle.llm_suggest_model,
+            "provider": vehicle.llm_suggest_provider,
+        }
     network_payload = {
         "clear": network.clear,
         "caption": network.caption,
         "flaggedNodeIds": network.flagged_node_ids,
+        "llmInterpretation": fraud_assist.summary if fraud_assist else None,
         "nodes": [
             {
                 "id": node.id,
@@ -302,6 +319,7 @@ async def claim_processing(
                     "claimStatus": claim.status.value,
                     "network": network_payload,
                     "catalogMakes": catalog_makes_models(db),
+                    "vehicleLlmSuggest": vehicle_llm_suggest,
                 }
             ),
         },

@@ -154,6 +154,13 @@
               <template x-if="stage.key === 'vehicle_confirmation' && awaitingVehicleConfirmation">
                 <div class="mt-2 rounded-lg border border-amber-400/25 bg-amber-500/5 px-3 py-3 dark:border-amber-400/20">
                   <p class="text-sm text-navy/70 dark:text-mist/65" x-text="stage.detail || haltMessage"></p>
+                  <p
+                    class="mt-1 text-xs text-amber-700/80 dark:text-amber-200/75"
+                    x-show="confirmMake && confirmModel && awaitingVehicleConfirmation"
+                    x-cloak
+                  >
+                    Pre-filled from LLM assist when available — please confirm before continuing.
+                  </p>
                   <form class="mt-3 grid gap-3 sm:grid-cols-2" @submit.prevent="submitVehicleConfirmation()">
                     <div>
                       <label for="confirm_make" class="block text-sm font-medium text-navy dark:text-mist">Make</label>
@@ -241,6 +248,11 @@
     <p id="fraud-network-caption" class="fraud-network-caption mt-2">
       Network view of claims sharing this garage or surveyor.
     </p>
+    <p
+      id="fraud-network-llm"
+      class="mt-2 hidden rounded-lg border border-amber-400/20 bg-amber-500/5 px-2 py-2 text-xs text-amber-100/85"
+      aria-live="polite"
+    ></p>
   </aside>
   </div>
   {% endif %}
@@ -258,6 +270,11 @@
       const caption = document.getElementById("fraud-network-caption");
       if (caption && bootstrap.network.caption) {
         caption.textContent = bootstrap.network.caption;
+      }
+      const llmNote = document.getElementById("fraud-network-llm");
+      if (llmNote && bootstrap.network.llmInterpretation) {
+        llmNote.textContent = bootstrap.network.llmInterpretation;
+        llmNote.classList.remove("hidden");
       }
       renderFraudNetwork("fraud-network", bootstrap.network);
     }

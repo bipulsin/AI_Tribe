@@ -12,6 +12,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from app.models import DamageDetection, Estimate, PipelineEvent, Vehicle
 from app.models.enums import Severity
+from app.services.llm.constants import PRICE_DIVERGENCE_RATIO
 from app.services.parts.damage_aggregation import (
     PRICING_EXTENSIVE_DAMAGE,
     assess_extensive_damage,
@@ -44,6 +45,7 @@ REPAIR_PART_FRACTION = {
 PRICE_SOURCE_CATALOG = "catalog"
 PRICE_SOURCE_MANUAL = "manual"
 PRICE_SOURCE_UNPRICED = "unpriced"
+PRICE_SOURCE_LLM = "llm_suggested"
 
 
 @dataclass
@@ -73,7 +75,7 @@ def _is_line_priced(item: dict[str, Any]) -> bool:
     source = item.get("price_source")
     if source == PRICE_SOURCE_UNPRICED:
         return False
-    if source in {PRICE_SOURCE_CATALOG, PRICE_SOURCE_MANUAL}:
+    if source in {PRICE_SOURCE_CATALOG, PRICE_SOURCE_MANUAL, PRICE_SOURCE_LLM}:
         return item.get("unit_price") is not None
     return bool(item.get("catalogue_match")) and item.get("unit_price") is not None
 
@@ -145,6 +147,100 @@ def _merge_preserved_manual_prices(
     return merged
 
 
+def _price_diverges(catalog_price: float, llm_price: float) -> bool:
+    if catalog_price <= 0 or llm_price <= 0:
+        return False
+    return abs(catalog_price - llm_price) / catalog_price > PRICE_DIVERGENCE_RATIO
+
+
+def _line_from_llm_suggestion(suggestion: dict[str, Any]) -> dict[str, Any]:
+    unit_price = float(suggestion.get("unit_price_inr") or 0.0)
+    labor_hours = float(suggestion.get("labor_hours") or DEFAULT_MANUAL_LABOR_HOURS)
+    severity = str(suggestion.get("severity") or Severity.moderate.value)
+    repair_or_replace = str(suggestion.get("repair_or_replace") or "repair")
+    priced_unit, labor_cost, total = _compute_line_costs(
+        unit_price=unit_price,
+        labor_hours=labor_hours,
+        repair_or_replace=repair_or_replace,
+        severity=severity,
+    )
+    return {
+        "part_name": suggestion["part_name"],
+        "damage_type": suggestion.get("damage_type") or "scratch",
+        "severity": severity,
+        "repair_or_replace": repair_or_replace,
+        "currency": "INR",
+        "confidence_score": 0.0,
+        "catalogue_match": False,
+        "match_note": suggestion.get("notes")
+        or "LLM-suggested line (not catalogue-sourced)",
+        "used_model_fallback": False,
+        "unit_price": priced_unit if unit_price > 0 else None,
+        "labor_cost": labor_cost if unit_price > 0 else None,
+        "total": total if unit_price > 0 else None,
+        "price_source": PRICE_SOURCE_LLM if unit_price > 0 else PRICE_SOURCE_UNPRICED,
+        "llm_provider": suggestion.get("llm_provider"),
+    }
+
+
+def _apply_llm_suggestions(
+    line_items: list[dict[str, Any]],
+    suggestions: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    if not suggestions:
+        return line_items
+
+    by_key = {_line_key(item): item for item in line_items}
+    merged = list(line_items)
+
+    for suggestion in suggestions:
+        part_name = str(suggestion.get("part_name") or "").strip()
+        if not part_name:
+            continue
+        damage_type = str(suggestion.get("damage_type") or "scratch")
+        key = (part_name, damage_type)
+        llm_price = float(suggestion.get("unit_price_inr") or 0.0)
+
+        if key in by_key:
+            item = by_key[key]
+            catalog_price = item.get("unit_price")
+            if not _is_line_priced(item) and llm_price > 0:
+                severity = item.get("severity") or Severity.moderate.value
+                priced_unit, labor_cost, total = _compute_line_costs(
+                    unit_price=llm_price,
+                    labor_hours=float(
+                        suggestion.get("labor_hours") or DEFAULT_MANUAL_LABOR_HOURS
+                    ),
+                    repair_or_replace=item.get("repair_or_replace") or "repair",
+                    severity=severity,
+                )
+                item["unit_price"] = priced_unit
+                item["labor_cost"] = labor_cost
+                item["total"] = total
+                item["price_source"] = PRICE_SOURCE_LLM
+                item["llm_provider"] = suggestion.get("llm_provider")
+                item["match_note"] = (
+                    suggestion.get("notes")
+                    or "LLM-suggested price (not catalogue-sourced)"
+                )
+            elif (
+                catalog_price is not None
+                and llm_price > 0
+                and _price_diverges(float(catalog_price), llm_price)
+            ):
+                item["llm_suggested_unit_price"] = round(llm_price, 2)
+                item["price_divergence_note"] = (
+                    f"Catalogue ₹{float(catalog_price):,.0f} vs LLM "
+                    f"₹{llm_price:,.0f} (> {int(PRICE_DIVERGENCE_RATIO * 100)}% apart)"
+                )
+                item["llm_provider"] = suggestion.get("llm_provider")
+            continue
+
+        merged.append(_line_from_llm_suggestion(suggestion))
+
+    return merged
+
+
 def _reason_summary(
     *,
     vehicle: Vehicle | None,
@@ -159,8 +255,12 @@ def _reason_summary(
     fallback_source_model: str | None,
     pricing_complete: bool,
     vmmr_inconsistency: str | None = None,
+    llm_disclosure: str | None = None,
 ) -> str:
     leads: list[str] = []
+
+    if llm_disclosure:
+        leads.append(f"{llm_disclosure} ")
 
     if vmmr_inconsistency:
         leads.append(f"{vmmr_inconsistency} ")
@@ -198,7 +298,19 @@ def _reason_summary(
     manual_n = sum(
         1 for item in line_items if item.get("price_source") == PRICE_SOURCE_MANUAL
     )
+    llm_n = sum(1 for item in line_items if item.get("price_source") == PRICE_SOURCE_LLM)
+    divergent_n = sum(1 for item in line_items if item.get("price_divergence_note"))
     unpriced_n = sum(1 for item in line_items if not _is_line_priced(item))
+    if llm_n:
+        leads.append(
+            f"{llm_n} line item{'s' if llm_n != 1 else ''} "
+            "use LLM-suggested prices (not catalogue-sourced). "
+        )
+    if divergent_n:
+        leads.append(
+            f"{divergent_n} line item{'s' if divergent_n != 1 else ''} "
+            "show catalogue vs LLM price divergence. "
+        )
     if manual_n:
         leads.append(
             f"{manual_n} line item{'s' if manual_n != 1 else ''} "
@@ -339,6 +451,8 @@ def build_estimate(
     claim_id: int,
     *,
     existing_line_items: list[dict[str, Any]] | None = None,
+    llm_suggestions: list[dict[str, Any]] | None = None,
+    llm_disclosure: str | None = None,
 ) -> BuiltEstimate:
     raw_detections = list(
         db.scalars(
@@ -376,6 +490,7 @@ def build_estimate(
         )
 
     line_items = [_line_item_from_match(match) for match in context.matches]
+    line_items = _apply_llm_suggestions(line_items, llm_suggestions)
     line_items = _merge_preserved_manual_prices(line_items, existing_line_items)
 
     pricing_complete = all(_is_line_priced(item) for item in line_items) if line_items else True
@@ -398,6 +513,7 @@ def build_estimate(
         fallback_source_model=context.fallback_source_model,
         pricing_complete=pricing_complete,
         vmmr_inconsistency=vmmr_inconsistency,
+        llm_disclosure=llm_disclosure,
     )
 
     return BuiltEstimate(
@@ -490,9 +606,44 @@ def apply_manual_line_prices(
 
 
 def persist_estimate(db: Session, claim_id: int) -> Estimate:
+    from app.models import Claim
+    from app.services.image_utils import claim_image_paths
+    from app.services.llm.assist import assist_estimation
+
     existing = db.scalar(select(Estimate).where(Estimate.claim_id == claim_id))
     preserved = list(existing.line_items) if existing and existing.line_items else None
-    built = build_estimate(db, claim_id, existing_line_items=preserved)
+
+    llm_suggestions: list[dict[str, Any]] | None = None
+    llm_disclosure: str | None = None
+    claim = db.get(Claim, claim_id)
+    if claim:
+        paths = [path for _, path in claim_image_paths(db, claim)]
+        detections = list(
+            db.scalars(
+                select(DamageDetection)
+                .where(DamageDetection.claim_id == claim_id)
+                .order_by(DamageDetection.id.asc())
+            ).all()
+        )
+        vehicle = db.scalar(select(Vehicle).where(Vehicle.source_claim_id == claim_id))
+        assist_result = assist_estimation(
+            db,
+            claim_id=claim_id,
+            user_id=claim.created_by,
+            image_paths=paths,
+            vehicle=vehicle,
+            detections=detections,
+        )
+        if assist_result:
+            llm_suggestions, llm_disclosure = assist_result
+
+    built = build_estimate(
+        db,
+        claim_id,
+        existing_line_items=preserved,
+        llm_suggestions=llm_suggestions,
+        llm_disclosure=llm_disclosure,
+    )
 
     if existing:
         existing.line_items = built.line_items

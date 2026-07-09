@@ -43,12 +43,14 @@ from app.services.forensics import (
 )
 from app.services.fraud import risk_scorer, rules_engine
 from app.services.image_utils import claim_image_paths
+from app.services.llm.assist import assist_deepfake, assist_fraud, assist_vmmr
 from app.services.vmmr import vmmr_classifier
 from app.services.vmmr.vehicle_confirmation import (
     PAUSE_MESSAGE,
     PAUSE_STAGE_KEY,
     PAUSE_STAGE_LABEL,
     should_pause_for_vehicle_confirmation,
+    vmmr_identity_unreliable,
 )
 
 logger = logging.getLogger("ai_tribe.pipeline")
@@ -151,7 +153,8 @@ async def stage_deepfake_check(db: Session, claim: Claim) -> StageResult:
         deepfake_detector.classify_paths, paths
     )
 
-    for (image_row, _), result in zip(images, results):
+    llm_notes: list[str] = []
+    for (image_row, path), result in zip(images, results):
         if result.is_fake:
             image_row.authenticity_verdict = AuthenticityVerdict.flagged
             image_row.authenticity_reason = result.detail
@@ -161,7 +164,28 @@ async def stage_deepfake_check(db: Session, claim: Claim) -> StageResult:
         else:
             image_row.authenticity_verdict = AuthenticityVerdict.pending
             image_row.authenticity_reason = result.detail
+
+        if result.model_available:
+            suffix = await asyncio.to_thread(
+                assist_deepfake,
+                db,
+                claim_id=claim.id,
+                user_id=claim.created_by,
+                image_path=path,
+                internal_fake=result.is_fake,
+                internal_detail=result.detail,
+                fake_score=result.fake_score,
+                real_score=result.real_score,
+            )
+            if suffix:
+                llm_notes.append(suffix.strip())
+                image_row.authenticity_reason = (
+                    f"{image_row.authenticity_reason or result.detail}{suffix}"
+                )
     db.commit()
+
+    if llm_notes:
+        detail = f"{detail} {' '.join(llm_notes)}"
 
     if not passed:
         return StageResult(
@@ -298,19 +322,39 @@ async def stage_vehicle_id(db: Session, claim: Claim) -> StageResult:
         existing.identity_confirmed = identity_confirmed
         existing.pricing_basis = pricing_basis
         existing.identity_source = "vmmr"
+        vehicle_row = existing
     else:
-        db.add(
-            Vehicle(
-                make=result.make,
-                model=result.model,
-                year=result.year,
-                identity_confirmed=identity_confirmed,
-                pricing_basis=pricing_basis,
-                identity_source="vmmr",
-                source_claim_id=claim.id,
-            )
+        vehicle_row = Vehicle(
+            make=result.make,
+            model=result.model,
+            year=result.year,
+            identity_confirmed=identity_confirmed,
+            pricing_basis=pricing_basis,
+            identity_source="vmmr",
+            source_claim_id=claim.id,
         )
+        db.add(vehicle_row)
     db.commit()
+
+    if paths and vmmr_identity_unreliable(vehicle_row):
+        suggestion = await asyncio.to_thread(
+            assist_vmmr,
+            db,
+            claim_id=claim.id,
+            user_id=claim.created_by,
+            image_path=paths[0],
+            internal_unreliable=True,
+        )
+        if suggestion:
+            vehicle_row.llm_suggest_make = suggestion["make"]
+            vehicle_row.llm_suggest_model = suggestion["model"]
+            vehicle_row.llm_suggest_provider = suggestion["provider"]
+            vehicle_row.identity_source = f"llm_assist_{suggestion['provider']}"
+            detail = (
+                f"{detail} LLM assist suggested {suggestion['make']} "
+                f"{suggestion['model']}: {suggestion['detail']}"
+            )
+            db.commit()
 
     status = (
         PipelineEventStatus.warning
@@ -427,6 +471,8 @@ async def stage_severity_grading(db: Session, claim: Claim) -> StageResult:
 
 
 async def stage_fraud_scoring(db: Session, claim: Claim) -> StageResult:
+    from app.services.fraud.fraud_graph import claim_network_view, graph_summary_text
+
     signals = rules_engine.evaluate_claim(db, claim)
     scored = risk_scorer.score_signals(signals)
 
@@ -440,7 +486,24 @@ async def stage_fraud_scoring(db: Session, claim: Claim) -> StageResult:
             )
         )
     db.commit()
-    return StageResult(status=PipelineEventStatus.passed, detail=scored.detail)
+
+    detail = scored.detail
+    network = claim_network_view(db, claim)
+    flagged = not network.clear or bool(network.flagged_node_ids)
+    if flagged:
+        summary = graph_summary_text(network)
+        llm_note = await asyncio.to_thread(
+            assist_fraud,
+            db,
+            claim_id=claim.id,
+            user_id=claim.created_by,
+            graph_summary=summary,
+            flagged=True,
+        )
+        if llm_note:
+            detail = f"{detail} {llm_note}"
+
+    return StageResult(status=PipelineEventStatus.passed, detail=detail)
 
 
 async def stage_parts_matching(db: Session, claim: Claim) -> StageResult:
