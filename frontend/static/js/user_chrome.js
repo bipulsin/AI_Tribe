@@ -59,6 +59,8 @@ function userChrome() {
       this.profile.full_name = this.initialName;
       await this.refreshProfile();
       window.addEventListener("ai-tribe:open-profile", () => this.openProfile());
+      window.addEventListener("ai-tribe:open-settings", () => this.openSettings());
+      window.addEventListener("ai-tribe:open-admin", () => this.openAdmin());
     },
 
     async refreshProfile() {

@@ -757,6 +757,14 @@ body.help-guide-open {
   background: rgba(127, 29, 29, 0.2);
 }
 
+.user-menu-item--enterprise {
+  display: none;
+}
+
+body.chat-page .user-menu-item--enterprise {
+  display: block;
+}
+
 .admin-users-table th,
 .admin-users-table td {
   vertical-align: middle;

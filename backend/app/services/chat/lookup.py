@@ -113,14 +113,32 @@ def format_claim_summary(db: Session, claim_id: int, user_id: int) -> str | None
 
 
 def format_search_hit_list(hits) -> str:
-    lines = ["I found several matches — which one did you mean?", ""]
+    lines = ["I found these matching claims — which one did you mean?", ""]
     for idx, hit in enumerate(hits[:8], start=1):
         bits = [f"{idx}. **{hit.claim_reference}** ({hit.status_label})"]
         if hit.vehicle_label:
             bits.append(hit.vehicle_label)
         if hit.garage_name:
             bits.append(f"@{hit.garage_name}")
+        if hit.surveyor_name:
+            bits.append(f"surveyor: {hit.surveyor_name}")
+        if getattr(hit, "match_hint", None):
+            bits.append(f"matched: {hit.match_hint}")
         lines.append(" · ".join(bits))
     lines.append("")
     lines.append("Reply with the claim reference (e.g. CLM-2026-000017) or the list number.")
     return "\n".join(lines)
+
+
+def format_no_match(query: str) -> str:
+    return (
+        f"I couldn't find a claim matching “{query}” in your references, surveyors, "
+        "garages, vehicles, or estimates. Try another name, word, or claim number."
+    )
+
+
+def format_suffix_miss(suffix: str) -> str:
+    return (
+        f"I couldn't find a claim ending with **{suffix}**. "
+        "Try the full reference (e.g. CLM-2026-000026), a garage name, or a city like Pune."
+    )

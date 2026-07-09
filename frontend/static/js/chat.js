@@ -6,36 +6,36 @@ function chatApp({ userName = "User", maxImages = 10, maxUploadMb = 25 } = {}) {
     userName,
     maxImages,
     maxUploadMb,
-    sidebarCollapsed: false,
     messages: [],
     draft: "",
     sending: false,
     showSuggestions: true,
-    suggestions: [
-      "Get me the details for claim submitted at Pune",
-      "File a new claim with attached images",
-      "Show my most recent claim",
-      "Find claims from Metro Motors",
-    ],
-
-    get userInitials() {
-      return (this.userName || "U")
-        .split(/\s+/)
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((part) => part[0]?.toUpperCase() || "")
-        .join("") || "U";
-    },
 
     init() {
+      this.syncInputFromDom();
+      this.syncSendDisabled();
       window.addEventListener(
         "ai-tribe:pipeline-complete",
         (event) => this.onPipelineComplete(event.detail || {})
       );
     },
 
-    openUserProfile() {
-      window.dispatchEvent(new CustomEvent("ai-tribe:open-profile"));
+    syncInputFromDom() {
+      const input = document.getElementById("chat-input");
+      if (input) this.draft = input.value;
+    },
+
+    syncSendDisabled() {
+      const btn = document.getElementById("chat-send-btn");
+      const input = document.getElementById("chat-input");
+      if (!btn || !input) return;
+      btn.disabled = this.sending || !input.value.trim();
+    },
+
+    hideSuggestions() {
+      this.showSuggestions = false;
+      const el = document.getElementById("chat-suggestions");
+      if (el) el.hidden = true;
     },
 
     formatText(text) {
@@ -66,25 +66,24 @@ function chatApp({ userName = "User", maxImages = 10, maxUploadMb = 25 } = {}) {
       this.scrollToBottom();
     },
 
-    handleComposerKeydown(event) {
-      if (event.key !== "Enter" || event.shiftKey) return;
-      event.preventDefault();
-      this.sendMessage();
-    },
-
     useSuggestion(hint) {
+      const input = document.getElementById("chat-input");
+      if (input) input.value = hint;
       this.draft = hint;
       this.sendMessage();
     },
 
     async sendMessage() {
-      const text = (this.draft || "").trim();
+      const input = document.getElementById("chat-input");
+      const text = ((input && input.value) || this.draft || "").trim();
       if (!text || this.sending) return;
 
-      this.showSuggestions = false;
+      this.hideSuggestions();
       this.pushMessage({ role: "user", text });
+      if (input) input.value = "";
       this.draft = "";
       this.sending = true;
+      this.syncSendDisabled();
 
       try {
         const response = await fetch("/api/chat/message", {
@@ -117,6 +116,7 @@ function chatApp({ userName = "User", maxImages = 10, maxUploadMb = 25 } = {}) {
         });
       } finally {
         this.sending = false;
+        this.syncSendDisabled();
       }
     },
 
@@ -140,6 +140,7 @@ function chatApp({ userName = "User", maxImages = 10, maxUploadMb = 25 } = {}) {
       if (video) form.append("video", video);
 
       this.sending = true;
+      this.syncSendDisabled();
       try {
         const response = await fetch("/api/chat/upload", {
           method: "POST",
@@ -154,7 +155,7 @@ function chatApp({ userName = "User", maxImages = 10, maxUploadMb = 25 } = {}) {
           });
           return;
         }
-        this.showSuggestions = false;
+        this.hideSuggestions();
         this.pushMessage(data);
       } catch (_err) {
         this.pushMessage({
@@ -163,6 +164,7 @@ function chatApp({ userName = "User", maxImages = 10, maxUploadMb = 25 } = {}) {
         });
       } finally {
         this.sending = false;
+        this.syncSendDisabled();
         input.value = "";
       }
     },
@@ -183,12 +185,161 @@ function chatApp({ userName = "User", maxImages = 10, maxUploadMb = 25 } = {}) {
           text: `${data.text}\n\nPlease submit another claim, or ask me about an existing one.`,
         });
       } catch (_err) {
-        // Pipeline UI already shows halt state; skip duplicate error noise.
+        // Pipeline UI already shows halt state.
       }
     },
   };
 }
 
-document.addEventListener("alpine:init", () => {
-  window.Alpine.data("chatApp", chatApp);
-});
+function getChatAlpine() {
+  const shell = document.getElementById("chat-shell");
+  if (!shell || !window.Alpine) return null;
+  try {
+    return window.Alpine.$data(shell);
+  } catch (_err) {
+    return null;
+  }
+}
+
+function openChatProfile() {
+  window.dispatchEvent(new CustomEvent("ai-tribe:open-profile"));
+}
+
+function mountUserChromeInSidebar() {
+  const chrome = document.querySelector(".app-chrome-left");
+  const slot = document.getElementById("chat-user-menu-slot");
+  if (!chrome || !slot || slot.contains(chrome)) return;
+  chrome.classList.add("chat-sidebar-user-chrome");
+  slot.appendChild(chrome);
+}
+
+function initChatChrome() {
+  mountUserChromeInSidebar();
+
+  const sidebar = document.getElementById("chat-sidebar");
+  const toggle = document.getElementById("chat-sidebar-toggle");
+  const expanded = document.getElementById("chat-sidebar-expanded");
+  const collapsedProfile = document.getElementById("chat-sidebar-collapsed-profile");
+
+  if (toggle && sidebar) {
+    toggle.addEventListener("click", () => {
+      const isCollapsed = sidebar.classList.toggle("chat-sidebar--collapsed");
+      toggle.setAttribute("aria-expanded", String(!isCollapsed));
+      toggle.setAttribute(
+        "aria-label",
+        isCollapsed ? "Expand sidebar" : "Collapse sidebar"
+      );
+      if (expanded) expanded.hidden = isCollapsed;
+      if (collapsedProfile) collapsedProfile.hidden = !isCollapsed;
+    });
+  }
+
+  document.querySelectorAll("[data-chat-open-profile]").forEach((btn) => {
+    btn.addEventListener("click", openChatProfile);
+  });
+
+  const form = document.getElementById("chat-composer-form");
+  const input = document.getElementById("chat-input");
+  const sendBtn = document.getElementById("chat-send-btn");
+
+  if (input && sendBtn) {
+    input.addEventListener("input", () => {
+      const alpine = getChatAlpine();
+      if (alpine) {
+        alpine.draft = input.value;
+        alpine.syncSendDisabled();
+      } else {
+        sendBtn.disabled = !input.value.trim();
+      }
+    });
+
+    input.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" || event.shiftKey) return;
+      event.preventDefault();
+      submitChatMessage();
+    });
+  }
+
+  if (form) {
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      submitChatMessage();
+    });
+  }
+
+  document.querySelectorAll("[data-chat-hint]").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const hint = chip.getAttribute("data-chat-hint") || chip.textContent || "";
+      const alpine = getChatAlpine();
+      if (alpine) {
+        alpine.useSuggestion(hint);
+        return;
+      }
+      if (input) input.value = hint;
+      submitChatMessage();
+    });
+  });
+}
+
+async function submitChatMessage() {
+  const alpine = getChatAlpine();
+  if (alpine && typeof alpine.sendMessage === "function") {
+    alpine.syncInputFromDom();
+    await alpine.sendMessage();
+    return;
+  }
+
+  const input = document.getElementById("chat-input");
+  const text = (input && input.value || "").trim();
+  if (!text) return;
+
+  const suggestions = document.getElementById("chat-suggestions");
+  if (suggestions) suggestions.hidden = true;
+  if (input) input.value = "";
+
+  const thread = document.getElementById("chat-thread");
+  if (thread) {
+    const userBubble = document.createElement("div");
+    userBubble.className = "chat-message chat-message--user";
+    userBubble.innerHTML = `<div class="chat-bubble">${text.replace(/</g, "&lt;")}</div>`;
+    thread.appendChild(userBubble);
+  }
+
+  try {
+    const response = await fetch("/api/chat/message", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ text }),
+    });
+    const data = await response.json();
+    const reply = data.detail || data.text || "No response.";
+    if (thread) {
+      const botBubble = document.createElement("div");
+      botBubble.className = "chat-message chat-message--assistant";
+      botBubble.innerHTML = `<div class="chat-bubble">${String(reply).replace(/</g, "&lt;")}</div>`;
+      thread.appendChild(botBubble);
+      thread.scrollTop = thread.scrollHeight;
+    }
+  } catch (_err) {
+    if (thread) {
+      const errBubble = document.createElement("div");
+      errBubble.className = "chat-message chat-message--assistant";
+      errBubble.innerHTML =
+        '<div class="chat-bubble">I couldn\'t reach the server. Check your connection and try again.</div>';
+      thread.appendChild(errBubble);
+    }
+  }
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initChatChrome);
+} else {
+  initChatChrome();
+}
+
+// Move profile chip into sidebar before Alpine scans the DOM.
+mountUserChromeInSidebar();

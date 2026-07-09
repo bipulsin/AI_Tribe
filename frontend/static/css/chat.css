@@ -1,8 +1,45 @@
 /* Chat interface — dark AX-minimalist layout */
 
-/* Deliberately hide bottom-left chrome on chat; sidebar replaces it. */
-body.chat-page .app-chrome-left {
+/* Deliberately relocate bottom-left chrome into chat sidebar (see chat.js). */
+body.chat-page .app-chrome-left:not(.chat-sidebar-user-chrome) {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+body.chat-page .app-chrome-left.chat-sidebar-user-chrome {
+  position: static;
+  left: auto;
+  bottom: auto;
+  z-index: auto;
+  max-width: none;
+  width: 100%;
+  margin-top: auto;
+  padding: 0;
+}
+
+body.chat-page .app-chrome-left.chat-sidebar-user-chrome .user-menu-wrap {
+  width: 100%;
+}
+
+body.chat-page .app-chrome-left.chat-sidebar-user-chrome .profile-trigger {
+  width: 100%;
+  max-width: 100%;
+}
+
+.chat-sidebar--collapsed .chat-sidebar-user-chrome .profile-trigger-name,
+.chat-sidebar--collapsed .chat-sidebar-user-chrome .profile-trigger-chevron {
   display: none;
+}
+
+.chat-sidebar--collapsed .chat-sidebar-user-chrome .profile-trigger {
+  width: auto;
+  margin: 0 auto;
+  padding: 0.35rem;
+}
+
+.chat-sidebar--collapsed .chat-sidebar-user-chrome .user-menu-popup {
+  left: 0;
+  min-width: 10rem;
 }
 
 /* Attribution sits at z-index 60 and was intercepting Send clicks — hide on chat. */
@@ -38,6 +75,18 @@ body.chat-page {
   width: 3.25rem;
 }
 
+.chat-sidebar--collapsed .chat-sidebar-inner {
+  display: none;
+}
+
+.chat-sidebar-user--collapsed {
+  display: none;
+}
+
+.chat-sidebar--collapsed .chat-sidebar-user--collapsed {
+  display: flex;
+}
+
 .chat-sidebar-toggle {
   align-self: flex-end;
   margin: 0.5rem 0.5rem 0;
@@ -67,6 +116,12 @@ body.chat-page {
   flex-direction: column;
   gap: 0.65rem;
   min-height: 0;
+  flex: 1;
+}
+
+.chat-user-menu-slot {
+  margin-top: auto;
+  padding-top: 0.75rem;
 }
 
 .chat-sidebar-brand {
@@ -96,7 +151,7 @@ body.chat-page {
 }
 
 .chat-sidebar-user--collapsed {
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   width: 2rem;
@@ -109,6 +164,8 @@ body.chat-page {
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.02em;
+  border: none;
+  cursor: pointer;
 }
 
 .chat-sidebar-link {
@@ -263,6 +320,10 @@ body.chat-page {
   flex-wrap: wrap;
   gap: 0.45rem;
   padding: 0.55rem 1.25rem 0;
+}
+
+.chat-suggestions[hidden] {
+  display: none !important;
 }
 
 .chat-chip {

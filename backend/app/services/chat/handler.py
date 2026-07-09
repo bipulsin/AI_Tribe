@@ -29,11 +29,28 @@ from app.services.chat.draft import (
 from app.services.chat.intent import (
     classify_intent,
     extract_claim_reference,
+    extract_search_term,
+    extract_short_claim_number,
     is_fresh_submit_intent,
     llm_classify_intent,
+    pad_claim_number_suffix,
 )
-from app.services.chat.lookup import format_claim_summary, format_search_hit_list
-from app.services.claim_search import is_claim_reference_like, search_claims
+from app.services.chat.garage_lookup import (
+    find_garages_for_city,
+    format_garage_pick_list,
+    resolve_garage_choice,
+)
+from app.services.chat.lookup import (
+    format_claim_summary,
+    format_no_match,
+    format_search_hit_list,
+    format_suffix_miss,
+)
+from app.services.claim_search import (
+    is_claim_reference_like,
+    search_claims,
+    search_claims_by_reference_suffix,
+)
 from app.services.claim_service import ClaimValidationError, create_claim_with_uploads
 from app.services.llm.settings import get_active_api_key
 from app.services.pipeline_orchestrator import ensure_pipeline_started
@@ -41,8 +58,24 @@ from app.services.vmmr.vehicle_confirmation import catalog_makes_models
 
 _settings = get_settings()
 
-_lookup_awaiting: dict[int, bool] = {}
-_lookup_hits: dict[int, list] = {}
+_lookup_sessions: dict[int, "LookupSession"] = {}
+
+
+@dataclass
+class LookupSession:
+    mode: str = "none"  # none | awaiting_garage_name | awaiting_list_pick
+    garage_options: list[str] = field(default_factory=list)
+    city_label: str = ""
+    hits: list = field(default_factory=list)
+
+
+def _clear_lookup_session(user_id: int) -> None:
+    _lookup_sessions.pop(user_id, None)
+
+
+def _lookup_awaiting_query(user_id: int) -> bool:
+    session = _lookup_sessions.get(user_id)
+    return bool(session and session.mode == "awaiting_query")
 
 
 @dataclass
@@ -81,6 +114,23 @@ def _resolve_lookup_query(text: str, entities: dict) -> str:
     ref = entities.get("claim_reference") or extract_claim_reference(text)
     if ref:
         return ref
+
+    suffix = entities.get("claim_suffix")
+    if not suffix:
+        short = extract_short_claim_number(text)
+        if short is not None:
+            suffix = pad_claim_number_suffix(short)
+    if suffix:
+        return f"__suffix__:{suffix}"
+
+    city = entities.get("city_query")
+    if city:
+        return f"__city__:{city}"
+
+    term = entities.get("search_term") or extract_search_term(text)
+    if term:
+        return term
+
     stripped = (text or "").strip()
     if re.fullmatch(r"\d{1,2}", stripped):
         return stripped
@@ -99,8 +149,13 @@ _VAGUE_LOOKUP_PHRASES = (
 )
 
 
-def _is_vague_lookup(query: str, *, ref: str | None) -> bool:
-    if ref:
+def _is_vague_lookup(query: str, *, ref: str | None, entities: dict | None = None) -> bool:
+    entities = entities or {}
+    if ref or entities.get("claim_suffix") or entities.get("city_query"):
+        return False
+    if entities.get("search_term"):
+        return False
+    if query.startswith("__suffix__:") or query.startswith("__city__:"):
         return False
     q = (query or "").strip().lower()
     if not q or is_claim_reference_like(q):
@@ -119,6 +174,45 @@ def _interrupted_reply(db: Session, user_id: int) -> ChatReply:
     return ChatReply(text=INTERRUPTED_MESSAGE)
 
 
+def _finish_lookup_hits(
+    db: Session, user_id: int, hits: list, *, ref_only: bool
+) -> ChatReply:
+    if not hits:
+        return ChatReply(text="No matching claims found.")
+
+    if len(hits) == 1:
+        summary = format_claim_summary(db, hits[0].claim_id, user_id)
+        _clear_lookup_session(user_id)
+        return ChatReply(text=summary or "Claim found but details are unavailable.")
+
+    session = LookupSession(mode="awaiting_list_pick", hits=hits)
+    _lookup_sessions[user_id] = session
+    return ChatReply(text=format_search_hit_list(hits))
+
+
+def handle_garage_name_lookup(
+    db: Session,
+    user_id: int,
+    text: str,
+    session: LookupSession,
+) -> ChatReply:
+    garage_query = resolve_garage_choice(text, session.garage_options)
+    if not garage_query:
+        return ChatReply(text="Please type the garage name from the list.")
+
+    _clear_lookup_session(user_id)
+    hits = search_claims(db, garage_query, user_id=user_id)
+    if not hits:
+        city = session.city_label.title() if session.city_label else "that area"
+        return ChatReply(
+            text=(
+                f"I couldn't find claims for “{garage_query}”. "
+                f"Try another garage name from the {city} list."
+            )
+        )
+    return _finish_lookup_hits(db, user_id, hits, ref_only=False)
+
+
 def handle_lookup(
     db: Session,
     user_id: int,
@@ -128,10 +222,10 @@ def handle_lookup(
     force: bool = False,
 ) -> ChatReply:
     query = _resolve_lookup_query(text, entities)
-    ref_only = entities.get("claim_reference") or extract_claim_reference(text)
+    ref_only = bool(entities.get("claim_reference") or extract_claim_reference(text))
 
-    if not force and _is_vague_lookup(query, ref=ref_only):
-        _lookup_awaiting[user_id] = True
+    if not force and _is_vague_lookup(query, ref=ref_only, entities=entities):
+        _lookup_sessions[user_id] = LookupSession(mode="awaiting_query")
         return ChatReply(
             text=(
                 "I can look that up — please share the claim reference (e.g. CLM-2026-000017), "
@@ -139,8 +233,8 @@ def handle_lookup(
             )
         )
 
-    if not force and not query and not _lookup_awaiting.get(user_id):
-        _lookup_awaiting[user_id] = True
+    if not force and not query and not _lookup_awaiting_query(user_id):
+        _lookup_sessions[user_id] = LookupSession(mode="awaiting_query")
         return ChatReply(
             text=(
                 "I can look that up — please share the claim reference (e.g. CLM-2026-000017), "
@@ -149,44 +243,56 @@ def handle_lookup(
         )
 
     if not query:
-        _lookup_awaiting[user_id] = True
+        _lookup_sessions[user_id] = LookupSession(mode="awaiting_query")
         return ChatReply(
             text="Please provide a claim reference, garage name, or surveyor name to search."
         )
 
-    _lookup_awaiting[user_id] = False
-
     if re.fullmatch(r"\d{1,2}", query):
-        pending = _lookup_hits.get(user_id) or []
+        session = _lookup_sessions.get(user_id)
+        pending = session.hits if session and session.mode == "awaiting_list_pick" else []
         idx = int(query) - 1
         if 0 <= idx < len(pending):
             summary = format_claim_summary(db, pending[idx].claim_id, user_id)
-            _lookup_hits.pop(user_id, None)
+            _clear_lookup_session(user_id)
             if summary:
                 return ChatReply(text=summary)
         return ChatReply(text="That list number isn't valid — try the claim reference instead.")
 
+    _clear_lookup_session(user_id)
+
+    if query.startswith("__suffix__:"):
+        suffix = query.split(":", 1)[1]
+        hits = search_claims_by_reference_suffix(db, suffix, user_id=user_id)
+        if not hits:
+            return ChatReply(text=format_suffix_miss(suffix))
+        return _finish_lookup_hits(db, user_id, hits, ref_only=True)
+
+    if query.startswith("__city__:"):
+        city_key = query.split(":", 1)[1]
+        garages = find_garages_for_city(db, city_key, user_id=user_id)
+        if not garages:
+            label = city_key.title()
+            if city_key == "kochi":
+                label = "Kochi / Cochin"
+            return ChatReply(
+                text=(
+                    f"I couldn't find any of your claims at garages in **{label}**. "
+                    "Try another city or a garage name directly."
+                )
+            )
+        _lookup_sessions[user_id] = LookupSession(
+            mode="awaiting_garage_name",
+            garage_options=garages,
+            city_label=city_key,
+        )
+        return ChatReply(text=format_garage_pick_list(garages, city_key))
+
     hits = search_claims(db, query, user_id=user_id)
     if not hits:
-        return ChatReply(
-            text=(
-                f"I couldn't find a claim matching “{query}”. "
-                "Try a different reference, garage, or surveyor name."
-            )
-        )
+        return ChatReply(text=format_no_match(query))
 
-    if ref_only or len(hits) == 1:
-        summary = format_claim_summary(db, hits[0].claim_id, user_id)
-        _lookup_hits.pop(user_id, None)
-        return ChatReply(text=summary or "Claim found but details are unavailable.")
-
-    if hits[0].score >= hits[1].score + 15:
-        summary = format_claim_summary(db, hits[0].claim_id, user_id)
-        _lookup_hits.pop(user_id, None)
-        return ChatReply(text=summary or "Claim found but details are unavailable.")
-
-    _lookup_hits[user_id] = hits
-    return ChatReply(text=format_search_hit_list(hits))
+    return _finish_lookup_hits(db, user_id, hits, ref_only=ref_only)
 
 
 def _draft_status_line(draft: ClaimDraft) -> str:
@@ -306,7 +412,17 @@ async def handle_message(
 
     llm_fn = _llm_classifier(db, user_id)
 
-    if _lookup_awaiting.get(user_id) and raw and not draft.active:
+    session = _lookup_sessions.get(user_id)
+    if session and session.mode == "awaiting_garage_name" and raw and not draft.active:
+        if is_fresh_submit_intent(raw):
+            _clear_lookup_session(user_id)
+        else:
+            return handle_garage_name_lookup(db, user_id, raw, session)
+
+    if session and session.mode == "awaiting_list_pick" and raw and re.fullmatch(r"\d{1,2}", raw):
+        return handle_lookup(db, user_id, raw, {}, force=True)
+
+    if _lookup_awaiting_query(user_id) and raw and not draft.active:
         _, entities = classify_intent(raw, draft_active=False, llm_classify=llm_fn)
         return handle_lookup(db, user_id, raw, entities, force=True)
 
