@@ -33,7 +33,21 @@ def find_garages_for_city(
     if user_id is not None:
         stmt = stmt.where(Claim.created_by == user_id)
 
-    return [row for row in db.scalars(stmt).all() if row]
+    names = [row for row in db.scalars(stmt).all() if row]
+    if names:
+        return names
+
+    # Fall back to garages discovered via broad claim search for this city token.
+    from app.services.claim_search import search_claims
+
+    hits = search_claims(db, city_key, user_id=user_id, limit=40)
+    seen: set[str] = set()
+    derived: list[str] = []
+    for hit in hits:
+        if hit.garage_name and hit.garage_name not in seen:
+            seen.add(hit.garage_name)
+            derived.append(hit.garage_name)
+    return sorted(derived)
 
 
 def format_garage_pick_list(garages: list[str], city_label: str) -> str:

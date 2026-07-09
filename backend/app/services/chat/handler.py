@@ -30,6 +30,7 @@ from app.services.chat.intent import (
     classify_intent,
     extract_claim_reference,
     extract_search_term,
+    extract_search_tokens,
     extract_short_claim_number,
     is_fresh_submit_intent,
     llm_classify_intent,
@@ -50,6 +51,7 @@ from app.services.claim_search import (
     is_claim_reference_like,
     search_claims,
     search_claims_by_reference_suffix,
+    search_claims_with_tokens,
 )
 from app.services.claim_service import ClaimValidationError, create_claim_with_uploads
 from app.services.llm.settings import get_active_api_key
@@ -123,13 +125,17 @@ def _resolve_lookup_query(text: str, entities: dict) -> str:
     if suffix:
         return f"__suffix__:{suffix}"
 
-    city = entities.get("city_query")
-    if city:
-        return f"__city__:{city}"
-
     term = entities.get("search_term") or extract_search_term(text)
     if term:
         return term
+
+    tokens = entities.get("search_tokens") or extract_search_tokens(text)
+    if tokens:
+        return f"__tokens__:{'|'.join(tokens)}"
+
+    city = entities.get("city_query")
+    if city:
+        return f"__city__:{city}"
 
     stripped = (text or "").strip()
     if re.fullmatch(r"\d{1,2}", stripped):
@@ -153,9 +159,11 @@ def _is_vague_lookup(query: str, *, ref: str | None, entities: dict | None = Non
     entities = entities or {}
     if ref or entities.get("claim_suffix") or entities.get("city_query"):
         return False
-    if entities.get("search_term"):
+    if entities.get("search_term") or entities.get("search_tokens"):
         return False
-    if query.startswith("__suffix__:") or query.startswith("__city__:"):
+    if query.startswith("__suffix__:") or query.startswith("__city__:") or query.startswith(
+        "__tokens__:"
+    ):
         return False
     q = (query or "").strip().lower()
     if not q or is_claim_reference_like(q):
@@ -272,6 +280,9 @@ def handle_lookup(
         city_key = query.split(":", 1)[1]
         garages = find_garages_for_city(db, city_key, user_id=user_id)
         if not garages:
+            hits = search_claims(db, city_key, user_id=user_id)
+            if hits:
+                return _finish_lookup_hits(db, user_id, hits, ref_only=False)
             label = city_key.title()
             if city_key == "kochi":
                 label = "Kochi / Cochin"
@@ -288,7 +299,19 @@ def handle_lookup(
         )
         return ChatReply(text=format_garage_pick_list(garages, city_key))
 
+    if query.startswith("__tokens__:"):
+        token_blob = query.split(":", 1)[1]
+        tokens = [t for t in token_blob.split("|") if t]
+        hits = search_claims_with_tokens(db, tokens, user_id=user_id)
+        if not hits:
+            return ChatReply(text=format_no_match(" ".join(tokens)))
+        return _finish_lookup_hits(db, user_id, hits, ref_only=False)
+
     hits = search_claims(db, query, user_id=user_id)
+    if not hits:
+        tokens = extract_search_tokens(text)
+        if tokens:
+            hits = search_claims_with_tokens(db, tokens, user_id=user_id)
     if not hits:
         return ChatReply(text=format_no_match(query))
 

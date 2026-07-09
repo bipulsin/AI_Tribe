@@ -84,6 +84,51 @@ _SINGLE_WORD_SKIP = frozenset(
     }
 )
 
+_LOOKUP_STOP_WORDS = frozenset(
+    {
+        "a",
+        "an",
+        "the",
+        "ok",
+        "yes",
+        "no",
+        "hi",
+        "help",
+        "please",
+        "claim",
+        "claims",
+        "from",
+        "at",
+        "in",
+        "on",
+        "to",
+        "my",
+        "me",
+        "show",
+        "find",
+        "get",
+        "search",
+        "lookup",
+        "look",
+        "up",
+        "details",
+        "detail",
+        "status",
+        "info",
+        "about",
+        "for",
+        "with",
+        "by",
+        "surveyor",
+        "garage",
+        "garahe",
+        "related",
+        "submitted",
+        "filed",
+        "registered",
+    }
+)
+
 _CLAIM_BY = re.compile(
     r"(?:^|\b)(?:find|show|get|search)?\s*(?:me\s+)?(?:the\s+)?claims?\s+by\s+(?:surveyor\s+)?(.+?)\s*$",
     re.IGNORECASE,
@@ -161,10 +206,6 @@ def extract_search_term(text: str) -> str | None:
     lower = raw.lower()
     if extract_claim_reference(raw) or extract_short_claim_number(raw) is not None:
         return None
-    if extract_city_from_text(raw) and (
-        mentions_garage_or_location(raw) or "claim" in lower
-    ):
-        return None
 
     tokens = [t for t in re.split(r"\W+", raw) if t]
     if len(tokens) == 1:
@@ -191,6 +232,42 @@ def extract_search_term(text: str) -> str | None:
     return None
 
 
+def extract_search_tokens(text: str) -> list[str]:
+    """Meaningful words to match across claim, garage, surveyor, vehicle, and estimate."""
+    raw = (text or "").strip()
+    if not raw:
+        return []
+
+    term = extract_search_term(raw)
+    if term:
+        return [
+            t
+            for t in re.split(r"\W+", term)
+            if t and t.lower() not in _LOOKUP_STOP_WORDS and len(t) >= 2
+        ]
+
+    return [
+        t
+        for t in re.split(r"\W+", raw)
+        if t and t.lower() not in _LOOKUP_STOP_WORDS and len(t) >= 2
+    ]
+
+
+def should_use_city_garage_list(text: str, *, search_term: str | None) -> bool:
+    """Garage pick-list only for explicit location/garage phrasing, not 'claim from Pune'."""
+    if search_term:
+        return False
+    lower = (text or "").lower()
+    city = extract_city_from_text(text)
+    if not city:
+        return False
+    if "garage" in lower or "garahe" in lower:
+        return True
+    if re.search(r"\b(submitted|filed|registered)\s+(at|in)\b", lower):
+        return True
+    return False
+
+
 def classify_intent(
     text: str,
     *,
@@ -210,21 +287,29 @@ def classify_intent(
     if short_num is not None:
         entities["claim_suffix"] = pad_claim_number_suffix(short_num)
 
-    city = extract_city_from_text(raw)
-    if city and (mentions_garage_or_location(raw) or "claim" in lower):
-        entities["city_query"] = city
-
     search_term = extract_search_term(raw)
     if search_term:
         entities["search_term"] = search_term
 
+    tokens = extract_search_tokens(raw)
+    if tokens:
+        entities["search_tokens"] = tokens
+
+    if should_use_city_garage_list(raw, search_term=search_term):
+        city = extract_city_from_text(raw)
+        if city:
+            entities["city_query"] = city
+
     if draft_active and any(phrase in lower for phrase in _DONE_PHRASES):
         return "done", entities
 
-    if ref or entities.get("claim_suffix") or entities.get("city_query"):
-        return "lookup_claim", entities
-
-    if entities.get("search_term"):
+    if (
+        ref
+        or entities.get("claim_suffix")
+        or entities.get("city_query")
+        or entities.get("search_term")
+        or entities.get("search_tokens")
+    ):
         return "lookup_claim", entities
 
     if llm_classify and not draft_active:

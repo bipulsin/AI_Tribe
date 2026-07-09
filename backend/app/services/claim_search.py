@@ -183,6 +183,48 @@ def search_claims(
     return hits
 
 
+def search_claims_with_tokens(
+    db: Session, tokens: list[str], *, limit: int = 20, user_id: int | None = None
+) -> list[ClaimSearchHit]:
+    """Search each token across all claim fields; boost claims matching multiple tokens."""
+    cleaned = [t.strip() for t in tokens if (t or "").strip()]
+    if not cleaned:
+        return []
+    if len(cleaned) == 1:
+        return search_claims(db, cleaned[0], limit=limit, user_id=user_id)
+
+    merged: dict[int, ClaimSearchHit] = {}
+    for idx, token in enumerate(cleaned):
+        for hit in search_claims(db, token, limit=40, user_id=user_id):
+            existing = merged.get(hit.claim_id)
+            token_bonus = 12.0 * (len(cleaned) - idx)
+            combined_score = hit.score + token_bonus
+            if existing:
+                combined_score = existing.score + hit.score + 15.0
+                hint = existing.match_hint or hit.match_hint
+            else:
+                hint = hit.match_hint
+            merged[hit.claim_id] = ClaimSearchHit(
+                claim_id=hit.claim_id,
+                claim_reference=hit.claim_reference,
+                vehicle_label=hit.vehicle_label,
+                garage_name=hit.garage_name,
+                surveyor_name=hit.surveyor_name,
+                status=hit.status,
+                status_label=hit.status_label,
+                created_at=hit.created_at,
+                href=hit.href,
+                score=combined_score,
+                match_hint=hint,
+            )
+
+    ordered = sorted(
+        merged.values(),
+        key=lambda h: (-h.score, -(h.created_at.timestamp() if h.created_at else 0)),
+    )
+    return ordered[:limit]
+
+
 def search_claims_by_reference_suffix(
     db: Session, suffix: str, *, limit: int = 20, user_id: int | None = None
 ) -> list[ClaimSearchHit]:
