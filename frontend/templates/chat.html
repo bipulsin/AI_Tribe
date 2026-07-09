@@ -24,27 +24,35 @@
       class="chat-sidebar-toggle"
       @click="sidebarCollapsed = !sidebarCollapsed"
       :aria-label="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+      :aria-expanded="!sidebarCollapsed"
     >
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
         <path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 0 1-.02 1.06L8.832 10l3.938 3.71a.75.75 0 1 1-1.04 1.08l-4.5-4.25a.75.75 0 0 1 0-1.08l4.5-4.25a.75.75 0 0 1 1.06.02Z" clip-rule="evenodd" />
       </svg>
     </button>
 
-    <div class="chat-sidebar-inner" x-show="!sidebarCollapsed" x-cloak>
+    <div class="chat-sidebar-inner" x-show="!sidebarCollapsed">
       <p class="chat-sidebar-brand">AI Tribe</p>
       <button type="button" class="chat-sidebar-user" @click="openUserProfile()">
         <span class="chat-sidebar-user-label" x-text="userName"></span>
       </button>
       <a href="/claims/new" class="chat-sidebar-link">Enterprise</a>
     </div>
+
+    <button
+      type="button"
+      class="chat-sidebar-user chat-sidebar-user--collapsed"
+      x-show="sidebarCollapsed"
+      @click="openUserProfile()"
+      :title="userName"
+      x-text="userInitials"
+    ></button>
   </aside>
 
   <main class="chat-main">
     <header class="chat-header">
-      <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gold">Assistant</p>
-        <h1 class="mt-1 text-lg font-semibold text-mist">Claims chat</h1>
-      </div>
+      <h1 class="chat-title">AI Tribe</h1>
+      <p class="chat-subtitle">Claims Chat</p>
     </header>
 
     <div class="chat-thread" x-ref="thread" role="log" aria-live="polite">
@@ -162,25 +170,27 @@
           </template>
         </div>
       </template>
+    </div>
 
-      <div class="chat-suggestions" x-show="showSuggestions && !sending" x-cloak>
+    <div class="chat-composer-wrap">
+      <div class="chat-suggestions" x-show="showSuggestions && !sending">
         <template x-for="hint in suggestions" :key="hint">
           <button type="button" class="chat-chip" @click="useSuggestion(hint)" x-text="hint"></button>
         </template>
       </div>
-    </div>
 
-    <form class="chat-composer" @submit.prevent="sendMessage()">
-      <textarea
-        x-model="draft"
-        rows="1"
-        class="chat-input"
-        placeholder="Ask about a claim or describe what you need…"
-        :disabled="sending"
-        @keydown.enter.prevent="if (!$event.shiftKey) sendMessage()"
-      ></textarea>
-      <button type="submit" class="chat-send" :disabled="sending || !draft.trim()">Send</button>
-    </form>
+      <form class="chat-composer" @submit.prevent="sendMessage()">
+        <textarea
+          x-model="draft"
+          rows="1"
+          class="chat-input"
+          placeholder="Ask about a claim or describe what you need…"
+          :disabled="sending"
+          @keydown="handleComposerKeydown($event)"
+        ></textarea>
+        <button type="submit" class="chat-send" :disabled="sending || !draft.trim()">Send</button>
+      </form>
+    </div>
   </main>
 </div>
 {% endblock %}

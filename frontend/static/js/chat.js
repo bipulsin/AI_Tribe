@@ -12,10 +12,20 @@ function chatApp({ userName = "User", maxImages = 10, maxUploadMb = 25 } = {}) {
     sending: false,
     showSuggestions: true,
     suggestions: [
-      "Submit a claim",
-      "Get details of claim CLM-2026-000017",
-      "Find my claim",
+      "Get me the details for claim submitted at Pune",
+      "File a new claim with attached images",
+      "Show my most recent claim",
+      "Find claims from Metro Motors",
     ],
+
+    get userInitials() {
+      return (this.userName || "U")
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase() || "")
+        .join("") || "U";
+    },
 
     init() {
       window.addEventListener(
@@ -56,6 +66,12 @@ function chatApp({ userName = "User", maxImages = 10, maxUploadMb = 25 } = {}) {
       this.scrollToBottom();
     },
 
+    handleComposerKeydown(event) {
+      if (event.key !== "Enter" || event.shiftKey) return;
+      event.preventDefault();
+      this.sendMessage();
+    },
+
     useSuggestion(hint) {
       this.draft = hint;
       this.sendMessage();
@@ -80,7 +96,12 @@ function chatApp({ userName = "User", maxImages = 10, maxUploadMb = 25 } = {}) {
           },
           body: JSON.stringify({ text }),
         });
-        const data = await response.json();
+        let data = {};
+        try {
+          data = await response.json();
+        } catch (_parseErr) {
+          data = {};
+        }
         if (!response.ok) {
           this.pushMessage({
             role: "assistant",
@@ -167,3 +188,7 @@ function chatApp({ userName = "User", maxImages = 10, maxUploadMb = 25 } = {}) {
     },
   };
 }
+
+document.addEventListener("alpine:init", () => {
+  window.Alpine.data("chatApp", chatApp);
+});
