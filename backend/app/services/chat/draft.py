@@ -112,12 +112,19 @@ def parse_details_from_text(draft: ClaimDraft, text: str) -> None:
             break
 
     if not draft.garage_name and "garage" not in raw.lower():
+        lower = raw.lower()
+        looks_like_question = (
+            "?" in raw
+            or lower.startswith(("what ", "how ", "why ", "when ", "where ", "who "))
+            or any(word in lower for word in ("weather", "hello", "help me", "thanks"))
+        )
         if (
             len(raw) < 80
             and not draft.surveyor_name
-            and "surveyor" not in raw.lower()
+            and "surveyor" not in lower
             and draft.image_count() > 0
             and "@" not in raw
+            and not looks_like_question
         ):
             draft.garage_name = raw[:128]
 
