@@ -743,6 +743,20 @@ body.help-guide-open {
   outline: none;
 }
 
+.user-menu-item--signout {
+  margin-top: 0.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 0.65rem;
+  color: rgba(232, 236, 241, 0.65);
+  text-decoration: none;
+}
+
+.user-menu-item--signout:hover,
+.user-menu-item--signout:focus-visible {
+  color: #fca5a5;
+  background: rgba(127, 29, 29, 0.2);
+}
+
 .admin-users-table th,
 .admin-users-table td {
   vertical-align: middle;
