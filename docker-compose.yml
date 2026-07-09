@@ -37,6 +37,7 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       DATABASE_URL: postgresql+psycopg://ai_tribe:ai_tribe@db:5432/ai_tribe
       UPLOAD_DIR: /app/data/uploads
+      LLM_ENCRYPTION_KEY: ${LLM_ENCRYPTION_KEY:-}
       HOST: 0.0.0.0
       PORT: 8000
     ports:
@@ -66,6 +67,7 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       DATABASE_URL: postgresql+psycopg://ai_tribe:ai_tribe@db:5432/ai_tribe
       UPLOAD_DIR: /app/data/uploads
+      LLM_ENCRYPTION_KEY: ${LLM_ENCRYPTION_KEY:-}
       HF_HOME: /app/backend/app/ml_weights/huggingface
       TORCH_HOME: /app/backend/app/ml_weights/torch
       HOST: 0.0.0.0
