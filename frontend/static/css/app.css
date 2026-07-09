@@ -669,3 +669,240 @@ body.help-guide-open {
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: #0a0f1a;
 }
+
+/* Bottom-left user chrome — profile + settings (authenticated pages only) */
+.app-chrome-left {
+  position: fixed;
+  left: 1rem;
+  bottom: 1rem;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  max-width: min(16rem, calc(100vw - 2rem));
+}
+
+.settings-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(184, 134, 11, 0.35);
+  background: rgba(10, 15, 26, 0.92);
+  color: rgba(232, 236, 241, 0.75);
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.settings-trigger:hover,
+.settings-trigger:focus-visible {
+  border-color: rgba(184, 134, 11, 0.75);
+  color: #fde68a;
+  outline: none;
+}
+
+.profile-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 100%;
+  padding: 0.35rem 0.65rem 0.35rem 0.35rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(10, 15, 26, 0.92);
+  color: rgba(232, 236, 241, 0.88);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.profile-trigger:hover,
+.profile-trigger:focus-visible {
+  border-color: rgba(184, 134, 11, 0.45);
+  color: #fff;
+  outline: none;
+}
+
+.profile-trigger-avatar,
+.profile-trigger-initial {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+
+.profile-trigger-avatar {
+  object-fit: cover;
+}
+
+.profile-trigger-initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(184, 134, 11, 0.25);
+  color: #fde68a;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.profile-trigger-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chrome-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 75;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.chrome-modal--slide {
+  justify-content: flex-end;
+  padding: 0;
+}
+
+.chrome-modal--slide .chrome-modal-panel {
+  border-radius: 0.75rem 0 0 0.75rem;
+}
+
+.chrome-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.chrome-modal-panel {
+  position: relative;
+  z-index: 1;
+  width: min(24rem, 100%);
+  max-height: min(85vh, 40rem);
+  overflow: auto;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(184, 134, 11, 0.28);
+  background: #0a0f1a;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+
+.chrome-modal-panel--wide {
+  width: min(28rem, 100%);
+}
+
+.chrome-modal-panel--slide {
+  width: min(22rem, 100%);
+  max-height: 100vh;
+  height: 100%;
+  border-radius: 0.75rem 0 0 0.75rem;
+  border-right: none;
+}
+
+.chrome-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.chrome-modal-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e8ecf1;
+}
+
+.chrome-modal-close {
+  border: none;
+  background: transparent;
+  color: rgba(232, 236, 241, 0.6);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.25rem;
+}
+
+.chrome-modal-close:hover,
+.chrome-modal-close:focus-visible {
+  color: #fde68a;
+  outline: none;
+}
+
+.chrome-modal-body {
+  padding: 1rem 1.1rem 1.25rem;
+}
+
+.chrome-field-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(232, 236, 241, 0.5);
+}
+
+.chrome-input {
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  color: #e8ecf1;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.875rem;
+}
+
+.chrome-input:focus {
+  outline: none;
+  border-color: rgba(184, 134, 11, 0.45);
+}
+
+.profile-panel-avatar-wrap {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 9999px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(184, 134, 11, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-panel-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-panel-initial {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fde68a;
+}
+
+body.chrome-panel-open {
+  overflow: hidden;
+}
+
+body:not(.login-page) {
+  padding-bottom: 4.5rem;
+}
+
+@media (max-width: 480px) {
+  .app-chrome-left {
+    max-width: calc(100vw - 5.5rem);
+  }
+
+  .attribution-byline {
+    max-width: min(14rem, calc(100vw - 6rem));
+    font-size: 0.6875rem;
+  }
+}

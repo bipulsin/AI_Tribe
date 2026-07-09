@@ -1,0 +1,24 @@
+<div
+  id="settings-panel"
+  class="chrome-modal chrome-modal--slide"
+  x-show="settingsOpen"
+  x-cloak
+  @keydown.escape.window="closeSettings()"
+>
+  <div class="chrome-modal-backdrop" @click="closeSettings()"></div>
+  <div class="chrome-modal-panel chrome-modal-panel--slide" role="dialog" aria-labelledby="settings-panel-title">
+    <header class="chrome-modal-header">
+      <h2 id="settings-panel-title" class="chrome-modal-title">Settings</h2>
+      <button type="button" class="chrome-modal-close" @click="closeSettings()" aria-label="Close settings">&times;</button>
+    </header>
+    <div class="chrome-modal-body">
+      <p class="text-sm text-mist/60">
+        API and LLM configuration will appear here in the next update (bring-your-own-key providers,
+        feature toggles, and connection testing).
+      </p>
+      <div class="mt-4 rounded-lg border border-dashed border-white/15 px-4 py-6 text-center text-xs text-mist/40">
+        LLM settings shell — not yet configured
+      </div>
+    </div>
+  </div>
+</div>

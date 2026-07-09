@@ -22,6 +22,8 @@ htmlcov/
 # Uploads and local data
 data/uploads/*
 !data/uploads/.gitkeep
+data/profile_photos/*
+!data/profile_photos/.gitkeep
 data/diag/
 
 # ML weights (large binaries — pull via scripts/download_models.sh)

@@ -62,6 +62,7 @@ async def lifespan(_app: FastAPI):
         (weights_root / "torch").mkdir(parents=True, exist_ok=True)
 
     settings.upload_path.mkdir(parents=True, exist_ok=True)
+    settings.profile_photos_path.mkdir(parents=True, exist_ok=True)
     try:
         from app.db.seed import seed_admin, seed_parts_catalog
 
@@ -166,6 +167,9 @@ try:
     from app.api import routes_lab_labeling
 
     app.include_router(routes_lab_labeling.router)
+    from app.api import routes_profile
+
+    app.include_router(routes_profile.router)
 except ImportError:
     # Partial scaffold during early milestones — routes land incrementally.
     pass

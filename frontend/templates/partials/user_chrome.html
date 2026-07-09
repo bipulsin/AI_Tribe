@@ -1,0 +1,48 @@
+{% if request.session.get('user_id') %}
+<div
+  class="app-chrome-left"
+  x-data="userChrome()"
+  x-init="init()"
+  data-initial-name="{{ request.session.get('full_name') or request.session.get('username') or 'User' }}"
+>
+  <button
+    type="button"
+    class="settings-trigger"
+    aria-haspopup="dialog"
+    aria-controls="settings-panel"
+    title="Settings"
+    @click="openSettings()"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true" class="h-4 w-4">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
+      <path stroke-linecap="round" stroke-linejoin="round" d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.85 1 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+    </svg>
+    <span class="sr-only">Open settings</span>
+  </button>
+
+  <button
+    type="button"
+    class="profile-trigger"
+    aria-haspopup="dialog"
+    aria-controls="profile-panel"
+    @click="openProfile()"
+  >
+    <img
+      x-show="profile.photo_url"
+      :src="profile.photo_url"
+      alt=""
+      class="profile-trigger-avatar"
+      x-cloak
+    />
+    <span
+      class="profile-trigger-initial"
+      x-show="!profile.photo_url"
+      x-text="initials"
+    ></span>
+    <span class="profile-trigger-name" x-text="profile.full_name || initialName"></span>
+  </button>
+
+  {% include "partials/profile_panel.html" %}
+  {% include "partials/settings_panel_shell.html" %}
+</div>
+{% endif %}
