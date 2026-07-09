@@ -5,7 +5,7 @@
 {% block body_class %}chat-page h-screen overflow-hidden bg-ink text-mist antialiased{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="/static/css/chat.css?v=4" />
+<link rel="stylesheet" href="/static/css/chat.css?v=5" />
 {% endblock %}
 
 {% block body %}
@@ -165,6 +165,54 @@
                 </button>
               </div>
             </div>
+
+            <div class="chat-widget chat-estimate-widget" x-show="widget.type === 'claim_estimate'" x-cloak>
+              <p class="chat-widget-title">
+                Estimate · <span x-text="widget.claim_reference"></span>
+              </p>
+              <div class="chat-estimate-table-wrap">
+                <table class="chat-estimate-table">
+                  <thead>
+                    <tr>
+                      <th>Part</th>
+                      <th>Damage</th>
+                      <th>Action</th>
+                      <th class="text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="(row, rIdx) in (widget.line_items || [])" :key="rIdx">
+                      <tr>
+                        <td x-text="row.part_name || '—'"></td>
+                        <td x-text="row.damage_type || '—'"></td>
+                        <td x-text="row.repair_or_replace || '—'"></td>
+                        <td class="text-right" x-text="row.line_total ? ('₹' + Number(row.line_total).toLocaleString('en-IN')) : '—'"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+              <p class="chat-estimate-total" x-show="widget.grand_total > 0" x-cloak>
+                Grand total: <strong x-text="'₹' + Number(widget.grand_total).toLocaleString('en-IN')"></strong>
+              </p>
+            </div>
+
+            <div class="chat-widget chat-gallery-widget" x-show="widget.type === 'claim_images'" x-cloak>
+              <p class="chat-widget-title">
+                Claim photos · <span x-text="widget.claim_reference"></span>
+              </p>
+              <div class="chat-gallery-grid">
+                <template x-for="(image, iIdx) in (widget.images || [])" :key="iIdx">
+                  <button
+                    type="button"
+                    class="chat-gallery-thumb"
+                    @click="window.openMediaPreview && window.openMediaPreview({ src: image.url, alt: image.alt || 'Claim photo' })"
+                  >
+                    <img :src="image.url" :alt="image.alt || 'Claim photo'" loading="lazy" />
+                  </button>
+                </template>
+              </div>
+            </div>
           </template>
         </div>
       </template>
@@ -194,6 +242,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/sse.js?v=4"></script>
-<script src="/static/js/chat.js?v=4"></script>
+<script src="/static/js/sse.js?v=5"></script>
+<script src="/static/js/chat.js?v=5"></script>
 {% endblock %}

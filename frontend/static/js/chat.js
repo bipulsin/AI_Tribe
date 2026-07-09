@@ -183,6 +183,7 @@ function chatApp({ userName = "User", maxImages = 10, maxUploadMb = 25 } = {}) {
         this.pushMessage({
           role: "assistant",
           text: `${data.text}\n\nPlease submit another claim, or ask me about an existing one.`,
+          widgets: data.widgets || [],
         });
       } catch (_err) {
         // Pipeline UI already shows halt state.

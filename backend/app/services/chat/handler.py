@@ -42,7 +42,7 @@ from app.services.chat.garage_lookup import (
     resolve_garage_choice,
 )
 from app.services.chat.lookup import (
-    format_claim_summary,
+    build_claim_detail,
     format_no_match,
     format_search_hit_list,
     format_suffix_miss,
@@ -59,6 +59,9 @@ from app.services.pipeline_orchestrator import ensure_pipeline_started
 from app.services.vmmr.vehicle_confirmation import catalog_makes_models
 
 _settings = get_settings()
+
+# Enterprise chat lookup: any signed-in user can search and view all claims.
+_CHAT_LOOKUP_SCOPE_USER_ID = None
 
 _lookup_sessions: dict[int, "LookupSession"] = {}
 
@@ -182,6 +185,14 @@ def _interrupted_reply(db: Session, user_id: int) -> ChatReply:
     return ChatReply(text=INTERRUPTED_MESSAGE)
 
 
+def _claim_detail_reply(db: Session, claim_id: int) -> ChatReply:
+    detail = build_claim_detail(db, claim_id)
+    if not detail:
+        return ChatReply(text="Claim found but details are unavailable.")
+    text, widgets = detail
+    return ChatReply(text=text, widgets=widgets)
+
+
 def _finish_lookup_hits(
     db: Session, user_id: int, hits: list, *, ref_only: bool
 ) -> ChatReply:
@@ -189,9 +200,8 @@ def _finish_lookup_hits(
         return ChatReply(text="No matching claims found.")
 
     if len(hits) == 1:
-        summary = format_claim_summary(db, hits[0].claim_id, user_id)
         _clear_lookup_session(user_id)
-        return ChatReply(text=summary or "Claim found but details are unavailable.")
+        return _claim_detail_reply(db, hits[0].claim_id)
 
     session = LookupSession(mode="awaiting_list_pick", hits=hits)
     _lookup_sessions[user_id] = session
@@ -209,7 +219,7 @@ def handle_garage_name_lookup(
         return ChatReply(text="Please type the garage name from the list.")
 
     _clear_lookup_session(user_id)
-    hits = search_claims(db, garage_query, user_id=user_id)
+    hits = search_claims(db, garage_query, user_id=_CHAT_LOOKUP_SCOPE_USER_ID)
     if not hits:
         city = session.city_label.title() if session.city_label else "that area"
         return ChatReply(
@@ -261,26 +271,26 @@ def handle_lookup(
         pending = session.hits if session and session.mode == "awaiting_list_pick" else []
         idx = int(query) - 1
         if 0 <= idx < len(pending):
-            summary = format_claim_summary(db, pending[idx].claim_id, user_id)
             _clear_lookup_session(user_id)
-            if summary:
-                return ChatReply(text=summary)
+            return _claim_detail_reply(db, pending[idx].claim_id)
         return ChatReply(text="That list number isn't valid — try the claim reference instead.")
 
     _clear_lookup_session(user_id)
 
     if query.startswith("__suffix__:"):
         suffix = query.split(":", 1)[1]
-        hits = search_claims_by_reference_suffix(db, suffix, user_id=user_id)
+        hits = search_claims_by_reference_suffix(
+            db, suffix, user_id=_CHAT_LOOKUP_SCOPE_USER_ID
+        )
         if not hits:
             return ChatReply(text=format_suffix_miss(suffix))
         return _finish_lookup_hits(db, user_id, hits, ref_only=True)
 
     if query.startswith("__city__:"):
         city_key = query.split(":", 1)[1]
-        garages = find_garages_for_city(db, city_key, user_id=user_id)
+        garages = find_garages_for_city(db, city_key, user_id=_CHAT_LOOKUP_SCOPE_USER_ID)
         if not garages:
-            hits = search_claims(db, city_key, user_id=user_id)
+            hits = search_claims(db, city_key, user_id=_CHAT_LOOKUP_SCOPE_USER_ID)
             if hits:
                 return _finish_lookup_hits(db, user_id, hits, ref_only=False)
             label = city_key.title()
@@ -302,16 +312,18 @@ def handle_lookup(
     if query.startswith("__tokens__:"):
         token_blob = query.split(":", 1)[1]
         tokens = [t for t in token_blob.split("|") if t]
-        hits = search_claims_with_tokens(db, tokens, user_id=user_id)
+        hits = search_claims_with_tokens(db, tokens, user_id=_CHAT_LOOKUP_SCOPE_USER_ID)
         if not hits:
             return ChatReply(text=format_no_match(" ".join(tokens)))
         return _finish_lookup_hits(db, user_id, hits, ref_only=False)
 
-    hits = search_claims(db, query, user_id=user_id)
+    hits = search_claims(db, query, user_id=_CHAT_LOOKUP_SCOPE_USER_ID)
     if not hits:
         tokens = extract_search_tokens(text)
         if tokens:
-            hits = search_claims_with_tokens(db, tokens, user_id=user_id)
+            hits = search_claims_with_tokens(
+                db, tokens, user_id=_CHAT_LOOKUP_SCOPE_USER_ID
+            )
     if not hits:
         return ChatReply(text=format_no_match(query))
 

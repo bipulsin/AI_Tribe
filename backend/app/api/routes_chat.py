@@ -12,7 +12,7 @@ from starlette.datastructures import UploadFile
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.services.chat.handler import append_uploads, handle_message
-from app.services.chat.lookup import format_claim_summary
+from app.services.chat.lookup import build_claim_detail
 from app.services.claim_service import IMAGE_CONTENT_TYPES
 
 router = APIRouter(tags=["chat"])
@@ -125,7 +125,10 @@ async def chat_claim_summary(
     db: Session = Depends(get_db),
 ):
     user_id = request.session.get("user_id")
-    summary = format_claim_summary(db, claim_id, user_id)
-    if not summary:
+    if not user_id:
+        return JSONResponse({"detail": "Unauthorized"}, status_code=401)
+    detail = build_claim_detail(db, claim_id)
+    if not detail:
         return JSONResponse({"detail": "Claim not found."}, status_code=404)
-    return JSONResponse({"text": summary})
+    text, widgets = detail
+    return JSONResponse({"text": text, "widgets": widgets})

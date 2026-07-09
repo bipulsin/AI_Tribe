@@ -25,37 +25,47 @@ def _pricing_complete(line_items: list[dict]) -> bool:
     return all(item.get("price_source") != PRICE_SOURCE_UNPRICED for item in line_items)
 
 
-def _load_claim(db: Session, claim_id: int, user_id: int) -> Claim | None:
-    claim = db.scalar(
+def _load_claim(db: Session, claim_id: int) -> Claim | None:
+    """Load a claim for enterprise chat display (any authenticated user)."""
+    return db.scalar(
         select(Claim)
         .options(
             selectinload(Claim.garage),
             selectinload(Claim.vehicles),
             selectinload(Claim.estimate),
             selectinload(Claim.damage_detections),
+            selectinload(Claim.images),
         )
         .where(Claim.id == claim_id)
     )
-    if not claim or claim.created_by != user_id:
-        return None
-    return claim
 
 
-def format_claim_summary(db: Session, claim_id: int, user_id: int) -> str | None:
-    claim = _load_claim(db, claim_id, user_id)
-    if not claim:
-        return None
+def _format_estimate_lines(line_items: list[dict], *, limit: int = 8) -> list[str]:
+    rows: list[str] = []
+    for item in line_items[:limit]:
+        part = str(item.get("part_name") or "Part").strip()
+        damage = str(item.get("damage_type") or "").strip()
+        action = str(item.get("repair_or_replace") or "").strip()
+        total = float(item.get("line_total") or 0)
+        bits = [part]
+        if damage:
+            bits.append(damage)
+        if action:
+            bits.append(action)
+        label = " · ".join(bits)
+        if total > 0:
+            rows.append(f"- {label}: ₹{total:,.0f}")
+        else:
+            rows.append(f"- {label}")
+    if len(line_items) > limit:
+        rows.append(f"- … and {len(line_items) - limit} more line item(s)")
+    return rows
 
-    estimate = claim.estimate
-    if not estimate:
-        estimate = persist_estimate(db, claim.id)
-        db.refresh(claim)
 
-    vehicle = claim.vehicles[0] if claim.vehicles else None
-    line_items = estimate.line_items or []
-    detections = sorted(claim.damage_detections, key=lambda d: d.id)
+def _build_summary_text(claim: Claim, estimate, line_items: list[dict], detections: list) -> str:
     confidences = [float(d.confidence_score) for d in detections]
     max_confidence = max(confidences) if confidences else None
+    vehicle = claim.vehicles[0] if claim.vehicles else None
 
     status_val = claim.status.value if hasattr(claim.status, "value") else str(claim.status)
     status_label = _STATUS_LABELS.get(claim.status, status_val.replace("_", " ").title())
@@ -69,6 +79,8 @@ def format_claim_summary(db: Session, claim_id: int, user_id: int) -> str | None
         lines.append(f"Garage: {garage_name}")
     if claim.surveyor_name:
         lines.append(f"Surveyor: {claim.surveyor_name}")
+    if claim.claimant_name:
+        lines.append(f"Claimant: {claim.claimant_name}")
     if claim.accident_date:
         lines.append(f"Accident date: {claim.accident_date.isoformat()}")
 
@@ -97,11 +109,15 @@ def format_claim_summary(db: Session, claim_id: int, user_id: int) -> str | None
     elif not _pricing_complete(line_items):
         lines.append("Pricing: some line items still unpriced.")
     else:
-        total = sum(float(item.get("line_total") or 0) for item in line_items)
-        if total > 0:
-            lines.append(f"Estimate total: ₹{total:,.0f}")
-        elif line_items:
-            lines.append("Estimate: line items available (total pending).")
+        grand = float(estimate.grand_total or 0)
+        if grand > 0:
+            lines.append(f"Estimate total: ₹{grand:,.0f}")
+        else:
+            total = sum(float(item.get("line_total") or 0) for item in line_items)
+            if total > 0:
+                lines.append(f"Estimate total: ₹{total:,.0f}")
+            elif line_items:
+                lines.append("Estimate: line items available (total pending).")
 
     if detections:
         parts = sorted({d.part_name for d in detections if d.part_name})[:6]
@@ -109,7 +125,89 @@ def format_claim_summary(db: Session, claim_id: int, user_id: int) -> str | None
             suffix = "…" if len(detections) > len(parts) else ""
             lines.append(f"Damaged parts: {', '.join(parts)}{suffix}")
 
+    if line_items:
+        lines.append("")
+        lines.append("**Estimate line items**")
+        lines.extend(_format_estimate_lines(line_items))
+
+    photo_count = sum(1 for img in claim.images if not img.is_video)
+    if photo_count:
+        lines.append("")
+        lines.append(f"**Photos:** {photo_count} image(s) attached below.")
+
     return "\n".join(lines)
+
+
+def build_claim_detail(db: Session, claim_id: int) -> tuple[str, list[dict]] | None:
+    """Build chat text plus widgets (estimate table, photo gallery) for a claim."""
+    claim = _load_claim(db, claim_id)
+    if not claim:
+        return None
+
+    estimate = claim.estimate
+    if not estimate:
+        estimate = persist_estimate(db, claim.id)
+        db.refresh(claim)
+
+    line_items = estimate.line_items or []
+    detections = sorted(claim.damage_detections, key=lambda d: d.id)
+    text = _build_summary_text(claim, estimate, line_items, detections)
+
+    widgets: list[dict] = []
+
+    images = sorted(
+        [img for img in claim.images if not img.is_video],
+        key=lambda row: row.image_order,
+    )
+    if images:
+        widgets.append(
+            {
+                "type": "claim_images",
+                "claim_id": claim.id,
+                "claim_reference": claim.claim_reference,
+                "images": [
+                    {
+                        "url": f"/uploads/{img.file_path}",
+                        "alt": f"{claim.claim_reference} photo {idx + 1}",
+                    }
+                    for idx, img in enumerate(images[:8])
+                ],
+            }
+        )
+
+    if line_items:
+        widgets.append(
+            {
+                "type": "claim_estimate",
+                "claim_id": claim.id,
+                "claim_reference": claim.claim_reference,
+                "line_items": [
+                    {
+                        "part_name": item.get("part_name"),
+                        "damage_type": item.get("damage_type"),
+                        "repair_or_replace": item.get("repair_or_replace"),
+                        "unit_price": item.get("unit_price"),
+                        "labor_cost": item.get("labor_cost"),
+                        "line_total": item.get("line_total"),
+                        "price_source": item.get("price_source"),
+                    }
+                    for item in line_items[:15]
+                ],
+                "grand_total": float(estimate.grand_total or 0),
+                "pricing_complete": _pricing_complete(line_items),
+            }
+        )
+
+    return text, widgets
+
+
+def format_claim_summary(db: Session, claim_id: int, user_id: int | None = None) -> str | None:
+    """Backward-compatible text-only summary (user_id ignored — enterprise scope)."""
+    detail = build_claim_detail(db, claim_id)
+    if not detail:
+        return None
+    text, _widgets = detail
+    return text
 
 
 def format_search_hit_list(hits) -> str:
@@ -132,7 +230,7 @@ def format_search_hit_list(hits) -> str:
 
 def format_no_match(query: str) -> str:
     return (
-        f"I couldn't find a claim matching “{query}” in your references, surveyors, "
+        f"I couldn't find a claim matching “{query}” across references, surveyors, "
         "garages, vehicles, or estimates. Try another name, word, or claim number."
     )
 
