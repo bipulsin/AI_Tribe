@@ -11,14 +11,123 @@
       <h2 id="settings-panel-title" class="chrome-modal-title">Settings</h2>
       <button type="button" class="chrome-modal-close" @click="closeSettings()" aria-label="Close settings">&times;</button>
     </header>
-    <div class="chrome-modal-body">
+    <div class="chrome-modal-body space-y-6">
       <p class="text-sm text-mist/60">
-        API and LLM configuration will appear here in the next update (bring-your-own-key providers,
-        feature toggles, and connection testing).
+        Bring your own API keys for optional LLM assists. Keys are encrypted at rest and never
+        shown in full after saving.
       </p>
-      <div class="mt-4 rounded-lg border border-dashed border-white/15 px-4 py-6 text-center text-xs text-mist/40">
-        LLM settings shell — not yet configured
-      </div>
+
+      <p
+        class="rounded-lg border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90"
+        x-show="llmSettings && !llmSettings.encryption_configured"
+        x-cloak
+      >
+        Server encryption is not configured (<code class="text-amber-100">LLM_ENCRYPTION_KEY</code>).
+        Key storage is disabled until an administrator sets this on the server.
+      </p>
+
+      <section x-show="llmSettings" x-cloak>
+        <p class="chrome-field-label">Active provider</p>
+        <select
+          class="chrome-input mt-1 w-full"
+          x-model="llmSettings.active_provider"
+          @change="saveLlmPreferences()"
+          :disabled="!llmSettings.has_valid_key"
+        >
+          <option value="">Select provider…</option>
+          <template x-for="provider in llmSettings.providers" :key="provider">
+            <option
+              :value="provider"
+              x-text="providerLabel(provider)"
+              :disabled="!providerConfigured(provider)"
+            ></option>
+          </template>
+        </select>
+        <p class="mt-1 text-xs text-mist/45" x-show="!llmSettings.has_valid_key">
+          Add and save a key below before choosing an active provider.
+        </p>
+      </section>
+
+      <section class="space-y-4" x-show="llmSettings" x-cloak>
+        <p class="chrome-field-label">API keys</p>
+        <template x-for="provider in llmSettings.providers" :key="'key-' + provider">
+          <div class="rounded-lg border border-white/10 px-3 py-3">
+            <div class="flex items-center justify-between gap-2">
+              <p class="text-sm font-medium text-mist" x-text="providerLabel(provider)"></p>
+              <span
+                class="text-xs text-emerald-300/80"
+                x-show="providerConfigured(provider)"
+                x-text="providerHint(provider)"
+                x-cloak
+              ></span>
+            </div>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <input
+                type="password"
+                class="chrome-input min-w-0 flex-1"
+                :placeholder="providerConfigured(provider) ? 'Enter new key to replace' : 'Paste API key'"
+                x-model="llmKeyInputs[provider]"
+                autocomplete="off"
+              />
+              <button
+                type="button"
+                class="btn-primary rounded-lg px-3 py-1.5 text-xs font-semibold"
+                @click="saveLlmKey(provider)"
+                :disabled="!llmKeyInputs[provider] || llmSaving"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                class="rounded-lg border border-white/15 px-3 py-1.5 text-xs font-medium text-mist/80"
+                @click="testLlmKey(provider)"
+                :disabled="llmTesting === provider"
+              >
+                <span x-show="llmTesting !== provider">Test</span>
+                <span x-show="llmTesting === provider" x-cloak>Testing…</span>
+              </button>
+              <button
+                type="button"
+                class="rounded-lg border border-red-400/30 px-3 py-1.5 text-xs font-medium text-red-300/80"
+                x-show="providerConfigured(provider)"
+                @click="removeLlmKey(provider)"
+                x-cloak
+              >
+                Remove
+              </button>
+            </div>
+            <p
+              class="mt-1 text-xs"
+              :class="llmTestResults[provider]?.ok ? 'text-emerald-300/80' : 'text-amber-300/80'"
+              x-show="llmTestResults[provider]"
+              x-text="llmTestResults[provider]?.message"
+              x-cloak
+            ></p>
+          </div>
+        </template>
+      </section>
+
+      <section class="space-y-3" x-show="llmSettings" x-cloak>
+        <p class="chrome-field-label">Feature assists</p>
+        <p class="text-xs text-mist/45">
+          Toggles are saved per user. Assists run only when a valid key is configured and the
+          active provider is set.
+        </p>
+        <template x-for="(label, toggle) in llmSettings.toggle_labels" :key="toggle">
+          <label class="flex items-start gap-3 rounded-lg border border-white/10 px-3 py-3">
+            <input
+              type="checkbox"
+              class="mt-1"
+              :checked="llmSettings.toggles[toggle]"
+              :disabled="!llmSettings.has_valid_key"
+              @change="setLlmToggle(toggle, $event.target.checked)"
+            />
+            <span class="text-sm text-mist/80" x-text="label"></span>
+          </label>
+        </template>
+      </section>
+
+      <p class="text-xs text-amber-300/80" x-show="llmMessage" x-text="llmMessage" x-cloak></p>
     </div>
   </div>
 </div>

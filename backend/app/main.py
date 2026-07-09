@@ -170,6 +170,9 @@ try:
     from app.api import routes_profile
 
     app.include_router(routes_profile.router)
+    from app.api import routes_llm_settings
+
+    app.include_router(routes_llm_settings.router)
 except ImportError:
     # Partial scaffold during early milestones — routes land incrementally.
     pass

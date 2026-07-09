@@ -16,6 +16,12 @@ function userChrome() {
     passwordMessage: "",
     passwordCurrent: "",
     passwordNew: "",
+    llmSettings: null,
+    llmKeyInputs: {},
+    llmMessage: "",
+    llmSaving: false,
+    llmTesting: "",
+    llmTestResults: {},
 
     get initials() {
       const name = this.profile.full_name || this.initialName || "?";
@@ -57,15 +63,137 @@ function userChrome() {
       if (!this.settingsOpen) document.body.classList.remove("chrome-panel-open");
     },
 
-    openSettings() {
+    async openSettings() {
       this.profileOpen = false;
       this.settingsOpen = true;
       document.body.classList.add("chrome-panel-open");
+      await this.refreshLlmSettings();
     },
 
     closeSettings() {
       this.settingsOpen = false;
       if (!this.profileOpen) document.body.classList.remove("chrome-panel-open");
+    },
+
+    providerLabel(provider) {
+      return String(provider || "")
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+    },
+
+    providerConfigured(provider) {
+      if (!this.llmSettings?.keys) return false;
+      return this.llmSettings.keys.some((row) => row.provider === provider);
+    },
+
+    providerHint(provider) {
+      const row = (this.llmSettings?.keys || []).find((item) => item.provider === provider);
+      return row?.key_hint ? `Saved ${row.key_hint}` : "Configured";
+    },
+
+    async refreshLlmSettings() {
+      this.llmMessage = "";
+      const resp = await fetch("/api/user/llm-settings");
+      if (!resp.ok) {
+        this.llmMessage = "Could not load LLM settings.";
+        return;
+      }
+      this.llmSettings = await resp.json();
+      const inputs = {};
+      for (const provider of this.llmSettings.providers || []) {
+        inputs[provider] = this.llmKeyInputs[provider] || "";
+      }
+      this.llmKeyInputs = inputs;
+    },
+
+    async saveLlmKey(provider) {
+      const apiKey = (this.llmKeyInputs[provider] || "").trim();
+      if (!apiKey) return;
+      this.llmSaving = true;
+      this.llmMessage = "";
+      try {
+        const resp = await fetch("/api/user/llm-settings/keys", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider, api_key: apiKey }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          this.llmMessage = data.detail || "Could not save API key.";
+          return;
+        }
+        this.llmSettings = data.settings;
+        this.llmKeyInputs[provider] = "";
+        this.llmMessage = `${this.providerLabel(provider)} key saved.`;
+      } finally {
+        this.llmSaving = false;
+      }
+    },
+
+    async removeLlmKey(provider) {
+      this.llmMessage = "";
+      const resp = await fetch(`/api/user/llm-settings/keys/${provider}`, {
+        method: "DELETE",
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        this.llmMessage = data.detail || "Could not remove key.";
+        return;
+      }
+      this.llmSettings = data;
+      delete this.llmTestResults[provider];
+      this.llmMessage = `${this.providerLabel(provider)} key removed.`;
+    },
+
+    async testLlmKey(provider) {
+      this.llmTesting = provider;
+      this.llmMessage = "";
+      const body = {};
+      const draft = (this.llmKeyInputs[provider] || "").trim();
+      if (draft) body.api_key = draft;
+      try {
+        const resp = await fetch(`/api/user/llm-settings/keys/${provider}/test`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const data = await resp.json().catch(() => ({}));
+        this.llmTestResults = {
+          ...this.llmTestResults,
+          [provider]: { ok: !!data.ok, message: data.message || data.detail || "Test failed." },
+        };
+      } finally {
+        this.llmTesting = "";
+      }
+    },
+
+    async saveLlmPreferences() {
+      if (!this.llmSettings) return;
+      this.llmMessage = "";
+      const resp = await fetch("/api/user/llm-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          active_provider: this.llmSettings.active_provider || null,
+          toggle_deepfake: this.llmSettings.toggles.toggle_deepfake,
+          toggle_vmmr: this.llmSettings.toggles.toggle_vmmr,
+          toggle_estimation: this.llmSettings.toggles.toggle_estimation,
+          toggle_fraud: this.llmSettings.toggles.toggle_fraud,
+        }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        this.llmMessage = data.detail || "Could not save preferences.";
+        return;
+      }
+      this.llmSettings = data;
+      this.llmMessage = "Preferences saved.";
+    },
+
+    async setLlmToggle(toggle, enabled) {
+      if (!this.llmSettings) return;
+      this.llmSettings.toggles[toggle] = enabled;
+      await this.saveLlmPreferences();
     },
 
     async saveFullName() {

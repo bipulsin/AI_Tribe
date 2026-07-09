@@ -20,10 +20,13 @@ class Vehicle(Base):
     pricing_basis: Mapped[str] = mapped_column(
         String(32), nullable=False, default="provisional_fallback"
     )
-    # vmmr | manual_entry — how identity was established.
+    # vmmr | manual_entry | llm_assist_<provider>
     identity_source: Mapped[str] = mapped_column(
         String(32), nullable=False, default="vmmr"
     )
+    llm_suggest_make: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    llm_suggest_model: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    llm_suggest_provider: Mapped[str | None] = mapped_column(String(32), nullable=True)
     source_claim_id: Mapped[int] = mapped_column(
         ForeignKey("claims.id"), nullable=False, index=True
     )

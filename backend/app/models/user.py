@@ -20,3 +20,5 @@ class User(Base):
     )
 
     claims = relationship("Claim", back_populates="creator")
+    llm_provider_keys = relationship("UserLlmProviderKey", back_populates="user")
+    llm_preferences = relationship("UserLlmPreferences", back_populates="user", uselist=False)
