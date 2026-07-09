@@ -1,3 +1,4 @@
+from app.models.chat_draft_state import ChatDraftState
 from app.models.claim import Claim
 from app.models.claim_image import ClaimImage
 from app.models.damage_detection import DamageDetection
@@ -17,6 +18,7 @@ from app.models.vmmr_lab_label import VmmrLabLabel
 
 __all__ = [
     "User",
+    "ChatDraftState",
     "Claim",
     "ClaimImage",
     "PipelineEvent",

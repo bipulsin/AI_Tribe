@@ -15,15 +15,23 @@ from starlette.datastructures import Headers
 from app.core.config import get_settings
 from app.models import Garage
 from app.services.chat.draft import (
+    INTERRUPTED_MESSAGE,
     ClaimDraft,
-    UploadedFile,
+    append_files,
     clear_draft,
+    ensure_blob_data,
     get_draft,
     parse_accident_date,
     parse_details_from_text,
+    persist_draft,
     start_draft,
 )
-from app.services.chat.intent import classify_intent, extract_claim_reference, llm_classify_intent
+from app.services.chat.intent import (
+    classify_intent,
+    extract_claim_reference,
+    is_fresh_submit_intent,
+    llm_classify_intent,
+)
 from app.services.chat.lookup import format_claim_summary, format_search_hit_list
 from app.services.claim_search import is_claim_reference_like, search_claims
 from app.services.claim_service import ClaimValidationError, create_claim_with_uploads
@@ -104,6 +112,11 @@ def _is_vague_lookup(query: str, *, ref: str | None) -> bool:
         if len(tokens) <= 5 and not any(t.isdigit() for t in tokens):
             return True
     return False
+
+
+def _interrupted_reply(db: Session, user_id: int) -> ChatReply:
+    clear_draft(db, user_id)
+    return ChatReply(text=INTERRUPTED_MESSAGE)
 
 
 def handle_lookup(
@@ -200,6 +213,10 @@ async def submit_draft(
     username: str | None,
     background_tasks: BackgroundTasks,
 ) -> tuple[ChatReply | None, dict | None]:
+    draft = ensure_blob_data(draft)
+    if draft.interrupted or draft.blobs_missing():
+        return _interrupted_reply(db, user_id), None
+
     missing = draft.missing_required(user_display_name=_display_name(full_name, username))
     if missing:
         return (
@@ -222,8 +239,8 @@ async def submit_draft(
             db.flush()
         garage_id = garage.id
 
-    images = [_bytes_upload(blob) for blob in draft.images]
-    video = _bytes_upload(draft.video) if draft.video else None
+    images = [_bytes_upload(blob) for blob in draft.loadable_images()]
+    video = _bytes_upload(draft.video) if draft.video and draft.video.blob_available() else None
     claimant_name = _display_name(full_name, username)
 
     try:
@@ -240,7 +257,7 @@ async def submit_draft(
     except ClaimValidationError as exc:
         return ChatReply(text=str(exc)), None
 
-    clear_draft(user_id)
+    clear_draft(db, user_id)
     background_tasks.add_task(ensure_pipeline_started, claim.id)
 
     catalog = catalog_makes_models(db)
@@ -283,7 +300,10 @@ async def handle_message(
     background_tasks: BackgroundTasks,
 ) -> ChatReply:
     raw = (text or "").strip()
-    draft = get_draft(user_id)
+    draft = get_draft(db, user_id)
+    if draft.interrupted:
+        return _interrupted_reply(db, user_id)
+
     llm_fn = _llm_classifier(db, user_id)
 
     if _lookup_awaiting.get(user_id) and raw and not draft.active:
@@ -297,20 +317,23 @@ async def handle_message(
     )
 
     if intent == "lookup_claim":
-        clear_draft(user_id)
-        draft.active = False
+        clear_draft(db, user_id)
         return handle_lookup(db, user_id, raw, entities)
 
-    if intent == "submit_claim" and not draft.active:
-        start_draft(user_id)
+    if intent == "submit_claim" and is_fresh_submit_intent(raw):
+        start_draft(db, user_id)
         return begin_submit_flow(full_name, username)
 
     if draft.active or intent in {"submit_claim", "done"}:
-        draft = get_draft(user_id)
+        draft = get_draft(db, user_id)
+        if draft.interrupted:
+            return _interrupted_reply(db, user_id)
         if not draft.active:
             draft.active = True
+            draft.flow = "submit_claim"
+            persist_draft(db, user_id, draft)
         if raw:
-            parse_details_from_text(draft, raw)
+            draft = parse_details_from_text(db, user_id, draft, raw)
 
         if intent == "done" or any(
             phrase in raw.lower()
@@ -358,35 +381,21 @@ async def handle_message(
 
 
 def append_uploads(
+    db: Session,
     user_id: int,
     *,
     images: list[tuple[str, bytes, str]],
     video: tuple[str, bytes, str] | None,
 ) -> ChatReply:
-    draft = get_draft(user_id)
+    draft = get_draft(db, user_id)
+    if draft.interrupted:
+        return _interrupted_reply(db, user_id)
     if not draft.active:
-        start_draft(user_id)
+        draft = start_draft(db, user_id)
 
-    max_images = _settings.max_images_per_claim
-    for filename, data, content_type in images:
-        if len(draft.images) >= max_images:
-            break
-        draft.images.append(
-            UploadedFile(
-                filename=filename,
-                data=data,
-                content_type=content_type,
-                is_video=False,
-            )
-        )
-
-    if video and draft.video is None:
-        draft.video = UploadedFile(
-            filename=video[0],
-            data=video[1],
-            content_type=video[2],
-            is_video=True,
-        )
+    draft = append_files(db, user_id, draft, images=images, video=video)
+    if draft.interrupted:
+        return _interrupted_reply(db, user_id)
 
     count = draft.image_count()
     video_note = " and 1 video" if draft.video else ""

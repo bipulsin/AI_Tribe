@@ -110,6 +110,7 @@ async def chat_upload(request: Request, db: Session = Depends(get_db)):
         return JSONResponse({"detail": "No supported files received."}, status_code=400)
 
     reply = append_uploads(
+        db,
         user_id,
         images=image_payloads,
         video=video_payload,

@@ -90,6 +90,11 @@ def classify_intent(
     return "general", entities
 
 
+def is_fresh_submit_intent(text: str) -> bool:
+    lower = (text or "").strip().lower()
+    return any(phrase in lower for phrase in _SUBMIT_PHRASES)
+
+
 def llm_classify_intent(provider: str, api_key: str, text: str) -> tuple[str | None, dict]:
     from app.services.llm import providers
 
