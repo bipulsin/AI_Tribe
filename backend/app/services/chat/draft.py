@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import threading
 from dataclasses import dataclass, field
+from datetime import datetime
 
 from app.services.chat.intent import extract_claim_reference
 
@@ -84,7 +85,7 @@ def _clean_tail(value: str) -> str:
         idx = text.lower().find(stop)
         if idx > 0:
             text = text[:idx]
-    return text.strip()
+    return text.strip().rstrip(",")
 
 
 def parse_accident_date(raw: str | None) -> date | None:
