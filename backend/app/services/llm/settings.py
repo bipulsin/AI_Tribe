@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import UserLlmPreferences, UserLlmProviderKey
-from app.services.llm.constants import PROVIDERS, TOGGLE_LABELS
+from app.services.llm.constants import PROVIDERS, PROVIDER_LABELS, TOGGLE_LABELS
 from app.services.llm.encryption import LlmEncryptionError, decrypt_api_key, encrypt_api_key, mask_api_key
 
 
@@ -32,20 +32,19 @@ def list_provider_keys(db: Session, user_id: int) -> list[UserLlmProviderKey]:
 def settings_payload(db: Session, user_id: int) -> dict:
     prefs = get_or_create_preferences(db, user_id)
     keys = list_provider_keys(db, user_id)
-    configured = {row.provider for row in keys}
-    has_key = bool(prefs.active_provider and prefs.active_provider in configured)
-    if not prefs.active_provider and keys:
-        prefs.active_provider = keys[0].provider
+    active = prefs.active_provider
+    active_row = next((row for row in keys if row.provider == active), keys[0] if keys else None)
+    if active_row and not active:
+        prefs.active_provider = active_row.provider
         db.commit()
+        active = active_row.provider
 
     return {
         "providers": list(PROVIDERS),
-        "active_provider": prefs.active_provider,
-        "keys": [
-            {"provider": row.provider, "key_hint": row.key_hint, "configured": True}
-            for row in keys
-        ],
-        "has_valid_key": has_key,
+        "provider_labels": PROVIDER_LABELS,
+        "active_provider": active,
+        "key_hint": active_row.key_hint if active_row else None,
+        "has_valid_key": active_row is not None,
         "toggles": {
             "toggle_deepfake": prefs.toggle_deepfake,
             "toggle_vmmr": prefs.toggle_vmmr,
@@ -76,6 +75,12 @@ def upsert_provider_key(db: Session, user_id: int, provider: str, api_key: str) 
 
     encrypted = encrypt_api_key(plain)
     hint = mask_api_key(plain)
+
+    # One active provider key per user — remove keys for other providers.
+    for other in list_provider_keys(db, user_id):
+        if other.provider != provider:
+            db.delete(other)
+
     row = db.scalar(
         select(UserLlmProviderKey).where(
             UserLlmProviderKey.user_id == user_id,
@@ -95,8 +100,7 @@ def upsert_provider_key(db: Session, user_id: int, provider: str, api_key: str) 
         row.key_hint = hint
 
     prefs = get_or_create_preferences(db, user_id)
-    if not prefs.active_provider:
-        prefs.active_provider = provider
+    prefs.active_provider = provider
     db.commit()
     return {"provider": provider, "key_hint": hint, "configured": True}
 
@@ -122,14 +126,8 @@ def update_preferences(db: Session, user_id: int, payload: dict) -> UserLlmPrefe
     if "active_provider" in payload:
         active = payload.get("active_provider")
         if active:
-            row = db.scalar(
-                select(UserLlmProviderKey).where(
-                    UserLlmProviderKey.user_id == user_id,
-                    UserLlmProviderKey.provider == active,
-                )
-            )
-            if not row:
-                raise ValueError("Active provider has no stored key")
+            if active not in PROVIDERS:
+                raise ValueError("Unknown provider")
         prefs.active_provider = active
     for field in ("toggle_deepfake", "toggle_vmmr", "toggle_estimation", "toggle_fraud"):
         if field in payload:

@@ -37,13 +37,20 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       DATABASE_URL: postgresql+psycopg://ai_tribe:ai_tribe@db:5432/ai_tribe
       UPLOAD_DIR: /app/data/uploads
+      PROFILE_PHOTOS_DIR: /app/data/profile_photos
       LLM_ENCRYPTION_KEY: ${LLM_ENCRYPTION_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-webnetin@gmail.com}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-webnetin@gmail.com}
       HOST: 0.0.0.0
       PORT: 8000
     ports:
       - "8000:8000"
     volumes:
       - ai_tribe_uploads:/app/data/uploads
+      - ai_tribe_profile_photos:/app/data/profile_photos
     restart: unless-stopped
 
   # Live-model app: only started with `--profile ml` (paperclip-vm path).
@@ -67,7 +74,13 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       DATABASE_URL: postgresql+psycopg://ai_tribe:ai_tribe@db:5432/ai_tribe
       UPLOAD_DIR: /app/data/uploads
+      PROFILE_PHOTOS_DIR: /app/data/profile_photos
       LLM_ENCRYPTION_KEY: ${LLM_ENCRYPTION_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-webnetin@gmail.com}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-webnetin@gmail.com}
       HF_HOME: /app/backend/app/ml_weights/huggingface
       TORCH_HOME: /app/backend/app/ml_weights/torch
       HOST: 0.0.0.0
@@ -77,6 +90,7 @@ services:
       - "8001:8000"
     volumes:
       - ai_tribe_uploads:/app/data/uploads
+      - ai_tribe_profile_photos:/app/data/profile_photos
       - ai_tribe_ml_weights:/app/backend/app/ml_weights
     mem_limit: 2g
     cpus: 2.0
@@ -85,4 +99,5 @@ services:
 volumes:
   ai_tribe_pgdata:
   ai_tribe_uploads:
+  ai_tribe_profile_photos:
   ai_tribe_ml_weights:

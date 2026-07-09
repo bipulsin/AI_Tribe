@@ -1,0 +1,81 @@
+<div
+  id="admin-panel"
+  class="chrome-modal chrome-modal--slide"
+  x-show="adminOpen"
+  x-cloak
+  @keydown.escape.window="closeAdmin()"
+>
+  <div class="chrome-modal-backdrop" @click="closeAdmin()"></div>
+  <div class="chrome-modal-panel chrome-modal-panel--slide" role="dialog" aria-labelledby="admin-panel-title">
+    <header class="chrome-modal-header">
+      <h2 id="admin-panel-title" class="chrome-modal-title">Admin</h2>
+      <button type="button" class="chrome-modal-close" @click="closeAdmin()" aria-label="Close admin panel">&times;</button>
+    </header>
+    <div class="chrome-modal-body space-y-6">
+      <section>
+        <p class="chrome-field-label">Create user</p>
+        <p class="mt-1 text-xs text-mist/45">
+          A temporary password is generated, stored encrypted, and emailed to the user.
+          Administrators cannot view passwords after creation.
+        </p>
+        <form class="mt-3 flex flex-col gap-2 sm:flex-row" @submit.prevent="createUser()">
+          <input
+            type="email"
+            class="chrome-input min-w-0 flex-1"
+            x-model="newUserEmail"
+            placeholder="user@example.com"
+            required
+            autocomplete="off"
+          />
+          <button
+            type="submit"
+            class="btn-primary rounded-lg px-4 py-2 text-xs font-semibold"
+            :disabled="adminSubmitting || !newUserEmail.trim()"
+          >
+            <span x-show="!adminSubmitting">Create &amp; email password</span>
+            <span x-show="adminSubmitting" x-cloak>Sending…</span>
+          </button>
+        </form>
+        <p class="mt-1 text-xs text-amber-300/80" x-show="adminMessage" x-text="adminMessage" x-cloak></p>
+      </section>
+
+      <section>
+        <p class="chrome-field-label">Users</p>
+        <div class="mt-2 overflow-hidden rounded-lg border border-white/10">
+          <table class="admin-users-table w-full text-left text-sm">
+            <thead>
+              <tr class="border-b border-white/10 text-xs uppercase tracking-wide text-mist/45">
+                <th class="px-3 py-2 font-medium">Email</th>
+                <th class="px-3 py-2 font-medium">Name</th>
+                <th class="px-3 py-2 font-medium">Role</th>
+                <th class="px-3 py-2 font-medium text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="row in adminUsers" :key="row.id">
+                <tr class="border-b border-white/5 last:border-0" :class="!row.is_active ? 'opacity-50' : ''">
+                  <td class="px-3 py-2 text-mist/85" x-text="row.email"></td>
+                  <td class="px-3 py-2 text-mist/70" x-text="row.full_name"></td>
+                  <td class="px-3 py-2 text-mist/60" x-text="row.role"></td>
+                  <td class="px-3 py-2 text-right">
+                    <button
+                      type="button"
+                      class="inline-flex items-center rounded border border-red-400/30 px-2 py-1 text-xs text-red-300/80"
+                      x-show="row.is_active"
+                      @click="deleteUser(row)"
+                      title="Deactivate user"
+                    >
+                      Delete
+                    </button>
+                    <span class="text-xs text-mist/40" x-show="!row.is_active" x-cloak>Inactive</span>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+          <p class="px-3 py-4 text-xs text-mist/40" x-show="!adminUsers.length" x-cloak>No users found.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>

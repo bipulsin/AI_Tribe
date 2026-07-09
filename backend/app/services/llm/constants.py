@@ -4,6 +4,13 @@ from __future__ import annotations
 
 PROVIDERS = ("openai", "anthropic", "gemini", "grok")
 
+PROVIDER_LABELS: dict[str, str] = {
+    "openai": "OpenAI ChatGPT",
+    "anthropic": "Anthropic Claude",
+    "gemini": "Google Gemini",
+    "grok": "X Grok",
+}
+
 TOGGLE_DEEPFAKE = "toggle_deepfake"
 TOGGLE_VMMR = "toggle_vmmr"
 TOGGLE_ESTIMATION = "toggle_estimation"

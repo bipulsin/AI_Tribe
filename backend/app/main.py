@@ -126,6 +126,22 @@ async def require_session(request: Request, call_next):
             return JSONResponse({"detail": "Not authenticated"}, status_code=401)
         return RedirectResponse(url="/login", status_code=303)
 
+    # Invalidate session if the account was deactivated.
+    db = SessionLocal()
+    try:
+        user = db.get(User, user_id)
+        if not user or not user.is_active:
+            request.session.clear()
+            accept = request.headers.get("accept", "")
+            wants_json = path.startswith("/api/") or "application/json" in accept
+            if wants_json:
+                from fastapi.responses import JSONResponse
+
+                return JSONResponse({"detail": "Not authenticated"}, status_code=401)
+            return RedirectResponse(url="/login", status_code=303)
+    finally:
+        db.close()
+
     return await call_next(request)
 
 
@@ -173,6 +189,9 @@ try:
     from app.api import routes_llm_settings
 
     app.include_router(routes_llm_settings.router)
+    from app.api import routes_admin_users
+
+    app.include_router(routes_admin_users.router)
 except ImportError:
     # Partial scaffold during early milestones — routes land incrementally.
     pass

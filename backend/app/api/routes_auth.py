@@ -35,10 +35,14 @@ async def auth_login(
     password: str = Form(...),
     db: Session = Depends(get_db),
 ):
-    user = db.scalar(select(User).where(User.username == username.strip()))
+    user = db.scalar(
+        select(User).where(
+            (User.username == username.strip()) | (User.email == username.strip().lower())
+        )
+    )
     is_htmx = request.headers.get("HX-Request") == "true"
 
-    if not user or not verify_password(password, user.password_hash):
+    if not user or not user.is_active or not verify_password(password, user.password_hash):
         error = "Incorrect username or password."
         if is_htmx:
             # 200 so HTMX swaps the error partial into the card (no full reload).

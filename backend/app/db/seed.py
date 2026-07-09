@@ -62,6 +62,7 @@ def seed_admin(db) -> None:
             password_hash=hash_password(password),
             full_name="Bipul Sahay",
             role="admin",
+            is_active=True,
         )
         db.add(admin)
         db.commit()

@@ -40,6 +40,7 @@ COPY data/parts_seed/ /app/data/parts_seed/
 COPY scripts/ /app/scripts/
 
 RUN mkdir -p /app/data/uploads \
+        /app/data/profile_photos \
         /app/backend/app/ml_weights/huggingface \
         /app/backend/app/ml_weights/torch \
     && chown -R appuser:appuser /app

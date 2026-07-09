@@ -73,11 +73,13 @@ def profile_to_dict(user: User) -> dict:
     photo = profile_photo_path(user.id)
     return {
         "username": user.username,
+        "email": user.email,
         "full_name": user.full_name,
         "date_of_birth": user.date_of_birth.isoformat() if user.date_of_birth else None,
         "has_photo": photo is not None,
         "photo_url": f"/api/user/profile/photo?v={int(photo.stat().st_mtime)}" if photo else None,
         "role": user.role,
+        "is_admin": user.role == "admin",
     }
 
 

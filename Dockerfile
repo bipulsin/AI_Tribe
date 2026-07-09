@@ -38,7 +38,7 @@ COPY data/parts_seed/ /app/data/parts_seed/
 COPY data/seed_images/ /app/data/seed_images/
 COPY scripts/ /app/scripts/
 
-RUN mkdir -p /app/data/uploads /app/backend/app/ml_weights \
+RUN mkdir -p /app/data/uploads /app/data/profile_photos /app/backend/app/ml_weights \
     && chown -R appuser:appuser /app
 
 USER appuser

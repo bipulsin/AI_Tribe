@@ -670,39 +670,21 @@ body.help-guide-open {
   background: #0a0f1a;
 }
 
-/* Bottom-left user chrome — profile + settings (authenticated pages only) */
+/* Bottom-left user chrome — profile menu + slide-in panels */
 .app-chrome-left {
   position: fixed;
   left: 1rem;
   bottom: 1rem;
   z-index: 60;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.5rem;
   max-width: min(16rem, calc(100vw - 2rem));
 }
 
-.settings-trigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 9999px;
-  border: 1px solid rgba(184, 134, 11, 0.35);
-  background: rgba(10, 15, 26, 0.92);
-  color: rgba(232, 236, 241, 0.75);
-  cursor: pointer;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
-  transition: border-color 0.15s ease, color 0.15s ease;
+.user-menu-wrap {
+  position: relative;
 }
 
-.settings-trigger:hover,
-.settings-trigger:focus-visible {
-  border-color: rgba(184, 134, 11, 0.75);
-  color: #fde68a;
-  outline: none;
+.settings-trigger {
+  display: none;
 }
 
 .profile-trigger {
@@ -710,7 +692,7 @@ body.help-guide-open {
   align-items: center;
   gap: 0.5rem;
   max-width: 100%;
-  padding: 0.35rem 0.65rem 0.35rem 0.35rem;
+  padding: 0.35rem 0.55rem 0.35rem 0.35rem;
   border-radius: 9999px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(10, 15, 26, 0.92);
@@ -720,6 +702,50 @@ body.help-guide-open {
   cursor: pointer;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
   transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.profile-trigger-chevron {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex-shrink: 0;
+  color: rgba(232, 236, 241, 0.45);
+}
+
+.user-menu-popup {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 0.45rem);
+  min-width: 10.5rem;
+  padding: 0.35rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(10, 15, 26, 0.98);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
+
+.user-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 0.65rem;
+  border: none;
+  border-radius: 0.45rem;
+  background: transparent;
+  color: rgba(232, 236, 241, 0.88);
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.user-menu-item:hover,
+.user-menu-item:focus-visible {
+  background: rgba(184, 134, 11, 0.15);
+  color: #fde68a;
+  outline: none;
+}
+
+.admin-users-table th,
+.admin-users-table td {
+  vertical-align: middle;
 }
 
 .profile-trigger:hover,
