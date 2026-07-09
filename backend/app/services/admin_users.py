@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import hash_password
 from app.models import User
-from app.services.mail import send_new_user_credentials
+from app.services.mail import MailDeliveryError, send_new_user_credentials
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -48,28 +48,44 @@ def create_user_with_email(
     existing = db.scalar(
         select(User).where((User.email == normalized) | (User.username == normalized))
     )
-    if existing:
+    if existing and existing.is_active:
         raise ValueError("A user with this email already exists")
 
     plain_password = secrets.token_urlsafe(12)
     local_part = normalized.split("@", 1)[0]
-    user = User(
-        username=normalized,
-        email=normalized,
-        password_hash=hash_password(plain_password),
-        full_name=local_part.replace(".", " ").title()[:128],
-        role="user",
-        is_active=True,
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+    display_name = local_part.replace(".", " ").title()[:128]
 
-    send_new_user_credentials(
-        to_email=normalized,
-        password=plain_password,
-        login_url=login_url,
-    )
+    if existing and not existing.is_active:
+        user = existing
+        user.username = normalized
+        user.email = normalized
+        user.password_hash = hash_password(plain_password)
+        user.full_name = display_name
+        user.role = "user"
+        user.is_active = True
+    else:
+        user = User(
+            username=normalized,
+            email=normalized,
+            password_hash=hash_password(plain_password),
+            full_name=display_name,
+            role="user",
+            is_active=True,
+        )
+        db.add(user)
+
+    try:
+        db.flush()
+        send_new_user_credentials(
+            to_email=normalized,
+            password=plain_password,
+            login_url=login_url,
+        )
+        db.commit()
+        db.refresh(user)
+    except Exception:
+        db.rollback()
+        raise
 
     return {
         "id": user.id,

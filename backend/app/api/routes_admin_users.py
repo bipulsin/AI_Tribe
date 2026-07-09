@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models import User
 from app.services.admin_users import create_user_with_email, deactivate_user, list_users
+from app.services.mail import MailDeliveryError
 
 router = APIRouter(tags=["admin-users"])
 
@@ -52,7 +53,7 @@ async def post_user(request: Request, db: Session = Depends(get_db)):
         row = create_user_with_email(db, email=email, login_url=login_url)
     except ValueError as exc:
         return JSONResponse({"detail": str(exc)}, status_code=400)
-    except RuntimeError as exc:
+    except MailDeliveryError as exc:
         return JSONResponse({"detail": str(exc)}, status_code=503)
 
     return row

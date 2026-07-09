@@ -23,11 +23,15 @@ def _smtp_config() -> tuple[str, int, str, str, str] | None:
     return host, port, user, password, from_addr
 
 
+class MailDeliveryError(RuntimeError):
+    """Raised when outbound mail cannot be delivered."""
+
+
 def send_new_user_credentials(*, to_email: str, password: str, login_url: str) -> None:
     """Email a one-time generated password to a new user."""
     cfg = _smtp_config()
     if not cfg:
-        raise RuntimeError(
+        raise MailDeliveryError(
             "SMTP_PASSWORD is not configured on the server; cannot send welcome email."
         )
 
@@ -45,9 +49,17 @@ def send_new_user_credentials(*, to_email: str, password: str, login_url: str) -
         "This password is stored encrypted on the server and is not visible to administrators.\n"
     )
 
-    with smtplib.SMTP(host, port, timeout=30) as smtp:
-        smtp.starttls()
-        smtp.login(user, smtp_password)
-        smtp.send_message(msg)
+    try:
+        with smtplib.SMTP(host, port, timeout=30) as smtp:
+            smtp.starttls()
+            smtp.login(user, smtp_password)
+            smtp.send_message(msg)
+    except smtplib.SMTPAuthenticationError as exc:
+        raise MailDeliveryError(
+            "Gmail SMTP login failed. Set SMTP_PASSWORD to a Gmail App Password "
+            "(Google Account → Security → App passwords), not your regular login password."
+        ) from exc
+    except smtplib.SMTPException as exc:
+        raise MailDeliveryError(f"Could not send welcome email: {exc}") from exc
 
     logger.info("Sent welcome email to %s", to_email)
