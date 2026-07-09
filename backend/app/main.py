@@ -192,6 +192,9 @@ try:
     from app.api import routes_admin_users
 
     app.include_router(routes_admin_users.router)
+    from app.api import routes_chat
+
+    app.include_router(routes_chat.router)
 except ImportError:
     # Partial scaffold during early milestones — routes land incrementally.
     pass

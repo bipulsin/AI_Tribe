@@ -49,7 +49,9 @@ def claim_detail_href(claim: Claim) -> str:
     return f"/claims/{claim.id}/processing"
 
 
-def search_claims(db: Session, query: str, *, limit: int = 20) -> list[ClaimSearchHit]:
+def search_claims(
+    db: Session, query: str, *, limit: int = 20, user_id: int | None = None
+) -> list[ClaimSearchHit]:
     q = (query or "").strip()
     if len(q) < 1:
         return []
@@ -70,6 +72,8 @@ def search_claims(db: Session, query: str, *, limit: int = 20) -> list[ClaimSear
         )
         .limit(80)
     )
+    if user_id is not None:
+        stmt = stmt.where(Claim.created_by == user_id)
     claims = list(db.scalars(stmt).unique().all())
 
     scored: list[tuple[float, Claim]] = []

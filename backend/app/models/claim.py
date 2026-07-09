@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, func
+from sqlalchemy import Date, DateTime, Enum, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -19,6 +19,7 @@ class Claim(Base):
     # Display labels for fraud-graph nodes (optional overrides of creator/surveyor).
     claimant_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
     surveyor_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    accident_date: Mapped[date | None] = mapped_column(Date(), nullable=True)
     status: Mapped[ClaimStatus] = mapped_column(
         Enum(ClaimStatus, name="claim_status", native_enum=False),
         nullable=False,

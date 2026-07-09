@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block title %}Chat{% endblock %}
+
+{% block body_class %}chat-page h-screen overflow-hidden bg-ink text-mist antialiased{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/chat.css" />
+{% endblock %}
+
+{% block body %}
+<div
+  class="chat-shell"
+  x-data="chatApp({
+    userName: {{ (full_name or username or 'User')|tojson }},
+    maxImages: {{ max_images }},
+    maxUploadMb: {{ max_upload_mb }}
+  })"
+  x-init="init()"
+>
+  <aside class="chat-sidebar" :class="{ 'chat-sidebar--collapsed': sidebarCollapsed }">
+    <button
+      type="button"
+      class="chat-sidebar-toggle"
+      @click="sidebarCollapsed = !sidebarCollapsed"
+      :aria-label="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
+        <path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 0 1-.02 1.06L8.832 10l3.938 3.71a.75.75 0 1 1-1.04 1.08l-4.5-4.25a.75.75 0 0 1 0-1.08l4.5-4.25a.75.75 0 0 1 1.06.02Z" clip-rule="evenodd" />
+      </svg>
+    </button>
+
+    <div class="chat-sidebar-inner" x-show="!sidebarCollapsed" x-cloak>
+      <p class="chat-sidebar-brand">AI Tribe</p>
+      <button type="button" class="chat-sidebar-user" @click="openUserProfile()">
+        <span class="chat-sidebar-user-label" x-text="userName"></span>
+      </button>
+      <a href="/claims/new" class="chat-sidebar-link">Enterprise</a>
+    </div>
+  </aside>
+
+  <main class="chat-main">
+    <header class="chat-header">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gold">Assistant</p>
+        <h1 class="mt-1 text-lg font-semibold text-mist">Claims chat</h1>
+      </div>
+    </header>
+
+    <div class="chat-thread" x-ref="thread" role="log" aria-live="polite">
+      <template x-for="msg in messages" :key="msg.id">
+        <div class="chat-message" :class="msg.role === 'user' ? 'chat-message--user' : 'chat-message--assistant'">
+          <div class="chat-bubble" x-html="formatText(msg.text)"></div>
+
+          <template x-for="(widget, wIdx) in (msg.widgets || [])" :key="msg.id + '-' + wIdx">
+            <div class="chat-widget" x-show="widget.type === 'file_upload'" x-cloak>
+              <label class="chat-upload-btn">
+                <input
+                  type="file"
+                  class="hidden"
+                  accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
+                  multiple
+                  @change="onFilesSelected($event)"
+                />
+                <span>Upload photos or video</span>
+              </label>
+              <p class="chat-upload-hint" x-text="'Up to ' + maxImages + ' images · max ' + maxUploadMb + ' MB each'"></p>
+            </div>
+
+            <div
+              class="chat-widget chat-pipeline-widget"
+              x-show="widget.type === 'pipeline'"
+              x-cloak
+              x-data="pipelineTracker({
+                claimId: widget.claim_id,
+                catalogMakes: widget.catalog_makes || [],
+                vehicleLlmSuggest: widget.vehicle_llm_suggest || null
+              })"
+              x-init="init()"
+            >
+              <div class="chat-pipeline-window" x-ref="stageWindow">
+                <ol class="stage-tracker">
+                  <template x-for="(stage, index) in stages" :key="stage.key">
+                    <li
+                      class="stage-row relative flex gap-3"
+                      :data-stage-key="stage.key"
+                      :data-stage-status="stage.status"
+                      :data-stage-focus="isFocusStage(stage) ? 'true' : 'false'"
+                    >
+                      <div class="flex flex-col items-center">
+                        <div class="stage-icon flex shrink-0 items-center justify-center rounded-full border" :class="iconClass(stage)">
+                          <template x-if="stage.status === 'pending'">
+                            <span class="h-2 w-2 rounded-full bg-mist/25"></span>
+                          </template>
+                          <template x-if="stage.status === 'started'">
+                            <span class="stage-spinner h-3.5 w-3.5 rounded-full border-2 border-gold/30 border-t-gold"></span>
+                          </template>
+                          <template x-if="stage.status === 'passed'">
+                            <svg class="h-3.5 w-3.5" :class="checkClass(stage)" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                              <path fill-rule="evenodd" d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.25 7.333a1 1 0 0 1-1.44-.02L3.27 9.96a1 1 0 1 1 1.46-1.366l3.98 4.253 6.53-6.603a1 1 0 0 1 1.464.046z" clip-rule="evenodd"/>
+                            </svg>
+                          </template>
+                          <template x-if="stage.status === 'failed'">
+                            <svg class="h-3.5 w-3.5 text-amber-300" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                              <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22z"/>
+                            </svg>
+                          </template>
+                          <template x-if="stage.status === 'warning'">
+                            <svg class="h-3.5 w-3.5 text-amber-300" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                              <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.168 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 6zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" clip-rule="evenodd"/>
+                            </svg>
+                          </template>
+                        </div>
+                        <div class="mt-1 w-px flex-1 bg-white/10" x-show="index < stages.length - 1"></div>
+                      </div>
+                      <div class="min-w-0 flex-1 pt-0.5">
+                        <p class="text-xs font-medium" :class="labelClass(stage)">
+                          <span x-text="stage.label"></span>
+                          <span class="ml-1 text-[10px] font-normal tabular-nums opacity-70" x-show="stage.timerLabel" x-text="'— ' + stage.timerLabel" x-cloak></span>
+                        </p>
+                        <p class="mt-0.5 text-xs text-mist/55" x-show="stage.detail && stage.key !== 'vehicle_confirmation'" x-text="stage.detail" x-cloak></p>
+                        <template x-if="stage.key === 'vehicle_confirmation' && awaitingVehicleConfirmation">
+                          <div class="mt-2 rounded-lg border border-amber-400/25 bg-amber-500/5 px-3 py-3">
+                            <p class="text-xs text-mist/70" x-text="stage.detail || haltMessage"></p>
+                            <form class="mt-2 grid gap-2 sm:grid-cols-2" @submit.prevent="submitVehicleConfirmation()">
+                              <div>
+                                <label class="block text-xs font-medium text-mist">Make</label>
+                                <input type="text" list="catalog-makes-chat" x-model="confirmMake" class="mt-1 w-full rounded-lg border border-white/15 bg-ink px-2 py-1.5 text-xs text-mist outline-none focus:border-gold/50" required />
+                              </div>
+                              <div>
+                                <label class="block text-xs font-medium text-mist">Model</label>
+                                <input type="text" x-model="confirmModel" class="mt-1 w-full rounded-lg border border-white/15 bg-ink px-2 py-1.5 text-xs text-mist outline-none focus:border-gold/50" required />
+                              </div>
+                              <div class="sm:col-span-2 flex justify-end">
+                                <button type="submit" class="btn-primary rounded-lg px-3 py-1.5 text-xs font-semibold" :disabled="confirmSubmitting || !confirmMake.trim() || !confirmModel.trim()">
+                                  <span x-show="!confirmSubmitting">Confirm and continue</span>
+                                  <span x-show="confirmSubmitting" x-cloak>Continuing…</span>
+                                </button>
+                              </div>
+                            </form>
+                            <datalist id="catalog-makes-chat">
+                              <template x-for="entry in catalogMakes" :key="entry.make">
+                                <option :value="entry.make"></option>
+                              </template>
+                            </datalist>
+                          </div>
+                        </template>
+                      </div>
+                    </li>
+                  </template>
+                </ol>
+              </div>
+              <div class="notice mt-3 text-xs" x-show="halted && !awaitingVehicleConfirmation" x-cloak>
+                <p class="notice-title">Assessment paused</p>
+                <p class="notice-body" x-text="haltMessage"></p>
+                <button type="button" class="btn-primary mt-2 rounded-lg px-3 py-1.5 text-xs font-semibold" :disabled="reviewSent" @click="requestReview()">
+                  <span x-show="!reviewSent">Send for manual review</span>
+                  <span x-show="reviewSent" x-cloak>Sent for manual review</span>
+                </button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <div class="chat-suggestions" x-show="showSuggestions && !sending" x-cloak>
+        <template x-for="hint in suggestions" :key="hint">
+          <button type="button" class="chat-chip" @click="useSuggestion(hint)" x-text="hint"></button>
+        </template>
+      </div>
+    </div>
+
+    <form class="chat-composer" @submit.prevent="sendMessage()">
+      <textarea
+        x-model="draft"
+        rows="1"
+        class="chat-input"
+        placeholder="Ask about a claim or describe what you need…"
+        :disabled="sending"
+        @keydown.enter.prevent="if (!$event.shiftKey) sendMessage()"
+      ></textarea>
+      <button type="submit" class="chat-send" :disabled="sending || !draft.trim()">Send</button>
+    </form>
+  </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/sse.js"></script>
+<script src="/static/js/chat.js"></script>
+{% endblock %}

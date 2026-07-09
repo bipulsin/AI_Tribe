@@ -399,6 +399,13 @@ function pipelineTracker({
           this._source = null;
         }
         this.$nextTick(() => this.scrollToActiveStage({ instant: true }));
+        if (!this.awaitingVehicleConfirmation) {
+          window.dispatchEvent(
+            new CustomEvent("ai-tribe:pipeline-complete", {
+              detail: { claimId: this.claimId, event },
+            })
+          );
+        }
         return;
       }
 

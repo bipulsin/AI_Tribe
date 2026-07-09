@@ -58,6 +58,7 @@ function userChrome() {
       this.initialName = this.$el.dataset.initialName || "User";
       this.profile.full_name = this.initialName;
       await this.refreshProfile();
+      window.addEventListener("ai-tribe:open-profile", () => this.openProfile());
     },
 
     async refreshProfile() {

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
@@ -74,6 +74,7 @@ async def create_claim_with_uploads(
     garage_id: int | None = None,
     surveyor_name: str | None = None,
     claimant_name: str | None = None,
+    accident_date: date | None = None,
     storage: StorageBackend | None = None,
 ) -> Claim:
     settings = get_settings()
@@ -127,6 +128,7 @@ async def create_claim_with_uploads(
         garage_id=garage_id,
         surveyor_name=(surveyor_name or "").strip() or None,
         claimant_name=(claimant_name or "").strip() or None,
+        accident_date=accident_date,
         status=ClaimStatus.submitted,
     )
     db.add(claim)
