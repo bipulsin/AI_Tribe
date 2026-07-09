@@ -29,7 +29,7 @@ _GARAGE_PATTERNS = [
 _SURVEYOR_PATTERNS = [
     re.compile(r"surveyor(?:\s+name)?\s*(?:is|:|-)\s*(.+)", re.IGNORECASE),
     re.compile(r"surveyor\s+(.+)", re.IGNORECASE),
-)
+]
 
 INTERRUPTED_MESSAGE = (
     "Your in-progress claim was interrupted, please start again."
