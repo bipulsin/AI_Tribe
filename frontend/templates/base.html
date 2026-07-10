@@ -31,12 +31,16 @@
 <body class="{% block body_class %}min-h-screen bg-canvas text-navy antialiased dark:bg-ink dark:text-mist{% endblock %}">
   {% block body %}{% endblock %}
   {% include "partials/user_chrome.html" %}
+  {% if not embed|default(false) %}
   {% include "partials/help_trigger.html" %}
   {% include "partials/attribution.html" %}
+  {% endif %}
   {% include "partials/help_guide.html" %}
   {% include "partials/media_preview_modal.html" %}
   <script src="/static/js/user_chrome.js"></script>
+  {% if not embed|default(false) %}
   <script src="/static/js/help_guide.js"></script>
+  {% endif %}
   <script src="/static/js/media_preview.js"></script>
   {% block scripts %}{% endblock %}
 </body>

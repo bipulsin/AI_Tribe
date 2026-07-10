@@ -17,6 +17,7 @@ from app.models import Garage
 from app.services.chat.draft import (
     INTERRUPTED_MESSAGE,
     ClaimDraft,
+    accept_accident_date_input,
     activate_draft,
     append_files,
     clear_draft,
@@ -586,8 +587,9 @@ async def submit_draft(
     reply = ChatReply(
         text=(
             f"**Submitting & Assessing the claim**\n\n"
-            f"Claim **{claim.claim_reference}** created. "
-            "Running the 12-stage assessment pipeline now — results will appear below."
+            f"Claim **[{claim.claim_reference}](claim:{claim.id})** created. "
+            "Running the 12-stage assessment pipeline now — "
+            "click the claim number above to check progress and results."
         ),
         widgets=[
             {
@@ -679,6 +681,12 @@ async def _continue_submit_flow(
         draft = parse_details_from_text(db, user_id, draft, raw)
         if draft.garage_name:
             _clear_submit_session(user_id)
+        date_err = getattr(draft, "_date_error", None)
+        if date_err:
+            draft.accident_date = None
+            draft.flow = "await_date"
+            persist_draft(db, user_id, draft)
+            return ChatReply(text=date_err)
 
     # Default surveyor to self when user skips with done/go-ahead and photos+garage+date exist.
     if force_submit and not (draft.surveyor_name or "").strip():
@@ -686,6 +694,16 @@ async def _continue_submit_flow(
         persist_draft(db, user_id, draft)
 
     if force_submit or draft.next_step() == "ready":
+        # Final date gate before claim creation.
+        if draft.accident_date:
+            _normalized, date_err = accept_accident_date_input(draft.accident_date)
+            if date_err:
+                draft.accident_date = None
+                draft.flow = "await_date"
+                persist_draft(db, user_id, draft)
+                return ChatReply(text=date_err)
+            draft.accident_date = _normalized
+            persist_draft(db, user_id, draft)
         reply, _meta = await submit_draft(
             db,
             user_id,

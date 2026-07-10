@@ -157,6 +157,22 @@ async def create_claim(
         garage_id = garage.id
 
     claimant_name = (request.session.get("full_name") or request.session.get("username") or "").strip()
+    accident_raw = (form.get("accident_date") or "").strip()
+    accident_date = None
+    if accident_raw:
+        from app.services.chat.draft import parse_accident_date
+        from app.services.claim_service import (
+            INVALID_ACCIDENT_DATE_MESSAGE,
+            validate_accident_date,
+        )
+
+        accident_date = parse_accident_date(accident_raw)
+        if accident_date is None:
+            return JSONResponse({"detail": INVALID_ACCIDENT_DATE_MESSAGE}, status_code=400)
+        try:
+            accident_date = validate_accident_date(accident_date)
+        except ClaimValidationError as exc:
+            return JSONResponse({"detail": str(exc)}, status_code=400)
 
     try:
         claim = await create_claim_with_uploads(
@@ -167,6 +183,7 @@ async def create_claim(
             garage_id=garage_id,
             surveyor_name=surveyor_name or None,
             claimant_name=claimant_name or None,
+            accident_date=accident_date,
         )
     except ClaimValidationError as exc:
         return JSONResponse({"detail": str(exc)}, status_code=400)

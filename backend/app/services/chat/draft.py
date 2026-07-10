@@ -275,6 +275,31 @@ def parse_accident_date(raw: str | None) -> date | None:
     return None
 
 
+def accept_accident_date_input(raw: str | None) -> tuple[str | None, str | None]:
+    """Parse and validate a chat accident-date reply.
+
+    Returns (normalized_iso_or_raw, error_message). On success error is None and
+    the first value is an ISO date string suitable for draft storage.
+    """
+    from app.services.claim_service import (
+        INVALID_ACCIDENT_DATE_MESSAGE,
+        ClaimValidationError,
+        validate_accident_date,
+    )
+
+    text = (raw or "").strip()
+    if not text:
+        return None, INVALID_ACCIDENT_DATE_MESSAGE
+    parsed = parse_accident_date(text)
+    if parsed is None:
+        return None, INVALID_ACCIDENT_DATE_MESSAGE
+    try:
+        validate_accident_date(parsed)
+    except ClaimValidationError as exc:
+        return None, str(exc)
+    return parsed.isoformat(), None
+
+
 def parse_details_from_text(db: Session, user_id: int, draft: ClaimDraft, text: str) -> ClaimDraft:
     raw = (text or "").strip()
     if not raw or extract_claim_reference(raw):
@@ -300,7 +325,13 @@ def parse_details_from_text(db: Session, user_id: int, draft: ClaimDraft, text: 
     for pattern in _DATE_PATTERNS:
         match = pattern.search(raw)
         if match:
-            draft.accident_date = match.group(1)
+            normalized, err = accept_accident_date_input(match.group(1))
+            if err:
+                # Leave draft.accident_date unset; caller/handler surfaces err.
+                draft._date_error = err  # type: ignore[attr-defined]
+            else:
+                draft.accident_date = normalized
+                draft._date_error = None  # type: ignore[attr-defined]
             break
 
     # Step-aware free-text capture.
@@ -314,9 +345,13 @@ def parse_details_from_text(db: Session, user_id: int, draft: ClaimDraft, text: 
             draft.surveyor_name = raw[:128]
         draft.flow = "await_date"
     elif step == "await_date" and not draft.accident_date:
-        # Accept free-form date strings; parse_accident_date validates later.
-        draft.accident_date = raw[:32]
-        draft.flow = "await_photos"
+        normalized, err = accept_accident_date_input(raw)
+        if err:
+            draft._date_error = err  # type: ignore[attr-defined]
+        else:
+            draft.accident_date = normalized
+            draft._date_error = None  # type: ignore[attr-defined]
+            draft.flow = "await_photos"
     elif step in {"await_city", "submit_claim"} and not draft.garage_name:
         # Heuristic garage only when clearly not a city-only reply.
         from app.services.chat.intent import extract_city_from_text

@@ -545,6 +545,18 @@ function appendAssistantMessage(thread, data) {
         </label>
         <p class="chat-upload-hint">Attach damage photos or a short video</p>
       </div>`;
+    } else if (widget.type === "pipeline" && widget.claim_id) {
+      const ref = String(widget.claim_reference || `Claim ${widget.claim_id}`).replace(
+        /</g,
+        "&lt;"
+      );
+      html += `
+      <div class="chat-widget chat-pipeline-fallback">
+        <p class="chat-widget-title">Assessment started</p>
+        <button type="button" class="chat-claim-link" data-claim-id="${Number(
+          widget.claim_id
+        )}">${ref} — open progress &amp; results</button>
+      </div>`;
     } else if (widget.type === "claim_images" && Array.isArray(widget.images)) {
       const thumbs = widget.images
         .map(

@@ -31,6 +31,48 @@ class ClaimValidationError(ValueError):
     pass
 
 
+# Accident dates must be strictly before today, and not older than this many years.
+ACCIDENT_DATE_MAX_AGE_YEARS = 10
+
+FUTURE_ACCIDENT_DATE_MESSAGE = (
+    "That date looks like it's in the future, an accident date should be in the past. "
+    "Please provide the actual date of the accident."
+)
+
+TOO_OLD_ACCIDENT_DATE_MESSAGE = (
+    "That accident date is too far in the past. "
+    f"Please use a date within the last {ACCIDENT_DATE_MAX_AGE_YEARS} years."
+)
+
+INVALID_ACCIDENT_DATE_MESSAGE = (
+    "I couldn't read that as a date. "
+    "Please use a format like 2026-03-15 or 15/03/2026."
+)
+
+
+def validate_accident_date(
+    value: date | None,
+    *,
+    vehicle_year: int | None = None,
+) -> date | None:
+    """Reject today/future and unreasonably old accident dates. Returns the date or None."""
+    if value is None:
+        return None
+    today = date.today()
+    if value >= today:
+        raise ClaimValidationError(FUTURE_ACCIDENT_DATE_MESSAGE)
+
+    earliest = date(today.year - ACCIDENT_DATE_MAX_AGE_YEARS, today.month, today.day)
+    if vehicle_year and 1900 <= vehicle_year <= today.year:
+        # Don't accept accidents before the vehicle could exist.
+        vehicle_floor = date(vehicle_year, 1, 1)
+        if vehicle_floor > earliest:
+            earliest = vehicle_floor
+    if value < earliest:
+        raise ClaimValidationError(TOO_OLD_ACCIDENT_DATE_MESSAGE)
+    return value
+
+
 def _is_image(upload: UploadFile) -> bool:
     content_type = (upload.content_type or "").lower()
     if content_type in IMAGE_CONTENT_TYPES:
@@ -100,6 +142,8 @@ async def create_claim_with_uploads(
         raise ClaimValidationError(
             f"'{video_file.filename}' is not a supported video type."
         )
+
+    accident_date = validate_accident_date(accident_date)
 
     # Read and validate all payloads before touching the database or disk.
     image_payloads: list[tuple[str, bytes]] = []

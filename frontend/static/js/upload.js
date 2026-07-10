@@ -15,6 +15,12 @@ function claimUpload({
     maxUploadMb,
     garageName: "",
     surveyorName: surveyorName || "",
+    accidentDate: "",
+    accidentDateMax: (() => {
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      return d.toISOString().slice(0, 10);
+    })(),
     images: [],
     video: null,
     dragOver: false,
@@ -33,7 +39,7 @@ function claimUpload({
     },
 
     get canSubmit() {
-      return this.images.length >= 1 && !this.submitting;
+      return this.images.length >= 1 && !!this.accidentDate && !this.submitting;
     },
 
     onDrop(event) {
@@ -147,6 +153,9 @@ function claimUpload({
       }
       if (this.surveyorName) {
         formData.append("surveyor_name", this.surveyorName.trim());
+      }
+      if (this.accidentDate) {
+        formData.append("accident_date", this.accidentDate.trim());
       }
 
       try {
