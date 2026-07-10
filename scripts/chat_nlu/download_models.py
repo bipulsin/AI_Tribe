@@ -70,21 +70,46 @@ def main() -> int:
     if spacy_dest.is_dir() and any(spacy_dest.iterdir()):
         print(f"spaCy already present: {spacy_dest}")
     else:
-        print("Downloading spaCy en_core_web_sm …")
-        try:
-            from spacy.cli import download as spacy_download
+        print("Downloading spaCy en_core_web_sm wheel into scratch (no venv install) …")
+        wheels = root / "wheels"
+        wheels.mkdir(parents=True, exist_ok=True)
+        subprocess.check_call(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "download",
+                "en-core-web-sm==3.8.0",
+                "-d",
+                str(wheels),
+                "--no-deps",
+            ]
+        )
+        wheels_list = sorted(wheels.glob("en_core_web_sm*.whl"))
+        if not wheels_list:
+            print("ERROR: spaCy wheel not downloaded", file=sys.stderr)
+            return 4
+        import zipfile
 
-            spacy_download("en_core_web_sm")
-        except Exception:
-            subprocess.check_call(
-                [sys.executable, "-m", "spacy", "download", "en_core_web_sm"]
-            )
-        import en_core_web_sm  # type: ignore  # noqa: PLC0415
-
-        src = Path(en_core_web_sm.__file__).resolve().parent
+        extract_dir = root / "_spacy_extract"
+        if extract_dir.exists():
+            shutil.rmtree(extract_dir)
+        extract_dir.mkdir(parents=True)
+        with zipfile.ZipFile(wheels_list[-1], "r") as zf:
+            zf.extractall(extract_dir)
+        # Wheel layout: en_core_web_sm/en_core_web_sm-3.8.0/
+        candidates = list(extract_dir.glob("en_core_web_sm/en_core_web_sm-*"))
+        if not candidates:
+            candidates = list(extract_dir.glob("**/meta.json"))
+            candidates = [p.parent for p in candidates]
+        if not candidates:
+            print("ERROR: could not locate spaCy model dir in wheel", file=sys.stderr)
+            return 5
+        src = candidates[0]
         if spacy_dest.exists():
             shutil.rmtree(spacy_dest)
         shutil.copytree(src, spacy_dest)
+        shutil.rmtree(extract_dir, ignore_errors=True)
         print(f"Copied spaCy model → {spacy_dest}")
 
     free_after = _df_avail_gb(scratch)
