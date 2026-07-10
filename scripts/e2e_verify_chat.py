@@ -135,26 +135,37 @@ def main() -> int:
     log(f"  Enterprise link present: {'/claims/new' in r.text and 'Enterprise' in r.text}")
 
     step1 = chat_message(client, "Submit a claim")
-    log(f"Step 1 submit intent: {step1.get('text', '')[:120]}...")
-    log(f"  file_upload widget: {any(w.get('type')=='file_upload' for w in step1.get('widgets',[]))}")
+    log(f"Step 1 submit intent: {step1.get('text', '')[:160]}...")
+    log(f"  asks for city: {'city' in (step1.get('text') or '').lower()}")
+
+    step1b = chat_message(client, "Pune")
+    log(f"Step 1b city → garage prompt: {step1b.get('text', '')[:160]}...")
 
     step2 = chat_upload(client, IMAGE_DIR)
-    log(f"Step 2 upload ack: {step2.get('text', '')}")
+    log(f"Step 2 upload ack: {step2.get('text', '')[:160]}...")
 
-    step3 = chat_message(client, "garage is Chat E2E Motors, accident date 2026-03-15, surveyor Admin Test")
-    log(f"Step 3 details ack: {step3.get('text', '')}")
-
-    step4 = chat_message(client, "done")
-    log(f"Step 4 submit ack: {step4.get('text', '')}")
+    step3 = chat_message(
+        client,
+        "garage is Chat E2E Motors, accident date 2026-03-15, surveyor Admin Test",
+    )
+    log(f"Step 3 details/submit ack: {step3.get('text', '')[:200]}...")
     pipeline_widgets = [
-        w for w in step4.get("widgets", []) if w.get("type") == "pipeline"
+        w for w in step3.get("widgets", []) if w.get("type") == "pipeline"
     ]
+    if not pipeline_widgets:
+        # Older flow needed an explicit "done"
+        step4 = chat_message(client, "done")
+        log(f"Step 4 submit ack: {step4.get('text', '')[:200]}...")
+        pipeline_widgets = [
+            w for w in step4.get("widgets", []) if w.get("type") == "pipeline"
+        ]
     if not pipeline_widgets:
         log("FAIL: no pipeline widget in submit response")
         return 2
     claim_id = pipeline_widgets[0]["claim_id"]
     claim_ref = pipeline_widgets[0].get("claim_reference", "?")
     log(f"  claim_id={claim_id} ref={claim_ref}")
+    log(f"  assessing banner: {'Submitting & Assessing' in (step3.get('text') or '')}")
 
     pause_events = read_sse_until(client, claim_id, want_pause=True)
     paused = any(e.get("awaiting_vehicle_confirmation") for e in pause_events)

@@ -69,10 +69,29 @@ class ClaimDraft:
     def missing_required(self, *, user_display_name: str) -> list[str]:
         missing: list[str] = []
         if not self.loadable_images():
-            missing.append("at least one damage photo")
+            missing.append("damage photos")
         if not (self.garage_name or "").strip():
             missing.append("garage name")
+        if not (self.accident_date or "").strip():
+            missing.append("accident date")
+        if not (self.surveyor_name or "").strip():
+            # Surveyor can default to the signed-in user later; still track as optional soft miss.
+            pass
         return missing
+
+    def next_step(self) -> str:
+        """Guided submit step: city → garage → surveyor → date → photos → ready."""
+        if not (self.garage_name or "").strip():
+            if self.flow in {"await_garage", "await_city"}:
+                return self.flow
+            return "await_city"
+        if not (self.surveyor_name or "").strip():
+            return "await_surveyor"
+        if not (self.accident_date or "").strip():
+            return "await_date"
+        if not self.loadable_images():
+            return "await_photos"
+        return "ready"
 
     def loadable_images(self) -> list[UploadedFile]:
         return [img for img in self.images if img.blob_available()]
@@ -214,7 +233,23 @@ def clear_draft(db: Session, user_id: int) -> None:
 
 def start_draft(db: Session, user_id: int) -> ClaimDraft:
     clear_draft(db, user_id)
-    draft = ClaimDraft(active=True, flow="submit_claim")
+    draft = ClaimDraft(active=True, flow="await_city")
+    persist_draft(db, user_id, draft)
+    return draft
+
+
+def activate_draft(db: Session, user_id: int) -> ClaimDraft:
+    """Ensure an active submit draft without wiping already-uploaded files."""
+    draft = get_draft(db, user_id)
+    if draft.interrupted:
+        clear_draft(db, user_id)
+        draft = ClaimDraft(active=False)
+    if draft.active:
+        if not draft.flow or draft.flow == "submit_claim":
+            draft.flow = "await_city" if not (draft.garage_name or "").strip() else draft.flow
+            persist_draft(db, user_id, draft)
+        return draft
+    draft = ClaimDraft(active=True, flow="await_city")
     persist_draft(db, user_id, draft)
     return draft
 
@@ -245,28 +280,16 @@ def parse_details_from_text(db: Session, user_id: int, draft: ClaimDraft, text: 
     if not raw or extract_claim_reference(raw):
         return draft
 
+    step = draft.next_step()
+    lower = raw.lower()
+
+    # Explicit labelled fields always apply.
     for pattern in _GARAGE_PATTERNS:
         match = pattern.search(raw)
-        if match and not draft.garage_name:
+        if match:
             draft.garage_name = _clean_tail(match.group(1))[:128]
+            draft.flow = "await_surveyor"
             break
-
-    if not draft.garage_name and "garage" not in raw.lower():
-        lower = raw.lower()
-        looks_like_question = (
-            "?" in raw
-            or lower.startswith(("what ", "how ", "why ", "when ", "where ", "who "))
-            or any(word in lower for word in ("weather", "hello", "help me", "thanks"))
-        )
-        if (
-            len(raw) < 80
-            and not draft.surveyor_name
-            and "surveyor" not in lower
-            and draft.image_count() > 0
-            and "@" not in raw
-            and not looks_like_question
-        ):
-            draft.garage_name = raw[:128]
 
     for pattern in _SURVEYOR_PATTERNS:
         match = pattern.search(raw)
@@ -279,6 +302,38 @@ def parse_details_from_text(db: Session, user_id: int, draft: ClaimDraft, text: 
         if match:
             draft.accident_date = match.group(1)
             break
+
+    # Step-aware free-text capture.
+    if step == "await_garage" and not draft.garage_name:
+        draft.garage_name = raw[:128]
+        draft.flow = "await_surveyor"
+    elif step == "await_surveyor" and not draft.surveyor_name:
+        if lower in {"me", "myself", "i am", "i'm the surveyor", "same"}:
+            draft.surveyor_name = "__self__"
+        else:
+            draft.surveyor_name = raw[:128]
+        draft.flow = "await_date"
+    elif step == "await_date" and not draft.accident_date:
+        # Accept free-form date strings; parse_accident_date validates later.
+        draft.accident_date = raw[:32]
+        draft.flow = "await_photos"
+    elif step in {"await_city", "submit_claim"} and not draft.garage_name:
+        # Heuristic garage only when clearly not a city-only reply.
+        from app.services.chat.intent import extract_city_from_text
+
+        if not extract_city_from_text(raw) and "garage" not in lower:
+            looks_like_question = (
+                "?" in raw
+                or lower.startswith(("what ", "how ", "why ", "when ", "where ", "who "))
+            )
+            if (
+                len(raw) < 80
+                and "surveyor" not in lower
+                and "@" not in raw
+                and not looks_like_question
+                and draft.image_count() > 0
+            ):
+                draft.garage_name = raw[:128]
 
     persist_draft(db, user_id, draft)
     return draft
@@ -294,7 +349,7 @@ def append_files(
 ) -> ClaimDraft:
     if not draft.active:
         draft.active = True
-        draft.flow = "submit_claim"
+        draft.flow = "await_city"
 
     max_images = get_settings().max_images_per_claim
     for filename, data, content_type in images:

@@ -17,6 +17,7 @@ from app.models import Garage
 from app.services.chat.draft import (
     INTERRUPTED_MESSAGE,
     ClaimDraft,
+    activate_draft,
     append_files,
     clear_draft,
     ensure_blob_data,
@@ -24,10 +25,10 @@ from app.services.chat.draft import (
     parse_accident_date,
     parse_details_from_text,
     persist_draft,
-    start_draft,
 )
 from app.services.chat.intent import (
     classify_intent,
+    extract_city_from_text,
     extract_claim_reference,
     extract_search_term,
     extract_search_tokens,
@@ -38,7 +39,9 @@ from app.services.chat.intent import (
 )
 from app.services.chat.garage_lookup import (
     find_garages_for_city,
+    find_garages_in_city,
     format_garage_pick_list,
+    format_submit_garage_pick_list,
     resolve_garage_choice,
 )
 from app.services.chat.lookup import (
@@ -64,18 +67,30 @@ _settings = get_settings()
 _CHAT_LOOKUP_SCOPE_USER_ID = None
 
 _lookup_sessions: dict[int, "LookupSession"] = {}
+_submit_sessions: dict[int, "SubmitSession"] = {}
 
 
 @dataclass
 class LookupSession:
-    mode: str = "none"  # none | awaiting_garage_name | awaiting_list_pick
+    mode: str = "none"  # none | awaiting_garage_name | awaiting_list_pick | awaiting_query
     garage_options: list[str] = field(default_factory=list)
     city_label: str = ""
     hits: list = field(default_factory=list)
 
 
+@dataclass
+class SubmitSession:
+    mode: str = "none"  # none | await_city | await_garage_pick
+    garage_options: list[str] = field(default_factory=list)
+    city_label: str = ""
+
+
 def _clear_lookup_session(user_id: int) -> None:
     _lookup_sessions.pop(user_id, None)
+
+
+def _clear_submit_session(user_id: int) -> None:
+    _submit_sessions.pop(user_id, None)
 
 
 def _lookup_awaiting_query(user_id: int) -> bool:
@@ -182,6 +197,7 @@ def _is_vague_lookup(query: str, *, ref: str | None, entities: dict | None = Non
 
 def _interrupted_reply(db: Session, user_id: int) -> ChatReply:
     clear_draft(db, user_id)
+    _clear_submit_session(user_id)
     return ChatReply(text=INTERRUPTED_MESSAGE)
 
 
@@ -340,9 +356,123 @@ def _draft_status_line(draft: ClaimDraft) -> str:
         parts.append(f"garage: {draft.garage_name}")
     if draft.accident_date:
         parts.append(f"accident date: {draft.accident_date}")
-    if draft.surveyor_name:
+    if draft.surveyor_name and draft.surveyor_name != "__self__":
         parts.append(f"surveyor: {draft.surveyor_name}")
+    elif draft.surveyor_name == "__self__":
+        parts.append("surveyor: you")
     return ", ".join(parts) if parts else "nothing collected yet"
+
+
+def _resolve_surveyor_name(
+    draft: ClaimDraft, *, full_name: str | None, username: str | None
+) -> str:
+    raw = (draft.surveyor_name or "").strip()
+    if not raw or raw == "__self__":
+        return _display_name(full_name, username)
+    return raw
+
+
+def _city_prompt(name: str) -> ChatReply:
+    return ChatReply(
+        text=(
+            f"Sure {name} — let's submit a new claim.\n\n"
+            "Which city is the car being repaired in? "
+            "(e.g. Pune, Kochi, Ahmedabad)"
+        )
+    )
+
+
+def _surveyor_prompt() -> ChatReply:
+    return ChatReply(
+        text=(
+            "Who is the surveyor for this claim?\n\n"
+            "Reply with their name, or say **me** if you are the surveyor."
+        )
+    )
+
+
+def _date_prompt() -> ChatReply:
+    return ChatReply(
+        text=(
+            "What is the date of the accident?\n\n"
+            "Use a format like **2026-03-15** or **15/03/2026**."
+        )
+    )
+
+
+def _photos_prompt() -> ChatReply:
+    return ChatReply(
+        text=(
+            f"Please upload the damage pictures "
+            f"(max {_settings.max_images_per_claim}) and/or a short video."
+        ),
+        widgets=[{"type": "file_upload"}],
+    )
+
+
+def _garage_pick_reply(db: Session, user_id: int, city_key: str) -> ChatReply:
+    garages = find_garages_in_city(db, city_key) or find_garages_for_city(
+        db, city_key, user_id=_CHAT_LOOKUP_SCOPE_USER_ID
+    )
+    city_title = "Kochi" if city_key == "kochi" else city_key.title()
+    if garages:
+        _submit_sessions[user_id] = SubmitSession(
+            mode="await_garage_pick",
+            garage_options=garages,
+            city_label=city_key,
+        )
+        return ChatReply(text=format_submit_garage_pick_list(garages, city_key))
+    _submit_sessions[user_id] = SubmitSession(
+        mode="await_garage_pick",
+        garage_options=[],
+        city_label=city_key,
+    )
+    return ChatReply(
+        text=(
+            f"I don't have listed garages for **{city_title}** yet.\n\n"
+            "Please type the garage / workshop name where the car is being repaired."
+        )
+    )
+
+
+def _prompt_for_step(
+    db: Session,
+    user_id: int,
+    draft: ClaimDraft,
+    *,
+    full_name: str | None,
+    username: str | None,
+) -> ChatReply:
+    step = draft.next_step()
+    if step == "await_city":
+        draft.flow = "await_city"
+        persist_draft(db, user_id, draft)
+        return _city_prompt(_display_name(full_name, username))
+    if step == "await_garage":
+        draft.flow = "await_garage"
+        persist_draft(db, user_id, draft)
+        session = _submit_sessions.get(user_id)
+        if session and session.mode == "await_garage_pick" and session.city_label:
+            return _garage_pick_reply(db, user_id, session.city_label)
+        return ChatReply(
+            text="Please type the garage / workshop name where the car is being repaired."
+        )
+    if step == "await_surveyor":
+        draft.flow = "await_surveyor"
+        persist_draft(db, user_id, draft)
+        _clear_submit_session(user_id)
+        return _surveyor_prompt()
+    if step == "await_date":
+        draft.flow = "await_date"
+        persist_draft(db, user_id, draft)
+        return _date_prompt()
+    if step == "await_photos":
+        draft.flow = "await_photos"
+        persist_draft(db, user_id, draft)
+        return _photos_prompt()
+    return ChatReply(
+        text=f"I have everything I need ({_draft_status_line(draft)}). Submitting shortly…"
+    )
 
 
 async def submit_draft(
@@ -358,14 +488,20 @@ async def submit_draft(
     if draft.interrupted or draft.blobs_missing():
         return _interrupted_reply(db, user_id), None
 
+    # Default surveyor to signed-in user when not provided.
+    if not (draft.surveyor_name or "").strip():
+        draft.surveyor_name = "__self__"
+        persist_draft(db, user_id, draft)
+
     missing = draft.missing_required(user_display_name=_display_name(full_name, username))
     if missing:
         return (
             ChatReply(
                 text=(
                     f"I still need {' and '.join(missing)} before I can submit. "
-                    "Upload photos and tell me the garage name when you're ready."
-                )
+                    f"So far: {_draft_status_line(draft)}."
+                ),
+                widgets=[{"type": "file_upload"}] if "photo" in " ".join(missing) else [],
             ),
             None,
         )
@@ -383,6 +519,7 @@ async def submit_draft(
     images = [_bytes_upload(blob) for blob in draft.loadable_images()]
     video = _bytes_upload(draft.video) if draft.video and draft.video.blob_available() else None
     claimant_name = _display_name(full_name, username)
+    surveyor_name = _resolve_surveyor_name(draft, full_name=full_name, username=username)
 
     try:
         claim = await create_claim_with_uploads(
@@ -391,7 +528,7 @@ async def submit_draft(
             images=images,
             video=video,
             garage_id=garage_id,
-            surveyor_name=(draft.surveyor_name or "").strip() or None,
+            surveyor_name=surveyor_name,
             claimant_name=claimant_name,
             accident_date=parse_accident_date(draft.accident_date),
         )
@@ -399,13 +536,15 @@ async def submit_draft(
         return ChatReply(text=str(exc)), None
 
     clear_draft(db, user_id)
+    _clear_submit_session(user_id)
     background_tasks.add_task(ensure_pipeline_started, claim.id)
 
     catalog = catalog_makes_models(db)
     reply = ChatReply(
         text=(
-            f"Thanks — I've submitted **{claim.claim_reference}**. "
-            "Running the assessment pipeline now…"
+            f"**Submitting & Assessing the claim**\n\n"
+            f"Claim **{claim.claim_reference}** created. "
+            "Running the 12-stage assessment pipeline now — results will appear below."
         ),
         widgets=[
             {
@@ -419,15 +558,103 @@ async def submit_draft(
     return reply, {"claim_id": claim.id, "claim_reference": claim.claim_reference}
 
 
-def begin_submit_flow(full_name: str | None, username: str | None) -> ChatReply:
-    name = _display_name(full_name, username)
-    return ChatReply(
-        text=(
-            f"Sure {name}, please upload the damage pictures (max {_settings.max_images_per_claim}) "
-            "and/or video. Also let me know the garage name, the accident date, and the surveyor "
-            "name if you're not the surveyor yourself."
-        ),
-        widgets=[{"type": "file_upload"}],
+def begin_submit_flow(
+    db: Session,
+    user_id: int,
+    *,
+    full_name: str | None,
+    username: str | None,
+    city_hint: str | None = None,
+) -> ChatReply:
+    """Start or resume guided claim submission without wiping existing uploads."""
+    _clear_lookup_session(user_id)
+    draft = activate_draft(db, user_id)
+    if city_hint and not draft.garage_name:
+        draft.flow = "await_garage"
+        persist_draft(db, user_id, draft)
+        return _garage_pick_reply(db, user_id, city_hint)
+    return _prompt_for_step(
+        db, user_id, draft, full_name=full_name, username=username
+    )
+
+
+async def _continue_submit_flow(
+    db: Session,
+    user_id: int,
+    text: str,
+    draft: ClaimDraft,
+    *,
+    full_name: str | None,
+    username: str | None,
+    background_tasks: BackgroundTasks,
+    force_submit: bool = False,
+) -> ChatReply:
+    raw = (text or "").strip()
+    lower = raw.lower()
+    session = _submit_sessions.get(user_id)
+
+    # City selection while awaiting city (or early in flow without garage).
+    if not draft.garage_name and draft.next_step() == "await_city" and raw:
+        city = extract_city_from_text(raw)
+        if city:
+            draft.flow = "await_garage"
+            persist_draft(db, user_id, draft)
+            return _garage_pick_reply(db, user_id, city)
+        # Allow labelled "garage is …" to skip the city step.
+        if "garage" not in lower:
+            return ChatReply(
+                text=(
+                    "Please tell me the city where the car is being repaired "
+                    "(e.g. Pune, Kochi, Ahmedabad)."
+                )
+            )
+
+    # Garage pick from list — only for short / list-number replies.
+    awaiting_garage = not draft.garage_name and (
+        (session and session.mode == "await_garage_pick")
+        or draft.next_step() == "await_garage"
+        or draft.flow == "await_garage"
+    )
+    multi_field = any(
+        token in lower for token in ("accident", "surveyor", "date", ",")
+    ) or bool(re.search(r"garage(?:\s+name)?\s*(?:is|:|-)", lower))
+
+    if awaiting_garage and raw and not multi_field:
+        options = session.garage_options if session else []
+        chosen = resolve_garage_choice(raw, options) if options else raw.strip()
+        if chosen:
+            draft.garage_name = chosen[:128]
+            draft.flow = "await_surveyor"
+            persist_draft(db, user_id, draft)
+            _clear_submit_session(user_id)
+            return _surveyor_prompt()
+        return _prompt_for_step(
+            db, user_id, draft, full_name=full_name, username=username
+        )
+
+    if raw:
+        draft = parse_details_from_text(db, user_id, draft, raw)
+        if draft.garage_name:
+            _clear_submit_session(user_id)
+
+    # Default surveyor to self when user skips with done/go-ahead and photos+garage+date exist.
+    if force_submit and not (draft.surveyor_name or "").strip():
+        draft.surveyor_name = "__self__"
+        persist_draft(db, user_id, draft)
+
+    if force_submit or draft.next_step() == "ready":
+        reply, _meta = await submit_draft(
+            db,
+            user_id,
+            draft,
+            full_name=full_name,
+            username=username,
+            background_tasks=background_tasks,
+        )
+        return reply
+
+    return _prompt_for_step(
+        db, user_id, draft, full_name=full_name, username=username
     )
 
 
@@ -469,55 +696,40 @@ async def handle_message(
 
     if intent == "lookup_claim":
         clear_draft(db, user_id)
+        _clear_submit_session(user_id)
         return handle_lookup(db, user_id, raw, entities)
 
+    # Fresh submit phrasing — preserve any photos already uploaded in this turn.
     if intent == "submit_claim" and is_fresh_submit_intent(raw):
-        start_draft(db, user_id)
-        return begin_submit_flow(full_name, username)
+        city_hint = entities.get("city_query") or extract_city_from_text(raw)
+        return begin_submit_flow(
+            db,
+            user_id,
+            full_name=full_name,
+            username=username,
+            city_hint=city_hint,
+        )
 
     if draft.active or intent in {"submit_claim", "done"}:
         draft = get_draft(db, user_id)
         if draft.interrupted:
             return _interrupted_reply(db, user_id)
         if not draft.active:
-            draft.active = True
-            draft.flow = "submit_claim"
-            persist_draft(db, user_id, draft)
-        if raw:
-            draft = parse_details_from_text(db, user_id, draft, raw)
+            draft = activate_draft(db, user_id)
 
-        if intent == "done" or any(
+        force_submit = intent == "done" or any(
             phrase in raw.lower()
             for phrase in ("submit now", "go ahead", "that's all", "thats all", "done")
-        ):
-            reply, _meta = await submit_draft(
-                db,
-                user_id,
-                draft,
-                full_name=full_name,
-                username=username,
-                background_tasks=background_tasks,
-            )
-            return reply
-
-        status = _draft_status_line(draft)
-        missing = draft.missing_required(user_display_name=_display_name(full_name, username))
-        if missing:
-            return ChatReply(
-                text=(
-                    f"Got it — so far I have: {status}. "
-                    f"I still need {' and '.join(missing)}. "
-                    "Say “done” when you're ready to submit."
-                ),
-                widgets=[{"type": "file_upload"}] if "photo" in " ".join(missing) else [],
-            )
-
-        return ChatReply(
-            text=(
-                f"Got it — I have: {status}. "
-                "Say “done” when you want me to submit the claim."
-            ),
-            widgets=[{"type": "file_upload"}],
+        )
+        return await _continue_submit_flow(
+            db,
+            user_id,
+            raw,
+            draft,
+            full_name=full_name,
+            username=username,
+            background_tasks=background_tasks,
+            force_submit=force_submit,
         )
 
     if intent == "general":
@@ -542,27 +754,50 @@ def append_uploads(
     if draft.interrupted:
         return _interrupted_reply(db, user_id)
     if not draft.active:
-        draft = start_draft(db, user_id)
+        draft = activate_draft(db, user_id)
 
     draft = append_files(db, user_id, draft, images=images, video=video)
     if draft.interrupted:
         return _interrupted_reply(db, user_id)
 
-    video_note = " and 1 video" if draft.video else ""
-    status = _draft_status_line(draft)
-    missing = draft.missing_required(user_display_name="there")
-    if missing:
-        text = (
-            f"Photos saved{video_note} — so far: {status}. "
-            f"I still need {' and '.join(missing)}. "
-            "Say “done” when you're ready to submit."
+    # Guided next question — do not ask the user to say “done”.
+    step = draft.next_step()
+    if step == "ready":
+        return ChatReply(
+            text=(
+                f"Photos saved — I have: {_draft_status_line(draft)}. "
+                "Say **go ahead** if you want me to submit now, or add any missing details."
+            )
         )
-    else:
-        text = (
-            f"Photos saved{video_note} — so far: {status}. "
-            "Say “done” when you want me to submit the claim."
+    if step == "await_city":
+        return ChatReply(
+            text=(
+                f"Photos saved ({draft.image_count()}). "
+                "Which city is the car being repaired in?"
+            )
         )
-    return ChatReply(
-        text=text,
-        widgets=[{"type": "file_upload"}],
-    )
+    if step == "await_garage":
+        session = _submit_sessions.get(user_id)
+        if session and session.city_label:
+            return _garage_pick_reply(db, user_id, session.city_label)
+        return ChatReply(
+            text=(
+                f"Photos saved ({draft.image_count()}). "
+                "Please type the garage name, or tell me the city first."
+            )
+        )
+    if step == "await_surveyor":
+        return ChatReply(
+            text=(
+                f"Photos saved ({draft.image_count()}). "
+                "Who is the surveyor? Reply with a name, or say **me**."
+            )
+        )
+    if step == "await_date":
+        return ChatReply(
+            text=(
+                f"Photos saved ({draft.image_count()}). "
+                "What is the date of the accident? (e.g. 2026-03-15)"
+            )
+        )
+    return _photos_prompt()

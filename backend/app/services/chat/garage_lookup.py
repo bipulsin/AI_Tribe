@@ -50,6 +50,36 @@ def find_garages_for_city(
     return sorted(derived)
 
 
+def find_garages_in_city(db: Session, city_key: str) -> list[str]:
+    """Return all garage names that mention the city (enterprise catalogue)."""
+    patterns = _city_patterns(city_key)
+    garage_filters = [Garage.name.ilike(p) for p in patterns]
+    stmt = (
+        select(Garage.name)
+        .where(or_(*garage_filters))
+        .distinct()
+        .order_by(Garage.name)
+    )
+    return [row for row in db.scalars(stmt).all() if row]
+
+
+def format_submit_garage_pick_list(garages: list[str], city_label: str) -> str:
+    city_title = "Kochi" if city_label == "kochi" else city_label.title()
+    lines = [
+        f"Which garage in **{city_title}** is repairing the vehicle?",
+        "",
+    ]
+    for idx, name in enumerate(garages[:12], start=1):
+        lines.append(f"{idx}. {name}")
+    lines.extend(
+        [
+            "",
+            "Reply with the list number, the garage name, or type a new garage name.",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def format_garage_pick_list(garages: list[str], city_label: str) -> str:
     city_title = city_label.title()
     if city_label == "kochi":

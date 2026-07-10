@@ -32,18 +32,52 @@ _KNOWN_CITIES = (
     "jaipur",
     "surat",
     "nagpur",
+    "thane",
+    "noida",
+    "coimbatore",
+    "vadodara",
+    "visakhapatnam",
+    "dehradun",
+    "lucknow",
+    "chandigarh",
+    "indore",
+    "nashik",
 )
 
+# Strong multi-word submit cues.
 _SUBMIT_PHRASES = (
     "submit a claim",
     "submit claim",
+    "submit a new claim",
+    "submit new claim",
     "file a claim",
     "file claim",
+    "file a new claim",
     "new claim",
-    "upload",
+    "register a claim",
+    "register claim",
+    "register a new claim",
+    "create a claim",
+    "create claim",
+    "lodge a claim",
+    "lodge claim",
+    "open a claim",
+    "start a claim",
+    "start claim",
+    "i want to claim",
     "damage picture",
     "damage photo",
-    "i want to claim",
+)
+
+# Single-token / loose cues used with "claim" nearby.
+_SUBMIT_KEYWORDS = (
+    "submit",
+    "register",
+    "lodge",
+    "file",
+    "create",
+    "open",
+    "start",
 )
 
 _LOOKUP_PHRASES = (
@@ -66,6 +100,8 @@ _DONE_PHRASES = (
     "submit now",
     "ready to submit",
     "go ahead",
+    "assess",
+    "start assessment",
 )
 
 _SINGLE_WORD_SKIP = frozenset(
@@ -81,6 +117,14 @@ _SINGLE_WORD_SKIP = frozenset(
         "thanks",
         "thank",
         "please",
+        "image",
+        "images",
+        "photo",
+        "photos",
+        "picture",
+        "pictures",
+        "video",
+        "new",
     }
 )
 
@@ -126,6 +170,16 @@ _LOOKUP_STOP_WORDS = frozenset(
         "submitted",
         "filed",
         "registered",
+        "image",
+        "images",
+        "photo",
+        "photos",
+        "picture",
+        "pictures",
+        "video",
+        "new",
+        "submit",
+        "register",
     }
 )
 
@@ -135,7 +189,7 @@ _CLAIM_BY = re.compile(
 )
 
 _CLAIM_FROM = re.compile(
-    r"(?:^|\b)(?:find|show|get|search)?\s*(?:me\s+)?(?:the\s+)?claims?\s+(?:from|at|for|with|about)\s+(.+?)\s*$",
+    r"(?:^|\b)(?:find|show|get|search)?\s*(?:me\s+)?(?:the\s+)?claims?\s+(?:from|at|for|about)\s+(.+?)\s*$",
     re.IGNORECASE,
 )
 
@@ -156,6 +210,8 @@ def pad_claim_number_suffix(digits: str) -> str:
 def extract_short_claim_number(text: str) -> str | None:
     raw = (text or "").strip()
     if not raw:
+        return None
+    if is_submit_intent(raw):
         return None
     match = _SHORT_CLAIM_NUM.search(raw)
     if match:
@@ -190,17 +246,63 @@ def mentions_garage_or_location(text: str) -> bool:
     return False
 
 
+def is_submit_intent(text: str) -> bool:
+    """True when the user wants to file/register a new claim."""
+    lower = (text or "").strip().lower()
+    if not lower:
+        return False
+    if any(phrase in lower for phrase in _SUBMIT_PHRASES):
+        return True
+    if "claim" in lower and any(word in lower for word in _SUBMIT_KEYWORDS):
+        return True
+    if re.search(r"\b(new|fresh)\s+claim\b", lower):
+        return True
+    if re.search(r"\bregister\b", lower) and "claim" in lower:
+        return True
+    return False
+
+
+_MEDIA_ONLY = frozenset(
+    {
+        "image",
+        "images",
+        "photo",
+        "photos",
+        "picture",
+        "pictures",
+        "video",
+        "with",
+        "from",
+        "at",
+        "for",
+        "about",
+        "of",
+    }
+)
+
+
 def extract_search_term(text: str) -> str | None:
     """Pull a concrete lookup phrase from natural-language claim queries."""
     raw = (text or "").strip()
-    if not raw:
+    if not raw or is_submit_intent(raw):
         return None
+
+    def _usable(term: str | None) -> str | None:
+        if not term:
+            return None
+        cleaned = term.strip(" .,;:")
+        if not cleaned or cleaned.lower() in _SINGLE_WORD_SKIP:
+            return None
+        tokens = [t for t in re.split(r"\W+", cleaned) if t]
+        if tokens and all(t.lower() in _MEDIA_ONLY for t in tokens):
+            return None
+        return cleaned
 
     for pattern in (_CLAIM_BY, _CLAIM_FROM):
         match = pattern.search(raw)
         if match:
-            term = match.group(1).strip(" .,;:")
-            if term and term.lower() not in _SINGLE_WORD_SKIP:
+            term = _usable(match.group(1))
+            if term:
                 return term
 
     lower = raw.lower()
@@ -213,7 +315,6 @@ def extract_search_term(text: str) -> str | None:
         if len(word) >= 2 and word.lower() not in _SINGLE_WORD_SKIP:
             return word
 
-    # Drop leading filler when the message is a short free-text lookup.
     stripped = raw
     for prefix in (
         r"^(?:please\s+)?(?:find|show|get|search|lookup|look\s+up)\s+(?:me\s+)?",
@@ -227,7 +328,9 @@ def extract_search_term(text: str) -> str | None:
         and len(stripped) >= 2
         and len(stripped.split()) <= 6
     ):
-        return stripped.strip(" .,;:")
+        term = _usable(stripped)
+        if term:
+            return term
 
     return None
 
@@ -235,7 +338,7 @@ def extract_search_term(text: str) -> str | None:
 def extract_search_tokens(text: str) -> list[str]:
     """Meaningful words to match across claim, garage, surveyor, vehicle, and estimate."""
     raw = (text or "").strip()
-    if not raw:
+    if not raw or is_submit_intent(raw):
         return []
 
     term = extract_search_term(raw)
@@ -254,7 +357,9 @@ def extract_search_tokens(text: str) -> list[str]:
 
 
 def should_use_city_garage_list(text: str, *, search_term: str | None) -> bool:
-    """Garage pick-list only for explicit location/garage phrasing, not 'claim from Pune'."""
+    """Garage pick-list only for explicit location/garage phrasing during lookup."""
+    if is_submit_intent(text):
+        return False
     if search_term:
         return False
     lower = (text or "").lower()
@@ -279,6 +384,16 @@ def classify_intent(
     lower = raw.lower()
     entities: dict = {}
 
+    if draft_active and any(phrase in lower for phrase in _DONE_PHRASES):
+        return "done", entities
+
+    # Submit must win over lookup — e.g. "submit a new claim with image".
+    if is_submit_intent(raw):
+        city = extract_city_from_text(raw)
+        if city:
+            entities["city_query"] = city
+        return "submit_claim", entities
+
     ref = extract_claim_reference(raw)
     if ref:
         entities["claim_reference"] = ref
@@ -300,9 +415,6 @@ def classify_intent(
         if city:
             entities["city_query"] = city
 
-    if draft_active and any(phrase in lower for phrase in _DONE_PHRASES):
-        return "done", entities
-
     if (
         ref
         or entities.get("claim_suffix")
@@ -321,9 +433,6 @@ def classify_intent(
         except Exception:
             pass
 
-    if not draft_active and any(phrase in lower for phrase in _SUBMIT_PHRASES):
-        return "submit_claim", entities
-
     if any(phrase in lower for phrase in _LOOKUP_PHRASES):
         return "lookup_claim", entities
 
@@ -337,8 +446,7 @@ def classify_intent(
 
 
 def is_fresh_submit_intent(text: str) -> bool:
-    lower = (text or "").strip().lower()
-    return any(phrase in lower for phrase in _SUBMIT_PHRASES)
+    return is_submit_intent(text)
 
 
 def llm_classify_intent(provider: str, api_key: str, text: str) -> tuple[str | None, dict]:
@@ -347,6 +455,7 @@ def llm_classify_intent(provider: str, api_key: str, text: str) -> tuple[str | N
     prompt = (
         "Classify this insurance-assistant user message. Reply JSON only:\n"
         '{"intent":"submit_claim|lookup_claim|general","claim_reference":null|"CLM-...","garage_name":null|"..."}\n'
+        "Use submit_claim for filing/registering/creating a new claim (even if images are mentioned).\n"
         f"Message: {text}"
     )
     reply = providers.chat_text(provider, api_key, prompt, max_tokens=120)
