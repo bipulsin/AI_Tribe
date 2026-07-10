@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sse_starlette.sse import EventSourceResponse
 
+from app.api.deps import claim_for_session
 from app.core.database import get_db
 from app.core.events import event_bus
 from app.models import Claim, PipelineEvent
@@ -21,21 +22,13 @@ from app.services.pipeline_orchestrator import event_to_dict
 router = APIRouter(tags=["pipeline"])
 
 
-def _claim_for_user(db: Session, claim_id: int, user_id: int) -> Claim | None:
-    claim = db.get(Claim, claim_id)
-    if not claim or claim.created_by != user_id:
-        return None
-    return claim
-
-
 @router.get("/api/pipeline/{claim_id}/stream")
 async def pipeline_stream(
     claim_id: int,
     request: Request,
     db: Session = Depends(get_db),
 ):
-    user_id = request.session.get("user_id")
-    claim = _claim_for_user(db, claim_id, user_id)
+    claim = claim_for_session(db, request, claim_id)
     if not claim:
         return JSONResponse({"detail": "Claim not found"}, status_code=404)
 
@@ -116,7 +109,9 @@ async def request_manual_review(
     db: Session = Depends(get_db),
 ):
     user_id = request.session.get("user_id")
-    claim = _claim_for_user(db, claim_id, user_id)
+    if not user_id:
+        return JSONResponse({"detail": "Not authenticated"}, status_code=401)
+    claim = claim_for_session(db, request, claim_id)
     if not claim:
         return JSONResponse({"detail": "Claim not found"}, status_code=404)
 

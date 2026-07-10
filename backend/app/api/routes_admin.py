@@ -7,8 +7,8 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.deps import claim_for_session, require_admin
 from app.core.database import get_db
-from app.models import User
 from app.services.vmmr.vehicle_confirmation import (
     apply_manual_vehicle_identity,
     catalog_makes_models,
@@ -29,12 +29,9 @@ async def vmmr_corrections_summary(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    user_id = request.session.get("user_id")
-    if not user_id:
-        return JSONResponse({"detail": "Not authenticated"}, status_code=401)
-    user = db.get(User, user_id)
-    if not user or user.role != "admin":
-        return JSONResponse({"detail": "Admin only"}, status_code=403)
+    admin = require_admin(request, db)
+    if isinstance(admin, JSONResponse):
+        return admin
     return correction_queue_summary(db)
 
 
@@ -45,15 +42,14 @@ async def confirm_vehicle(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
-    from app.models import Claim
     from app.models.enums import ClaimStatus
 
     user_id = request.session.get("user_id")
     if not user_id:
         return JSONResponse({"detail": "Not authenticated"}, status_code=401)
 
-    claim = db.get(Claim, claim_id)
-    if not claim or claim.created_by != user_id:
+    claim = claim_for_session(db, request, claim_id)
+    if not claim:
         return JSONResponse({"detail": "Claim not found"}, status_code=404)
 
     if claim.status != ClaimStatus.paused_awaiting_vehicle_confirmation:

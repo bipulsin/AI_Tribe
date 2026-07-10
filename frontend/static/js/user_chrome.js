@@ -30,8 +30,10 @@ function userChrome() {
     llmTestOk: false,
     adminUsers: [],
     newUserEmail: "",
+    newUserRole: "user",
     adminMessage: "",
     adminSubmitting: false,
+    adminRoleSavingId: null,
 
     get initials() {
       const name = this.profile.full_name || this.initialName || "?";
@@ -261,7 +263,7 @@ function userChrome() {
         const resp = await fetch("/api/admin/users", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ email, role: this.newUserRole || "user" }),
         });
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok) {
@@ -269,10 +271,36 @@ function userChrome() {
           return;
         }
         this.newUserEmail = "";
-        this.adminMessage = `User created. A password was emailed to ${data.email}.`;
+        this.newUserRole = "user";
+        const roleName = data.role_label || data.role || "User";
+        this.adminMessage = `User created as ${roleName}. A password was emailed to ${data.email}.`;
         await this.refreshAdminUsers();
       } finally {
         this.adminSubmitting = false;
+      }
+    },
+
+    async changeUserRole(row, role) {
+      if (!row?.id || !role || row.role === role) return;
+      this.adminRoleSavingId = row.id;
+      this.adminMessage = "";
+      try {
+        const resp = await fetch(`/api/admin/users/${row.id}/role`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          this.adminMessage = data.detail || "Could not update role.";
+          await this.refreshAdminUsers();
+          return;
+        }
+        row.role = data.role;
+        row.role_label = data.role_label;
+        this.adminMessage = `${data.email} is now ${data.role_label || data.role}.`;
+      } finally {
+        this.adminRoleSavingId = null;
       }
     },
 

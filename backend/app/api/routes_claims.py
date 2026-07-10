@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, selectinload
 from starlette.datastructures import UploadFile
 
 from app.core.config import get_settings
+from app.api.deps import session_user, user_can_access_claim
 from app.core.database import get_db
 from app.models import Claim, Garage, LlmAssistLog, PipelineEvent, Vehicle
 from app.models.enums import ClaimStatus
@@ -221,7 +222,7 @@ async def claim_processing(
             status_code=404,
         )
 
-    if claim.created_by != request.session.get("user_id"):
+    if not user_can_access_claim(session_user(request, db), claim):
         return templates.TemplateResponse(
             "claim_processing.html",
             {

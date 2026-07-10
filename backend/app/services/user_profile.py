@@ -10,6 +10,7 @@ from PIL import Image
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.roles import can_view_all_claims, is_admin, role_label
 from app.models import User
 
 logger = logging.getLogger("ai_tribe.profile")
@@ -79,7 +80,9 @@ def profile_to_dict(user: User) -> dict:
         "has_photo": photo is not None,
         "photo_url": f"/api/user/profile/photo?v={int(photo.stat().st_mtime)}" if photo else None,
         "role": user.role,
-        "is_admin": user.role == "admin",
+        "role_label": role_label(user.role),
+        "is_admin": is_admin(user.role),
+        "can_view_all_claims": can_view_all_claims(user.role),
     }
 
 

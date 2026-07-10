@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.api.deps import session_user, user_can_access_claim
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.models import Claim
@@ -60,7 +61,7 @@ async def claim_estimate(
     error = None
     if not claim:
         error = "Claim not found."
-    elif claim.created_by != request.session.get("user_id"):
+    elif not user_can_access_claim(session_user(request, db), claim):
         error = "You do not have access to this claim."
         claim = None
 
@@ -166,7 +167,7 @@ async def update_manual_prices(
     claim = db.scalar(select(Claim).where(Claim.id == claim_id))
     if not claim:
         raise HTTPException(status_code=404, detail="Claim not found.")
-    if claim.created_by != user_id:
+    if not user_can_access_claim(session_user(request, db), claim):
         raise HTTPException(status_code=403, detail="Access denied.")
 
     estimate = estimate_builder.apply_manual_line_prices(
