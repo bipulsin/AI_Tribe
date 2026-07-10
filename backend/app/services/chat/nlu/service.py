@@ -275,6 +275,24 @@ def classify_message(
     ruled.entities = {**entities, **ruled.entities}
 
     if ruled.intent in {"submit_claim", "lookup_claim", "done"}:
+        if ruled.intent == "lookup_claim":
+            strong_lookup = bool(
+                ruled.entities.get("claim_reference")
+                or ruled.entities.get("claim_suffix")
+                or ruled.entities.get("city_query")
+                or ruled.entities.get("garage_name")
+                or rules._is_explicit_lookup(raw, ruled.entities)
+            )
+            if not strong_lookup:
+                # Token-only rule matches are too weak — ask rather than search.
+                return NluResult(
+                    intent="clarify",
+                    entities=ruled.entities,
+                    confidence=emb.confidence if emb else 0.0,
+                    margin=emb.margin if emb else 0.0,
+                    source="clarify",
+                    scores=emb.scores if emb else {},
+                )
         if emb is not None:
             ruled.source = "hybrid"
             ruled.confidence = emb.confidence
