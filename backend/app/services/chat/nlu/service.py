@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -191,6 +192,16 @@ def classify_message(
             intent="lookup_claim", entities=entities, confidence=1.0, source="rules"
         )
 
+    # Bare / vague tokens must not be forced into lookup.
+    if re.fullmatch(r"claims?", lower) or lower in {
+        "insurance",
+        "help",
+        "hi",
+        "hello",
+        "hey",
+    }:
+        return NluResult(intent="clarify", entities=entities, confidence=0.0, source="rules")
+
     from app.core.config import get_settings
 
     settings = get_settings()
@@ -210,21 +221,45 @@ def classify_message(
                 scores=score_map,
             )
 
+    def _lookup_anchored(ents: dict) -> bool:
+        return bool(
+            ents.get("claim_reference")
+            or ents.get("claim_suffix")
+            or ents.get("search_term")
+            or ents.get("search_tokens")
+            or ents.get("city_query")
+            or ents.get("garage_name")
+            or rules._is_explicit_lookup(raw, ents)
+        )
+
     if emb is not None and _confident(emb.confidence, emb.margin):
         # Merge lookup entities when embedding says lookup.
         if emb.intent == "lookup_claim":
-            return emb
-        if emb.intent == "submit_claim":
-            return emb
-        if emb.intent == "done":
-            return emb
-        if emb.intent == "off_topic":
-            return emb
-        if emb.intent == "general":
-            # General claims help — keep as general unless entities imply lookup.
-            if entities.get("search_term") or entities.get("search_tokens") or entities.get(
-                "city_query"
+            # Without a concrete anchor, prefer clarify over guessing lookup.
+            if not _lookup_anchored(entities) and emb.confidence < 0.55:
+                pass  # fall through
+            elif not _lookup_anchored(entities) and not rules._is_explicit_lookup(
+                raw, entities
             ):
+                return NluResult(
+                    intent="clarify",
+                    entities=entities,
+                    confidence=emb.confidence,
+                    margin=emb.margin,
+                    source="clarify",
+                    scores=emb.scores,
+                )
+            else:
+                return emb
+        elif emb.intent == "submit_claim":
+            return emb
+        elif emb.intent == "done":
+            return emb
+        elif emb.intent == "off_topic":
+            return emb
+        elif emb.intent == "general":
+            # General claims help — keep as general unless entities imply lookup.
+            if _lookup_anchored(entities):
                 return NluResult(
                     intent="lookup_claim",
                     entities=entities,
