@@ -239,16 +239,26 @@
 
   <aside class="fraud-network-panel w-full shrink-0 rounded-2xl border border-navy/10 bg-white px-4 py-3 dark:border-white/10 dark:bg-navy lg:w-64">
     <p class="text-xs font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">Claim network</p>
-    <div class="fraud-network-frame relative mt-2">
-      <div id="fraud-network" class="fraud-network-canvas" aria-label="Local claim network diagram"></div>
-      <div id="fraud-network-clear-badge" class="fraud-network-clear-badge" hidden aria-label="No network pattern detected">
-        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-          <path fill-rule="evenodd" d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.25 7.333a1 1 0 0 1-1.44-.02L3.27 9.96a1 1 0 1 1 1.46-1.366l3.98 4.253 6.53-6.603a1 1 0 0 1 1.464.046z" clip-rule="evenodd"/>
-        </svg>
+    <button
+      type="button"
+      id="fraud-network-open"
+      class="fraud-network-open mt-2 w-full text-left"
+      aria-haspopup="dialog"
+      aria-controls="fraud-network-modal"
+      title="Open claim network"
+    >
+      <div class="fraud-network-frame relative">
+        <div id="fraud-network" class="fraud-network-canvas" aria-label="Local claim network diagram"></div>
+        <div id="fraud-network-clear-badge" class="fraud-network-clear-badge" hidden aria-label="No network pattern detected">
+          <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.25 7.333a1 1 0 0 1-1.44-.02L3.27 9.96a1 1 0 1 1 1.46-1.366l3.98 4.253 6.53-6.603a1 1 0 0 1 1.464.046z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+        <span class="fraud-network-expand-hint" aria-hidden="true">Expand</span>
       </div>
-    </div>
+    </button>
     <p id="fraud-network-caption" class="fraud-network-caption mt-2">
-      Network view of claims sharing this garage or surveyor.
+      Network view of claims sharing this garage or surveyor. Click the map to enlarge.
     </p>
     <p
       id="fraud-network-llm"
@@ -259,24 +269,64 @@
   </div>
   {% endif %}
 </div>
+
+{# Enlarged claim-network modal with zoom controls #}
+<div
+  id="fraud-network-modal"
+  class="fraud-network-modal"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="fraud-network-modal-title"
+  hidden
+>
+  <div class="fraud-network-modal-backdrop" data-fraud-network-close></div>
+  <div class="fraud-network-modal-panel" tabindex="-1">
+    <header class="fraud-network-modal-header">
+      <h2 id="fraud-network-modal-title" class="fraud-network-modal-title">Claim network</h2>
+      <div class="fraud-network-zoom-controls" role="group" aria-label="Zoom">
+        <button type="button" id="fraud-network-zoom-in" class="fraud-network-zoom-btn" aria-label="Zoom in" title="Zoom in">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="10.5" cy="10.5" r="6.25" stroke="currentColor" stroke-width="1.75"/>
+            <path d="M15.2 15.2 20 20" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+            <path d="M10.5 7.75v5.5M7.75 10.5h5.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <button type="button" id="fraud-network-zoom-out" class="fraud-network-zoom-btn" aria-label="Zoom out" title="Zoom out">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="10.5" cy="10.5" r="6.25" stroke="currentColor" stroke-width="1.75"/>
+            <path d="M15.2 15.2 20 20" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+            <path d="M7.75 10.5h5.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      <button type="button" class="fraud-network-modal-close" data-fraud-network-close aria-label="Close">&times;</button>
+    </header>
+    <div class="fraud-network-modal-body">
+      <div id="fraud-network-modal-canvas" class="fraud-network-modal-canvas" aria-label="Enlarged claim network"></div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
 <script src="/static/js/sse.js"></script>
-<script src="/static/js/fraud_network.js"></script>
+<script src="/static/js/fraud_network.js?v=2"></script>
 <script>
   (function () {
     const bootstrap = JSON.parse(document.getElementById("pipeline-bootstrap").textContent);
     if (bootstrap.network) {
       const caption = document.getElementById("fraud-network-caption");
       if (caption && bootstrap.network.caption) {
-        caption.textContent = bootstrap.network.caption;
+        caption.textContent = bootstrap.network.caption + " Click the map to enlarge.";
       }
       const llmNote = document.getElementById("fraud-network-llm");
       if (llmNote && bootstrap.network.llmInterpretation) {
         llmNote.textContent = bootstrap.network.llmInterpretation;
         llmNote.classList.remove("hidden");
+      }
+      if (window.setFraudNetworkPayload) {
+        window.setFraudNetworkPayload(bootstrap.network);
       }
       renderFraudNetwork("fraud-network", bootstrap.network);
     }

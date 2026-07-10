@@ -2,11 +2,11 @@
  * Per-claim organised-fraud neighborhood diagram (vis-network CDN).
  * Always renders: clear single-node + green badge, or local neighborhood.
  * Caption: network of claims sharing garage/surveyor.
+ *
+ * Options:
+ *   interactive — enable pan/zoom/drag (used in the enlarge modal)
  */
-function renderFraudNetwork(containerId, payload) {
-  const container = document.getElementById(containerId);
-  if (!container || typeof vis === "undefined") return;
-
+function buildFraudNetworkData(payload) {
   const data = payload || { nodes: [], edges: [], clear: true };
   const nodes = new vis.DataSet(
     (data.nodes || []).map((node) => {
@@ -60,15 +60,30 @@ function renderFraudNetwork(containerId, payload) {
     }))
   );
 
+  return { data, nodes, edges };
+}
+
+function renderFraudNetwork(containerId, payload, options = {}) {
+  const container = document.getElementById(containerId);
+  if (!container || typeof vis === "undefined") return null;
+
+  const interactive = !!options.interactive;
+  const { data, nodes, edges } = buildFraudNetworkData(payload);
+
   const network = new vis.Network(
     container,
     { nodes, edges },
     {
-      interaction: { dragNodes: false, dragView: false, zoomView: false, selectable: false },
+      interaction: {
+        dragNodes: interactive,
+        dragView: interactive,
+        zoomView: interactive,
+        selectable: interactive,
+        navigationButtons: false,
+        keyboard: interactive,
+      },
       physics: { enabled: !data.clear, stabilization: { iterations: 40 } },
-      layout: data.clear
-        ? { randomSeed: 1 }
-        : { improvedLayout: true },
+      layout: data.clear ? { randomSeed: 1 } : { improvedLayout: true },
     }
   );
 
@@ -77,5 +92,107 @@ function renderFraudNetwork(containerId, payload) {
     badge.hidden = !data.clear;
   }
 
+  if (interactive) {
+    // Ensure layout after the modal becomes visible.
+    requestAnimationFrame(() => {
+      network.redraw();
+      network.fit({ animation: false });
+    });
+  }
+
   return network;
 }
+
+(function initFraudNetworkModal() {
+  let payloadCache = null;
+  let modalNetwork = null;
+
+  function getModal() {
+    return document.getElementById("fraud-network-modal");
+  }
+
+  function closeModal() {
+    const modal = getModal();
+    if (!modal) return;
+    modal.hidden = true;
+    document.body.classList.remove("fraud-network-modal-open");
+    if (modalNetwork) {
+      modalNetwork.destroy();
+      modalNetwork = null;
+    }
+    const canvas = document.getElementById("fraud-network-modal-canvas");
+    if (canvas) canvas.innerHTML = "";
+  }
+
+  function openModal() {
+    const modal = getModal();
+    if (!modal || !payloadCache) return;
+    modal.hidden = false;
+    document.body.classList.add("fraud-network-modal-open");
+    const panel = modal.querySelector(".fraud-network-modal-panel");
+    if (panel) panel.focus();
+
+    const canvas = document.getElementById("fraud-network-modal-canvas");
+    if (canvas) canvas.innerHTML = "";
+    modalNetwork = renderFraudNetwork("fraud-network-modal-canvas", payloadCache, {
+      interactive: true,
+    });
+  }
+
+  function zoomBy(factor) {
+    if (!modalNetwork) return;
+    const scale = modalNetwork.getScale() * factor;
+    const position = modalNetwork.getViewPosition();
+    modalNetwork.moveTo({
+      scale: Math.max(0.2, Math.min(scale, 4)),
+      position,
+      animation: { duration: 180, easingFunction: "easeInOutQuad" },
+    });
+  }
+
+  function bindModalChrome() {
+    const modal = getModal();
+    if (!modal || modal.dataset.bound === "1") return;
+    modal.dataset.bound = "1";
+
+    modal.querySelectorAll("[data-fraud-network-close]").forEach((el) => {
+      el.addEventListener("click", closeModal);
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (modal.hidden) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeModal();
+      }
+    });
+
+    const zoomIn = document.getElementById("fraud-network-zoom-in");
+    const zoomOut = document.getElementById("fraud-network-zoom-out");
+    if (zoomIn) zoomIn.addEventListener("click", () => zoomBy(1.3));
+    if (zoomOut) zoomOut.addEventListener("click", () => zoomBy(1 / 1.3));
+
+    const opener = document.getElementById("fraud-network-open");
+    if (opener) {
+      opener.addEventListener("click", openModal);
+      opener.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openModal();
+        }
+      });
+    }
+  }
+
+  window.setFraudNetworkPayload = function setFraudNetworkPayload(payload) {
+    payloadCache = payload;
+  };
+
+  window.openFraudNetworkModal = openModal;
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bindModalChrome);
+  } else {
+    bindModalChrome();
+  }
+})();

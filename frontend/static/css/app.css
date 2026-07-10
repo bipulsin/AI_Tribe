@@ -582,17 +582,52 @@ body.help-guide-open {
   min-height: 0;
 }
 
+.fraud-network-open {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.fraud-network-open:focus-visible .fraud-network-frame {
+  outline: 2px solid rgba(184, 134, 11, 0.65);
+  outline-offset: 2px;
+}
+
 .fraud-network-frame {
   height: 11rem;
   border-radius: 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(10, 15, 26, 0.55);
   overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fraud-network-open:hover .fraud-network-frame {
+  border-color: rgba(184, 134, 11, 0.45);
+  box-shadow: 0 0 0 1px rgba(184, 134, 11, 0.2);
 }
 
 .fraud-network-canvas {
   width: 100%;
   height: 100%;
+  pointer-events: none;
+}
+
+.fraud-network-expand-hint {
+  position: absolute;
+  left: 0.4rem;
+  bottom: 0.35rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(184, 134, 11, 0.35);
+  background: rgba(10, 15, 26, 0.72);
+  color: rgba(240, 193, 75, 0.9);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .fraud-network-clear-badge {
@@ -619,6 +654,116 @@ body.help-guide-open {
   font-size: 0.7rem;
   line-height: 1.35;
   color: rgba(232, 236, 241, 0.45);
+}
+
+.fraud-network-modal[hidden] {
+  display: none !important;
+}
+
+.fraud-network-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.fraud-network-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 10, 24, 0.72);
+}
+
+.fraud-network-modal-panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: min(920px, 96vw);
+  height: min(720px, 90vh);
+  border-radius: 1rem;
+  border: 1px solid rgba(184, 134, 11, 0.35);
+  background: #071428;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.fraud-network-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.fraud-network-modal-title {
+  margin: 0;
+  flex: 1;
+  font-size: 1rem;
+  font-weight: 650;
+  color: #f5f0e6;
+}
+
+.fraud-network-zoom-controls {
+  display: inline-flex;
+  gap: 0.35rem;
+}
+
+.fraud-network-zoom-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(184, 134, 11, 0.4);
+  background: rgba(184, 134, 11, 0.12);
+  color: #f0c14b;
+  cursor: pointer;
+}
+
+.fraud-network-zoom-btn svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.fraud-network-zoom-btn:hover,
+.fraud-network-zoom-btn:focus-visible {
+  background: rgba(184, 134, 11, 0.22);
+  border-color: rgba(184, 134, 11, 0.65);
+}
+
+.fraud-network-modal-close {
+  border: 0;
+  background: transparent;
+  color: rgba(245, 240, 230, 0.75);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.fraud-network-modal-close:hover,
+.fraud-network-modal-close:focus-visible {
+  color: #fff;
+}
+
+.fraud-network-modal-body {
+  flex: 1;
+  min-height: 0;
+  padding: 0.75rem;
+}
+
+.fraud-network-modal-canvas {
+  width: 100%;
+  height: 100%;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(10, 15, 26, 0.85);
+}
+
+body.fraud-network-modal-open {
+  overflow: hidden;
 }
 
 .suggest-panel {
