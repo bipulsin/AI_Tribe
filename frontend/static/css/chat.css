@@ -431,6 +431,40 @@ body.chat-page {
   padding: 0.55rem 1.25rem 0.65rem;
 }
 
+.chat-attach {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(232, 236, 241, 0.75);
+  cursor: pointer;
+}
+
+.chat-attach:hover,
+.chat-attach:focus-within {
+  border-color: rgba(184, 134, 11, 0.45);
+  color: #fde68a;
+  background: rgba(184, 134, 11, 0.1);
+}
+
+.chat-attach .sr-only,
+.chat-upload-btn .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .chat-input {
   flex: 1;
   min-height: 2.5rem;
