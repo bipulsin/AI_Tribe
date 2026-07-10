@@ -67,41 +67,29 @@ def main() -> int:
         print(f"Saved MiniLM → {mini_dest}")
 
     spacy_dest = models / "en_core_web_sm"
-    if spacy_dest.is_dir() and any(spacy_dest.iterdir()):
+    if spacy_dest.is_dir() and (spacy_dest / "meta.json").is_file():
         print(f"spaCy already present: {spacy_dest}")
     else:
-        print("Downloading spaCy en_core_web_sm wheel into scratch (no venv install) …")
-        wheels = root / "wheels"
-        wheels.mkdir(parents=True, exist_ok=True)
-        subprocess.check_call(
-            [
-                sys.executable,
-                "-m",
-                "pip",
-                "download",
-                "en-core-web-sm==3.8.0",
-                "-d",
-                str(wheels),
-                "--no-deps",
-            ]
-        )
-        wheels_list = sorted(wheels.glob("en_core_web_sm*.whl"))
-        if not wheels_list:
-            print("ERROR: spaCy wheel not downloaded", file=sys.stderr)
-            return 4
+        print("Downloading spaCy en_core_web_sm wheel from GitHub releases …")
+        import urllib.request
         import zipfile
 
+        wheels = root / "wheels"
+        wheels.mkdir(parents=True, exist_ok=True)
+        wheel_url = (
+            "https://github.com/explosion/spacy-models/releases/download/"
+            "en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl"
+        )
+        wheel_path = wheels / "en_core_web_sm-3.8.0-py3-none-any.whl"
+        if not wheel_path.is_file():
+            urllib.request.urlretrieve(wheel_url, wheel_path)
         extract_dir = root / "_spacy_extract"
         if extract_dir.exists():
             shutil.rmtree(extract_dir)
         extract_dir.mkdir(parents=True)
-        with zipfile.ZipFile(wheels_list[-1], "r") as zf:
+        with zipfile.ZipFile(wheel_path, "r") as zf:
             zf.extractall(extract_dir)
-        # Wheel layout: en_core_web_sm/en_core_web_sm-3.8.0/
         candidates = list(extract_dir.glob("en_core_web_sm/en_core_web_sm-*"))
-        if not candidates:
-            candidates = list(extract_dir.glob("**/meta.json"))
-            candidates = [p.parent for p in candidates]
         if not candidates:
             print("ERROR: could not locate spaCy model dir in wheel", file=sys.stderr)
             return 5
