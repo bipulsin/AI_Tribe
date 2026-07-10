@@ -93,6 +93,11 @@ def extract_entities(text: str, *, root: Path | None = None) -> dict:
     if short is not None:
         entities["claim_suffix"] = rules.pad_claim_number_suffix(short)
 
+    actor = rules.extract_actor_name(raw)
+    if actor:
+        entities["actor_name"] = actor
+        entities["search_term"] = actor
+
     city = rules.extract_city_from_text(raw)
     if city:
         entities["city_query"] = city

@@ -255,9 +255,22 @@ def is_submit_intent(text: str) -> bool:
     lower = (text or "").strip().lower()
     if not lower:
         return False
+
+    # Lookup-by-actor must never be treated as submit ("claim submitted by Deepa").
+    # Also avoid substring false positives: "submit" inside "submitted".
+    if re.search(
+        r"\bclaims?\s+(?:submitted|filed|registered|lodged|created)\s+by\b",
+        lower,
+    ):
+        return False
+    if re.search(r"\b\w+'s\s+claim\b", lower):
+        return False
+
     if any(phrase in lower for phrase in _SUBMIT_PHRASES):
         return True
-    if "claim" in lower and any(word in lower for word in _SUBMIT_KEYWORDS):
+    if "claim" in lower and any(
+        re.search(rf"\b{re.escape(word)}\b", lower) for word in _SUBMIT_KEYWORDS
+    ):
         return True
     if re.search(r"\b(new|fresh)\s+claim\b", lower):
         return True
@@ -265,6 +278,31 @@ def is_submit_intent(text: str) -> bool:
         return True
     return False
 
+
+_CLAIM_BY_ACTOR = re.compile(
+    r"(?:^|\b)(?:find|show|get|search|look\s*up)?\s*(?:me\s+)?(?:the\s+)?"
+    r"claims?\s+(?:submitted|filed|registered|lodged|created)\s+by\s+(.+?)\s*$",
+    re.IGNORECASE,
+)
+
+_POSSESSIVE_CLAIM = re.compile(
+    r"\b([A-Za-z][A-Za-z.'-]{1,40})'s\s+claims?\b",
+    re.IGNORECASE,
+)
+
+_VAGUE_SEARCH_TERMS = frozenset(
+    {
+        "claim",
+        "claims",
+        "a claim",
+        "the claim",
+        "my claim",
+        "an claim",
+        "a claims",
+        "the claims",
+        "my claims",
+    }
+)
 
 _MEDIA_ONLY = frozenset(
     {
@@ -281,8 +319,29 @@ _MEDIA_ONLY = frozenset(
         "for",
         "about",
         "of",
+        "me",
+        "show",
+        "the",
+        "a",
+        "an",
     }
 )
+
+
+def extract_actor_name(text: str) -> str | None:
+    """Extract a person name from 'claim submitted by X' / \"X's claim\" phrasings."""
+    raw = (text or "").strip()
+    if not raw:
+        return None
+    match = _CLAIM_BY_ACTOR.search(raw)
+    if match:
+        name = match.group(1).strip(" .,;:")
+        if name and name.lower() not in _SINGLE_WORD_SKIP:
+            return name[:128]
+    match = _POSSESSIVE_CLAIM.search(raw)
+    if match:
+        return match.group(1).strip()[:128]
+    return None
 
 
 def extract_search_term(text: str) -> str | None:
@@ -291,18 +350,24 @@ def extract_search_term(text: str) -> str | None:
     if not raw or is_submit_intent(raw):
         return None
 
+    actor = extract_actor_name(raw)
+    if actor:
+        return actor
+
     def _usable(term: str | None) -> str | None:
         if not term:
             return None
         cleaned = term.strip(" .,;:")
         if not cleaned or cleaned.lower() in _SINGLE_WORD_SKIP:
             return None
+        if cleaned.lower() in _VAGUE_SEARCH_TERMS:
+            return None
         tokens = [t for t in re.split(r"\W+", cleaned) if t]
-        if tokens and all(t.lower() in _MEDIA_ONLY for t in tokens):
+        if tokens and all(t.lower() in _MEDIA_ONLY or t.lower() == "claim" for t in tokens):
             return None
         return cleaned
 
-    for pattern in (_CLAIM_BY, _CLAIM_FROM):
+    for pattern in (_CLAIM_BY, _CLAIM_FROM, _CLAIM_BY_ACTOR):
         match = pattern.search(raw)
         if match:
             term = _usable(match.group(1))
@@ -313,10 +378,20 @@ def extract_search_term(text: str) -> str | None:
     if extract_claim_reference(raw) or extract_short_claim_number(raw) is not None:
         return None
 
+    # "show me claim" / "show me a claim" — no identifier.
+    if re.fullmatch(
+        r"(?:please\s+)?(?:show|find|get|search|lookup|look\s+up)\s+(?:me\s+)?"
+        r"(?:a\s+|the\s+|my\s+)?claims?",
+        lower,
+    ):
+        return None
+
     tokens = [t for t in re.split(r"\W+", raw) if t]
     if len(tokens) == 1:
         word = tokens[0]
         if len(word) >= 2 and word.lower() not in _SINGLE_WORD_SKIP:
+            if word.lower() in _VAGUE_SEARCH_TERMS:
+                return None
             return word
 
     stripped = raw
@@ -337,6 +412,25 @@ def extract_search_term(text: str) -> str | None:
             return term
 
     return None
+
+
+def has_concrete_lookup_identifier(text: str, entities: dict | None = None) -> bool:
+    """True when lookup has a real claim ref, person, garage, city, or search name."""
+    entities = entities or {}
+    if entities.get("claim_reference") or entities.get("claim_suffix"):
+        return True
+    if entities.get("city_query") or entities.get("garage_name") or entities.get("surveyor_name"):
+        return True
+    if extract_actor_name(text):
+        return True
+    term = (entities.get("search_term") or extract_search_term(text) or "").strip().lower()
+    if term and term not in _VAGUE_SEARCH_TERMS:
+        tokens = [t for t in re.split(r"\W+", term) if t]
+        if tokens and not all(
+            t.lower() in _MEDIA_ONLY or t.lower() in {"claim", "claims"} for t in tokens
+        ):
+            return True
+    return False
 
 
 def extract_search_tokens(text: str) -> list[str]:
@@ -380,6 +474,8 @@ def should_use_city_garage_list(text: str, *, search_term: str | None) -> bool:
 def _is_explicit_lookup(text: str, entities: dict) -> bool:
     """True only when the user clearly wants to search existing claims."""
     if entities.get("claim_reference") or entities.get("claim_suffix"):
+        return True
+    if extract_actor_name(text):
         return True
     lower = (text or "").strip().lower()
     if not lower:
@@ -442,7 +538,12 @@ def classify_intent(
     if short_num is not None:
         entities["claim_suffix"] = pad_claim_number_suffix(short_num)
 
-    search_term = extract_search_term(raw)
+    actor = extract_actor_name(raw)
+    if actor:
+        entities["search_term"] = actor
+        entities["actor_name"] = actor
+
+    search_term = entities.get("search_term") or extract_search_term(raw)
     if search_term:
         entities["search_term"] = search_term
 
@@ -459,8 +560,8 @@ def classify_intent(
         ref
         or entities.get("claim_suffix")
         or entities.get("city_query")
-        or entities.get("search_term")
-        or entities.get("search_tokens")
+        or has_concrete_lookup_identifier(raw, entities)
+        or _is_explicit_lookup(raw, entities)
     ):
         return "lookup_claim", entities
 

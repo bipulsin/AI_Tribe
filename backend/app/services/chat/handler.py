@@ -30,15 +30,18 @@ from app.services.chat.intent import (
     CLARIFY_MESSAGE,
     OFF_TOPIC_REDIRECT,
     classify_intent,
+    extract_actor_name,
     extract_city_from_text,
     extract_claim_reference,
     extract_search_term,
     extract_search_tokens,
     extract_short_claim_number,
+    has_concrete_lookup_identifier,
     is_fresh_submit_intent,
     llm_classify_intent,
     pad_claim_number_suffix,
 )
+from app.services.chat.nlu.service import LOOKUP_NEED_IDENTIFIER
 from app.services.chat.garage_lookup import (
     find_garages_for_city,
     find_garages_in_city,
@@ -179,22 +182,35 @@ def _is_vague_lookup(query: str, *, ref: str | None, entities: dict | None = Non
     entities = entities or {}
     if ref or entities.get("claim_suffix") or entities.get("city_query"):
         return False
-    if entities.get("search_term") or entities.get("search_tokens"):
+    if entities.get("garage_name") or entities.get("surveyor_name") or entities.get("actor_name"):
         return False
     if query.startswith("__suffix__:") or query.startswith("__city__:") or query.startswith(
         "__tokens__:"
     ):
         return False
+    # Concrete person/garage search term is fine; "claim" / "a claim" is not.
+    from app.services.chat.intent_rules import _VAGUE_SEARCH_TERMS
+
+    term = (entities.get("search_term") or "").strip().lower()
+    if term and term not in _VAGUE_SEARCH_TERMS:
+        return False
     q = (query or "").strip().lower()
     if not q or is_claim_reference_like(q):
         return False
-    if q in _VAGUE_LOOKUP_PHRASES:
+    if q in _VAGUE_LOOKUP_PHRASES or q in _VAGUE_SEARCH_TERMS:
         return True
-    if "claim" in q and any(word in q for word in ("detail", "status", "find", "look")):
+    if "claim" in q and any(word in q for word in ("detail", "status", "find", "look", "show")):
         tokens = [t for t in re.split(r"\W+", q) if t]
         if len(tokens) <= 5 and not any(t.isdigit() for t in tokens):
-            return True
+            # "show me claim" has no proper noun / number → vague
+            if not has_concrete_lookup_identifier(q, entities):
+                return True
     return False
+
+
+def _lookup_need_identifier_reply(user_id: int) -> ChatReply:
+    _lookup_sessions[user_id] = LookupSession(mode="awaiting_query")
+    return ChatReply(text=LOOKUP_NEED_IDENTIFIER)
 
 
 def _interrupted_reply(db: Session, user_id: int) -> ChatReply:
@@ -260,29 +276,21 @@ def handle_lookup(
     query = _resolve_lookup_query(text, entities)
     ref_only = bool(entities.get("claim_reference") or extract_claim_reference(text))
 
+    if not force and not has_concrete_lookup_identifier(text, entities) and not (
+        query.startswith("__suffix__:") if query else False
+    ):
+        # Never display an arbitrary claim when the user gave no identifier.
+        if not re.fullmatch(r"\d{1,2}", (query or "").strip()):
+            return _lookup_need_identifier_reply(user_id)
+
     if not force and _is_vague_lookup(query, ref=ref_only, entities=entities):
-        _lookup_sessions[user_id] = LookupSession(mode="awaiting_query")
-        return ChatReply(
-            text=(
-                "I can look that up — please share the claim reference (e.g. CLM-2026-000017), "
-                "garage name, or surveyor name."
-            )
-        )
+        return _lookup_need_identifier_reply(user_id)
 
     if not force and not query and not _lookup_awaiting_query(user_id):
-        _lookup_sessions[user_id] = LookupSession(mode="awaiting_query")
-        return ChatReply(
-            text=(
-                "I can look that up — please share the claim reference (e.g. CLM-2026-000017), "
-                "garage name, or surveyor name."
-            )
-        )
+        return _lookup_need_identifier_reply(user_id)
 
     if not query:
-        _lookup_sessions[user_id] = LookupSession(mode="awaiting_query")
-        return ChatReply(
-            text="Please provide a claim reference, garage name, or surveyor name to search."
-        )
+        return _lookup_need_identifier_reply(user_id)
 
     if re.fullmatch(r"\d{1,2}", query):
         session = _lookup_sessions.get(user_id)
@@ -343,9 +351,42 @@ def handle_lookup(
                 db, tokens, user_id=_CHAT_LOOKUP_SCOPE_USER_ID
             )
     if not hits:
+        actor = entities.get("actor_name") or extract_actor_name(text) or query
+        suggestion = _suggest_close_person_name(db, actor)
+        if suggestion:
+            return ChatReply(
+                text=(
+                    f"I couldn't find claims for “{actor}”. "
+                    f"Did you mean **{suggestion}**? "
+                    "Reply with the corrected name, or give a claim number / garage."
+                )
+            )
         return ChatReply(text=format_no_match(query))
 
     return _finish_lookup_hits(db, user_id, hits, ref_only=ref_only)
+
+
+def _suggest_close_person_name(db: Session, raw_name: str) -> str | None:
+    """Fuzzy-suggest a surveyor/claimant name when the typed name misses (typos)."""
+    import difflib
+
+    needle = (raw_name or "").strip()
+    if len(needle) < 3:
+        return None
+    from sqlalchemy import select as sa_select
+    from app.models import Claim as ClaimModel
+
+    names: set[str] = set()
+    for col in (ClaimModel.surveyor_name, ClaimModel.claimant_name):
+        for value in db.scalars(
+            sa_select(col).where(col.is_not(None)).distinct().limit(200)
+        ).all():
+            if value and str(value).strip():
+                names.add(str(value).strip())
+    if not names:
+        return None
+    matches = difflib.get_close_matches(needle, list(names), n=1, cutoff=0.6)
+    return matches[0] if matches else None
 
 
 def _draft_status_line(draft: ClaimDraft) -> str:
@@ -703,11 +744,15 @@ async def handle_message(
     # Explicit lookup can abandon a draft; otherwise keep collecting submit details.
     if intent == "lookup_claim" and not draft.active:
         _clear_submit_session(user_id)
+        if not has_concrete_lookup_identifier(raw, entities):
+            return _lookup_need_identifier_reply(user_id)
         return handle_lookup(db, user_id, raw, entities)
 
     if intent == "lookup_claim" and draft.active:
         clear_draft(db, user_id)
         _clear_submit_session(user_id)
+        if not has_concrete_lookup_identifier(raw, entities):
+            return _lookup_need_identifier_reply(user_id)
         return handle_lookup(db, user_id, raw, entities)
 
     # Fresh submit phrasing — preserve any photos already uploaded in this turn.

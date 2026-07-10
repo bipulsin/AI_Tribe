@@ -71,7 +71,7 @@ def _build_summary_text(claim: Claim, estimate, line_items: list[dict], detectio
     status_label = _STATUS_LABELS.get(claim.status, status_val.replace("_", " ").title())
 
     lines: list[str] = [
-        f"**{claim.claim_reference}** — {status_label}",
+        f"**[{claim.claim_reference}](claim:{claim.id})** — {status_label}",
     ]
 
     garage_name = claim.garage.name if claim.garage else None
@@ -129,11 +129,6 @@ def _build_summary_text(claim: Claim, estimate, line_items: list[dict], detectio
         lines.append("")
         lines.append("**Estimate line items**")
         lines.extend(_format_estimate_lines(line_items))
-
-    photo_count = sum(1 for img in claim.images if not img.is_video)
-    if photo_count:
-        lines.append("")
-        lines.append(f"**Photos:** {photo_count} image(s) attached below.")
 
     return "\n".join(lines)
 
@@ -213,7 +208,9 @@ def format_claim_summary(db: Session, claim_id: int, user_id: int | None = None)
 def format_search_hit_list(hits) -> str:
     lines = ["I found these matching claims — which one did you mean?", ""]
     for idx, hit in enumerate(hits[:8], start=1):
-        bits = [f"{idx}. **{hit.claim_reference}** ({hit.status_label})"]
+        bits = [
+            f"{idx}. **[{hit.claim_reference}](claim:{hit.claim_id})** ({hit.status_label})"
+        ]
         if hit.vehicle_label:
             bits.append(hit.vehicle_label)
         if hit.garage_name:

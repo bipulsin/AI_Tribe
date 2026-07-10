@@ -38,6 +38,13 @@ _LOOKUP_EXTRA = (
     "get claim details for Thane workshop",
     "claims related to Ahmedabad",
     "show me an existing claim",
+    "claim submitted by Deepa",
+    "claim filed by Deepa",
+    "claim registered by Meera",
+    "claim lodged by Ramesh",
+    "Deepa's claim",
+    "show claim submitted by the surveyor",
+    "find the claim filed by claimant",
 )
 
 _DONE_EXTRA = (

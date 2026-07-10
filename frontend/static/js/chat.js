@@ -49,8 +49,16 @@ function chatApp({ userName = "User", maxImages = 10, maxUploadMb = 25 } = {}) {
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
       return escaped
+        .replace(
+          /\[([^\]]+)\]\(claim:(\d+)\)/g,
+          '<button type="button" class="chat-claim-link" data-claim-id="$2">$1</button>'
+        )
         .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
         .replace(/\n/g, "<br>");
+    },
+
+    openClaimModal(claimId) {
+      if (window.openChatClaimModal) window.openChatClaimModal(claimId);
     },
 
     scrollToBottom() {
@@ -306,6 +314,7 @@ function mountUserChromeInSidebar() {
 
 function initChatChrome() {
   mountUserChromeInSidebar();
+  initChatClaimModal();
 
   const sidebar = document.getElementById("chat-sidebar");
   const toggle = document.getElementById("chat-sidebar-toggle");
@@ -517,12 +526,18 @@ function appendAssistantMessage(thread, data) {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
+    .replace(
+      /\[([^\]]+)\]\(claim:(\d+)\)/g,
+      '<button type="button" class="chat-claim-link" data-claim-id="$2">$1</button>'
+    )
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/\n/g, "<br>");
   let html = `<div class="chat-bubble">${text}</div>`;
   const widgets = data.widgets || [];
-  if (widgets.some((w) => w && w.type === "file_upload")) {
-    html += `
+  for (const widget of widgets) {
+    if (!widget || !widget.type) continue;
+    if (widget.type === "file_upload") {
+      html += `
       <div class="chat-widget">
         <label class="chat-upload-btn">
           <input type="file" class="sr-only" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime" multiple data-chat-upload />
@@ -530,6 +545,56 @@ function appendAssistantMessage(thread, data) {
         </label>
         <p class="chat-upload-hint">Attach damage photos or a short video</p>
       </div>`;
+    } else if (widget.type === "claim_images" && Array.isArray(widget.images)) {
+      const thumbs = widget.images
+        .map(
+          (image) => `
+        <button type="button" class="chat-gallery-thumb" data-preview-src="${String(
+          image.url || ""
+        ).replace(/"/g, "&quot;")}" data-preview-alt="${String(
+            image.alt || "Claim photo"
+          ).replace(/"/g, "&quot;")}">
+          <img src="${String(image.url || "").replace(/"/g, "&quot;")}" alt="${String(
+            image.alt || "Claim photo"
+          ).replace(/"/g, "&quot;")}" loading="lazy" />
+        </button>`
+        )
+        .join("");
+      html += `
+      <div class="chat-widget chat-gallery-widget">
+        <p class="chat-widget-title">Claim photos · ${String(
+          widget.claim_reference || ""
+        ).replace(/</g, "&lt;")}</p>
+        <div class="chat-gallery-grid">${thumbs}</div>
+      </div>`;
+    } else if (widget.type === "claim_estimate") {
+      const rows = (widget.line_items || [])
+        .slice(0, 8)
+        .map((row) => {
+          const total = row.line_total
+            ? `₹${Number(row.line_total).toLocaleString("en-IN")}`
+            : "—";
+          return `<tr>
+            <td>${String(row.part_name || "—").replace(/</g, "&lt;")}</td>
+            <td>${String(row.damage_type || "—").replace(/</g, "&lt;")}</td>
+            <td>${String(row.repair_or_replace || "—").replace(/</g, "&lt;")}</td>
+            <td class="text-right">${total}</td>
+          </tr>`;
+        })
+        .join("");
+      html += `
+      <div class="chat-widget chat-estimate-widget">
+        <p class="chat-widget-title">Estimate · ${String(
+          widget.claim_reference || ""
+        ).replace(/</g, "&lt;")}</p>
+        <div class="chat-estimate-table-wrap">
+          <table class="chat-estimate-table">
+            <thead><tr><th>Part</th><th>Damage</th><th>Action</th><th class="text-right">Total</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`;
+    }
   }
   botBubble.innerHTML = html;
   thread.appendChild(botBubble);
@@ -544,7 +609,60 @@ function appendAssistantMessage(thread, data) {
       fileInput.value = "";
     });
   });
+  botBubble.querySelectorAll("[data-preview-src]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (window.openMediaPreview) {
+        window.openMediaPreview({
+          src: btn.getAttribute("data-preview-src"),
+          alt: btn.getAttribute("data-preview-alt") || "Claim photo",
+        });
+      }
+    });
+  });
   thread.scrollTop = thread.scrollHeight;
+}
+
+function initChatClaimModal() {
+  const modal = document.getElementById("chat-claim-modal");
+  const frame = document.getElementById("chat-claim-modal-frame");
+  if (!modal || !frame) return;
+  const titleEl = document.getElementById("chat-claim-modal-title");
+  const closeEls = modal.querySelectorAll("[data-chat-claim-close]");
+
+  function closeModal() {
+    modal.hidden = true;
+    frame.removeAttribute("src");
+    document.body.classList.remove("chat-claim-modal-open");
+  }
+
+  function openModal(claimId) {
+    const id = Number(claimId);
+    if (!id) return;
+    if (titleEl) titleEl.textContent = `Claim #${id}`;
+    frame.src = `/claims/${id}/estimate?embed=1`;
+    modal.hidden = false;
+    document.body.classList.add("chat-claim-modal-open");
+    const panel = modal.querySelector(".chat-claim-modal-panel");
+    if (panel) panel.focus();
+  }
+
+  window.openChatClaimModal = openModal;
+
+  closeEls.forEach((el) => el.addEventListener("click", closeModal));
+  document.addEventListener("keydown", (event) => {
+    if (modal.hidden) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeModal();
+    }
+  });
+
+  document.addEventListener("click", (event) => {
+    const link = event.target.closest(".chat-claim-link");
+    if (!link) return;
+    event.preventDefault();
+    openModal(link.getAttribute("data-claim-id"));
+  });
 }
 
 if (document.readyState === "loading") {

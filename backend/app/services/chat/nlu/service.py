@@ -23,9 +23,8 @@ OFF_TOPIC_REDIRECT = (
     "What would you like to do?"
 )
 
-CLARIFY_MESSAGE = (
-    "I'm not sure whether you want to **submit a new claim** or **look up an existing one**. "
-    "Could you clarify? For example: “Submit a claim” or “Find claim CLM-2026-000026”."
+LOOKUP_NEED_IDENTIFIER = (
+    "Which claim? Give me a claim number, garage name, or surveyor name"
 )
 
 # Cosine similarity thresholds for MiniLM prototypes (normalized embeddings).
@@ -168,6 +167,15 @@ def classify_message(
     if draft_active and any(phrase in lower for phrase in rules._DONE_PHRASES):
         return NluResult(intent="done", entities=entities, confidence=1.0, source="rules")
 
+    # "claim submitted by X" / "X's claim" is always lookup — before submit keyword gates.
+    actor = rules.extract_actor_name(raw)
+    if actor:
+        entities["actor_name"] = actor
+        entities["search_term"] = actor
+        return NluResult(
+            intent="lookup_claim", entities=entities, confidence=1.0, source="rules"
+        )
+
     if rules.is_submit_intent(raw):
         if entities.get("city_query") is None:
             city = rules.extract_city_from_text(raw)
@@ -222,35 +230,23 @@ def classify_message(
             )
 
     def _lookup_anchored(ents: dict) -> bool:
-        return bool(
-            ents.get("claim_reference")
-            or ents.get("claim_suffix")
-            or ents.get("search_term")
-            or ents.get("search_tokens")
-            or ents.get("city_query")
-            or ents.get("garage_name")
-            or rules._is_explicit_lookup(raw, ents)
-        )
+        return rules.has_concrete_lookup_identifier(raw, ents)
 
     if emb is not None and _confident(emb.confidence, emb.margin):
         # Merge lookup entities when embedding says lookup.
         if emb.intent == "lookup_claim":
-            # Without a concrete anchor, prefer clarify over guessing lookup.
-            if not _lookup_anchored(entities) and emb.confidence < 0.55:
-                pass  # fall through
-            elif not _lookup_anchored(entities) and not rules._is_explicit_lookup(
-                raw, entities
-            ):
-                return NluResult(
-                    intent="clarify",
-                    entities=entities,
-                    confidence=emb.confidence,
-                    margin=emb.margin,
-                    source="clarify",
-                    scores=emb.scores,
-                )
-            else:
+            # Explicit lookup phrasing without an identifier still routes as lookup;
+            # the handler asks which claim — never invents one.
+            if rules._is_explicit_lookup(raw, entities) or _lookup_anchored(entities):
                 return emb
+            return NluResult(
+                intent="clarify",
+                entities=entities,
+                confidence=emb.confidence,
+                margin=emb.margin,
+                source="clarify",
+                scores=emb.scores,
+            )
         elif emb.intent == "submit_claim":
             return emb
         elif emb.intent == "done":
@@ -258,7 +254,6 @@ def classify_message(
         elif emb.intent == "off_topic":
             return emb
         elif emb.intent == "general":
-            # General claims help — keep as general unless entities imply lookup.
             if _lookup_anchored(entities):
                 return NluResult(
                     intent="lookup_claim",
@@ -276,15 +271,10 @@ def classify_message(
 
     if ruled.intent in {"submit_claim", "lookup_claim", "done"}:
         if ruled.intent == "lookup_claim":
-            strong_lookup = bool(
-                ruled.entities.get("claim_reference")
-                or ruled.entities.get("claim_suffix")
-                or ruled.entities.get("city_query")
-                or ruled.entities.get("garage_name")
+            if not (
+                rules.has_concrete_lookup_identifier(raw, ruled.entities)
                 or rules._is_explicit_lookup(raw, ruled.entities)
-            )
-            if not strong_lookup:
-                # Token-only rule matches are too weak — ask rather than search.
+            ):
                 return NluResult(
                     intent="clarify",
                     entities=ruled.entities,

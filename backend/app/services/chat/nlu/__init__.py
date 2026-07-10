@@ -2,6 +2,7 @@
 
 from app.services.chat.nlu.service import (
     CLARIFY_MESSAGE,
+    LOOKUP_NEED_IDENTIFIER,
     OFF_TOPIC_REDIRECT,
     NluResult,
     classify_message,
@@ -9,6 +10,7 @@ from app.services.chat.nlu.service import (
 
 __all__ = [
     "CLARIFY_MESSAGE",
+    "LOOKUP_NEED_IDENTIFIER",
     "OFF_TOPIC_REDIRECT",
     "NluResult",
     "classify_message",

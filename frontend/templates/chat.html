@@ -5,7 +5,7 @@
 {% block body_class %}chat-page h-screen overflow-hidden bg-ink text-mist antialiased{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="/static/css/chat.css?v=7" />
+<link rel="stylesheet" href="/static/css/chat.css?v=8" />
 {% endblock %}
 
 {% block body %}
@@ -283,9 +283,28 @@
     </div>
   </main>
 </div>
+
+{# Claim estimate / assessment modal (stays on /chat) #}
+<div
+  id="chat-claim-modal"
+  class="chat-claim-modal"
+  hidden
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="chat-claim-modal-title"
+>
+  <div class="chat-claim-modal-backdrop" data-chat-claim-close></div>
+  <div class="chat-claim-modal-panel" tabindex="-1">
+    <header class="chat-claim-modal-header">
+      <h2 id="chat-claim-modal-title" class="chat-claim-modal-title">Claim details</h2>
+      <button type="button" class="chat-claim-modal-close" data-chat-claim-close aria-label="Close">&times;</button>
+    </header>
+    <iframe id="chat-claim-modal-frame" class="chat-claim-modal-frame" title="Claim estimate"></iframe>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/sse.js?v=7"></script>
-<script src="/static/js/chat.js?v=7"></script>
+<script src="/static/js/sse.js?v=8"></script>
+<script src="/static/js/chat.js?v=8"></script>
 {% endblock %}

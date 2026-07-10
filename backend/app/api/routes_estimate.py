@@ -45,6 +45,7 @@ async def claim_estimate(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    embed = str(request.query_params.get("embed") or "").lower() in {"1", "true", "yes"}
     claim = db.scalar(
         select(Claim)
         .options(
@@ -68,7 +69,7 @@ async def claim_estimate(
     if error or not claim:
         return templates.TemplateResponse(
             "claim_estimate.html",
-            {"request": request, "claim": None, "error": error},
+            {"request": request, "claim": None, "error": error, "embed": embed},
             status_code=404 if error == "Claim not found." else 403,
         )
 
@@ -149,6 +150,7 @@ async def claim_estimate(
             "stage_timings": stage_timings,
             "username": request.session.get("username", ""),
             "full_name": request.session.get("full_name", ""),
+            "embed": embed,
         },
     )
 

@@ -189,6 +189,7 @@ async def claim_processing(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
+    embed = str(request.query_params.get("embed") or "").lower() in {"1", "true", "yes"}
     claim = db.scalar(
         select(Claim)
         .options(
@@ -210,6 +211,7 @@ async def claim_processing(
                 "request": request,
                 "claim": None,
                 "error": "Claim not found.",
+                "embed": embed,
                 "bootstrap_json": _bootstrap_json(
                     {
                         "claimId": None,
@@ -229,6 +231,7 @@ async def claim_processing(
                 "request": request,
                 "claim": None,
                 "error": "You do not have access to this claim.",
+                "embed": embed,
                 "bootstrap_json": _bootstrap_json(
                     {
                         "claimId": None,
@@ -323,5 +326,6 @@ async def claim_processing(
                     "vehicleLlmSuggest": vehicle_llm_suggest,
                 }
             ),
+            "embed": embed,
         },
     )

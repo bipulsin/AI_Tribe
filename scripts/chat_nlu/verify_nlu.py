@@ -8,7 +8,6 @@ import sys
 import time
 from pathlib import Path
 
-# Ensure backend imports work when run from repo root or container.
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
 
@@ -27,6 +26,15 @@ CASES = [
     ("lookup paraphrases", "show me claim CLM-2026-000026", "lookup_claim"),
     ("lookup paraphrases", "find claims from Pune", "lookup_claim"),
     ("lookup paraphrases", "look up claim number 26", "lookup_claim"),
+    # Part A — vague show-me-claim (lookup intent OK; must NOT invent an id)
+    ("vague lookup", "show me claim", "lookup_claim"),
+    ("vague lookup", "show me a claim", "lookup_claim"),
+    ("vague lookup", "show me the claim", "lookup_claim"),
+    # Part B — submitted-by is lookup, not submit
+    ("actor lookup", "claim submitted by Deepa", "lookup_claim"),
+    ("actor lookup", "claim submitted by Dee{a", "lookup_claim"),
+    ("actor lookup", "claim filed by Deepa", "lookup_claim"),
+    ("actor lookup", "Deepa's claim", "lookup_claim"),
     # Off-topic
     ("off-topic", "what's the weather in Mumbai today", "off_topic"),
     ("off-topic", "tell me a joke", "off_topic"),
@@ -43,6 +51,7 @@ CASES = [
 
 def main() -> int:
     from app.services.chat.nlu.service import classify_message
+    from app.services.chat.intent_rules import has_concrete_lookup_identifier
     from app.core.config import get_settings
 
     settings = get_settings()
@@ -50,7 +59,6 @@ def main() -> int:
     print(f"CHAT_NLU_ROOT={settings.chat_nlu_path}")
     print(f"root exists={settings.chat_nlu_path.exists()}")
 
-    # Warm-up
     t0 = time.time()
     classify_message("submit a claim")
     warm = time.time() - t0
@@ -68,12 +76,15 @@ def main() -> int:
         result = classify_message(text, draft_active=draft)
         dt = time.time() - t1
         ok = result.intent == expect
-        # Ambiguous category: clarify OR general is acceptable honesty.
         if cat == "ambiguous" and result.intent in {"clarify", "general"}:
             ok = True
-        # Off-topic: allow clarify if model unsure rather than wrong routing.
         if cat == "off-topic" and result.intent in {"off_topic", "clarify"}:
             ok = True
+        # Vague lookup may surface as lookup_claim or clarify — never submit.
+        if cat == "vague lookup":
+            ok = result.intent in {"lookup_claim", "clarify"} and not has_concrete_lookup_identifier(
+                text, result.entities
+            )
         by_cat.setdefault(cat, []).append(ok)
         rows.append((ok, cat, text, expect, result.intent, result.source, result.confidence, dt))
 
@@ -91,6 +102,14 @@ def main() -> int:
         n_ok = sum(flags)
         print(f"  {cat}: {n_ok}/{len(flags)}")
         if n_ok < len(flags):
+            all_ok = False
+
+    # Extra: confirm no concrete id on vague phrases
+    for phrase in ("show me claim", "show me a claim", "show me the claim"):
+        r = classify_message(phrase)
+        concrete = has_concrete_lookup_identifier(phrase, r.entities)
+        print(f"concrete-id({phrase!r})={concrete} intent={r.intent}")
+        if concrete:
             all_ok = False
 
     return 0 if all_ok else 1
