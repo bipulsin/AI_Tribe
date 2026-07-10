@@ -57,6 +57,16 @@ async def lifespan(_app: FastAPI):
         f"root={settings.chat_nlu_path}\n"
     )
 
+    if settings.chat_nlu_enabled and settings.chat_nlu_path.exists():
+        try:
+            from app.services.chat.nlu.service import classify_message
+
+            classify_message("submit a claim")
+            logger.info("Chat NLU warm-up complete")
+            print("  Chat NLU warm-up complete\n")
+        except Exception as exc:
+            logger.warning("Chat NLU warm-up skipped: %s", exc)
+
     # Only configure HF/torch caches when live inference is enabled.
     if settings.ml_live:
         weights_root = REPO_ROOT / "backend" / "app" / "ml_weights"
