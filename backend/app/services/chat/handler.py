@@ -548,9 +548,21 @@ def append_uploads(
     if draft.interrupted:
         return _interrupted_reply(db, user_id)
 
-    count = draft.image_count()
     video_note = " and 1 video" if draft.video else ""
+    status = _draft_status_line(draft)
+    missing = draft.missing_required(user_display_name="there")
+    if missing:
+        text = (
+            f"Photos saved{video_note} — so far: {status}. "
+            f"I still need {' and '.join(missing)}. "
+            "Say “done” when you're ready to submit."
+        )
+    else:
+        text = (
+            f"Photos saved{video_note} — so far: {status}. "
+            "Say “done” when you want me to submit the claim."
+        )
     return ChatReply(
-        text=f"Received {count} photo(s){video_note}. {_draft_status_line(draft)}.",
+        text=text,
         widgets=[{"type": "file_upload"}],
     )

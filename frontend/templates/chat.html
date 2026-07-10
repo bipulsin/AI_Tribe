@@ -5,7 +5,7 @@
 {% block body_class %}chat-page h-screen overflow-hidden bg-ink text-mist antialiased{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="/static/css/chat.css?v=6" />
+<link rel="stylesheet" href="/static/css/chat.css?v=7" />
 {% endblock %}
 
 {% block body %}
@@ -56,7 +56,19 @@
     <div class="chat-thread" x-ref="thread" id="chat-thread" role="log" aria-live="polite">
       <template x-for="msg in messages" :key="msg.id">
         <div class="chat-message" :class="msg.role === 'user' ? 'chat-message--user' : 'chat-message--assistant'">
-          <div class="chat-bubble" x-html="formatText(msg.text)"></div>
+          <div class="chat-bubble" x-show="msg.text" x-html="formatText(msg.text)"></div>
+          <div class="chat-msg-attachments" x-show="msg.attachments && msg.attachments.length">
+            <template x-for="(att, aIdx) in (msg.attachments || [])" :key="msg.id + '-att-' + aIdx">
+              <button
+                type="button"
+                class="chat-msg-thumb"
+                @click="att.isVideo ? null : (window.openMediaPreview && window.openMediaPreview({ src: att.url, alt: att.name || 'Attachment' }))"
+              >
+                <img x-show="!att.isVideo" :src="att.url" :alt="att.name || 'Photo'" loading="lazy" />
+                <span class="chat-msg-video" x-show="att.isVideo" x-text="att.name || 'Video'"></span>
+              </button>
+            </template>
+          </div>
 
           <template x-for="(widget, wIdx) in (msg.widgets || [])" :key="msg.id + '-' + wIdx">
             <div class="chat-widget-slot">
@@ -227,6 +239,25 @@
         <button type="button" class="chat-chip" data-chat-hint="Find claims from Metro Motors">Find claims from Metro Motors</button>
       </div>
 
+      <div
+        class="chat-pending-attachments"
+        id="chat-pending-attachments"
+        x-show="pendingAttachments.length"
+      >
+        <template x-for="(att, pIdx) in pendingAttachments" :key="att.id">
+          <div class="chat-pending-item">
+            <img x-show="!att.isVideo" :src="att.url" :alt="att.name" />
+            <span class="chat-msg-video" x-show="att.isVideo" x-text="att.name || 'Video'"></span>
+            <button
+              type="button"
+              class="chat-pending-remove"
+              :aria-label="'Remove ' + (att.name || 'attachment')"
+              @click="removePendingAttachment(pIdx)"
+            >&times;</button>
+          </div>
+        </template>
+      </div>
+
       <form class="chat-composer" id="chat-composer-form">
         <label class="chat-attach" title="Attach photos or video" aria-label="Attach photos or video">
           <input
@@ -255,6 +286,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/sse.js?v=6"></script>
-<script src="/static/js/chat.js?v=6"></script>
+<script src="/static/js/sse.js?v=7"></script>
+<script src="/static/js/chat.js?v=7"></script>
 {% endblock %}

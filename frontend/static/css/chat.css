@@ -391,6 +391,90 @@ body.chat-page {
   padding-bottom: max(0.65rem, env(safe-area-inset-bottom));
 }
 
+.chat-pending-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.65rem 1.25rem 0;
+}
+
+.chat-pending-attachments[hidden] {
+  display: none !important;
+}
+
+.chat-pending-item {
+  position: relative;
+  width: 4.25rem;
+  height: 4.25rem;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.chat-pending-item img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.chat-pending-remove {
+  position: absolute;
+  top: 0.15rem;
+  right: 0.15rem;
+  width: 1.15rem;
+  height: 1.15rem;
+  border: none;
+  border-radius: 9999px;
+  background: rgba(10, 15, 26, 0.85);
+  color: #fde68a;
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.chat-msg-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+}
+
+.chat-msg-thumb {
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.45rem;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  width: 5.5rem;
+  height: 5.5rem;
+}
+
+.chat-msg-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.chat-msg-video {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 0.35rem;
+  font-size: 0.65rem;
+  color: #fde68a;
+  text-align: center;
+}
+
+.chat-message--user .chat-msg-thumb {
+  border-color: rgba(184, 134, 11, 0.35);
+}
+
 .chat-suggestions {
   display: flex;
   flex-wrap: wrap;

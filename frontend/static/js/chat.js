@@ -1,5 +1,6 @@
 function chatApp({ userName = "User", maxImages = 10, maxUploadMb = 25 } = {}) {
   let nextId = 1;
+  let pendingId = 1;
   const completedPipelines = new Set();
 
   return {
@@ -10,6 +11,7 @@ function chatApp({ userName = "User", maxImages = 10, maxUploadMb = 25 } = {}) {
     draft: "",
     sending: false,
     showSuggestions: true,
+    pendingAttachments: [],
 
     init() {
       this.syncInputFromDom();
@@ -29,7 +31,9 @@ function chatApp({ userName = "User", maxImages = 10, maxUploadMb = 25 } = {}) {
       const btn = document.getElementById("chat-send-btn");
       const input = document.getElementById("chat-input");
       if (!btn || !input) return;
-      btn.disabled = this.sending || !input.value.trim();
+      const hasText = !!input.value.trim();
+      const hasFiles = this.pendingAttachments.length > 0;
+      btn.disabled = this.sending || (!hasText && !hasFiles);
     },
 
     hideSuggestions() {
@@ -62,8 +66,65 @@ function chatApp({ userName = "User", maxImages = 10, maxUploadMb = 25 } = {}) {
         role: payload.role || "assistant",
         text: payload.text || "",
         widgets: payload.widgets || [],
+        attachments: payload.attachments || [],
       });
       this.scrollToBottom();
+    },
+
+    stageFiles(fileList) {
+      const files = Array.from(fileList || []);
+      if (!files.length) return;
+
+      let imageCount = this.pendingAttachments.filter((a) => !a.isVideo).length;
+      let hasVideo = this.pendingAttachments.some((a) => a.isVideo);
+
+      for (const file of files) {
+        const isVideo = file.type.startsWith("video/");
+        const isImage =
+          file.type.startsWith("image/") ||
+          /\.(jpe?g|png|webp|gif)$/i.test(file.name || "");
+        if (!isVideo && !isImage) continue;
+        if (isVideo && hasVideo) continue;
+        if (!isVideo && imageCount >= this.maxImages) continue;
+
+        const url = URL.createObjectURL(file);
+        this.pendingAttachments.push({
+          id: pendingId++,
+          file,
+          url,
+          name: file.name || (isVideo ? "Video" : "Photo"),
+          isVideo,
+        });
+        if (isVideo) hasVideo = true;
+        else imageCount += 1;
+      }
+
+      this.hideSuggestions();
+      this.syncSendDisabled();
+      this.renderPendingDom();
+    },
+
+    removePendingAttachment(index) {
+      const item = this.pendingAttachments[index];
+      if (!item) return;
+      if (item.url) URL.revokeObjectURL(item.url);
+      this.pendingAttachments.splice(index, 1);
+      this.syncSendDisabled();
+      this.renderPendingDom();
+    },
+
+    clearPendingAttachments() {
+      this.pendingAttachments.forEach((item) => {
+        if (item.url) URL.revokeObjectURL(item.url);
+      });
+      this.pendingAttachments = [];
+      this.renderPendingDom();
+    },
+
+    renderPendingDom() {
+      // Keep a non-Alpine fallback strip in sync when Alpine is unavailable.
+      const strip = document.getElementById("chat-pending-attachments");
+      if (!strip || window.Alpine) return;
     },
 
     useSuggestion(hint) {
@@ -73,42 +134,78 @@ function chatApp({ userName = "User", maxImages = 10, maxUploadMb = 25 } = {}) {
       this.sendMessage();
     },
 
+    onFilesSelected(event) {
+      const input = event.target;
+      this.stageFiles(input.files);
+      input.value = "";
+    },
+
     async sendMessage() {
       const input = document.getElementById("chat-input");
       const text = ((input && input.value) || this.draft || "").trim();
-      if (!text || this.sending) return;
+      const staged = this.pendingAttachments.slice();
+      if ((!text && !staged.length) || this.sending) return;
 
       this.hideSuggestions();
-      this.pushMessage({ role: "user", text });
+      const attachmentViews = staged.map((a) => ({
+        url: a.url,
+        name: a.name,
+        isVideo: a.isVideo,
+      }));
+      this.pushMessage({
+        role: "user",
+        text,
+        attachments: attachmentViews,
+      });
+
       if (input) input.value = "";
       this.draft = "";
+      this.pendingAttachments = [];
       this.sending = true;
       this.syncSendDisabled();
 
       try {
-        const response = await fetch("/api/chat/message", {
-          method: "POST",
-          credentials: "same-origin",
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ text }),
-        });
-        let data = {};
-        try {
-          data = await response.json();
-        } catch (_parseErr) {
-          data = {};
+        if (staged.length) {
+          const uploadReply = await postChatUpload(staged.map((a) => a.file));
+          if (uploadReply.error) {
+            this.pushMessage({
+              role: "assistant",
+              text: uploadReply.error,
+            });
+            return;
+          }
+          // If there is no accompanying text, show the server's draft guidance.
+          if (!text) {
+            this.pushMessage(uploadReply.data);
+            return;
+          }
         }
-        if (!response.ok) {
-          this.pushMessage({
-            role: "assistant",
-            text: data.detail || "Something went wrong. Please try again.",
+
+        if (text) {
+          const response = await fetch("/api/chat/message", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ text }),
           });
-          return;
+          let data = {};
+          try {
+            data = await response.json();
+          } catch (_parseErr) {
+            data = {};
+          }
+          if (!response.ok) {
+            this.pushMessage({
+              role: "assistant",
+              text: data.detail || "Something went wrong. Please try again.",
+            });
+            return;
+          }
+          this.pushMessage(data);
         }
-        this.pushMessage(data);
       } catch (_err) {
         this.pushMessage({
           role: "assistant",
@@ -118,28 +215,6 @@ function chatApp({ userName = "User", maxImages = 10, maxUploadMb = 25 } = {}) {
         this.sending = false;
         this.syncSendDisabled();
       }
-    },
-
-    async onFilesSelected(event) {
-      const input = event.target;
-      await uploadChatFiles(Array.from(input.files || []), {
-        onStart: () => {
-          this.sending = true;
-          this.syncSendDisabled();
-        },
-        onDone: () => {
-          this.sending = false;
-          this.syncSendDisabled();
-          input.value = "";
-        },
-        onReply: (data) => {
-          this.hideSuggestions();
-          this.pushMessage(data);
-        },
-        onError: (text) => {
-          this.pushMessage({ role: "assistant", text });
-        },
-      });
     },
 
     async onPipelineComplete({ claimId }) {
@@ -165,44 +240,27 @@ function chatApp({ userName = "User", maxImages = 10, maxUploadMb = 25 } = {}) {
   };
 }
 
-function getChatAlpine() {
-  const shell = document.getElementById("chat-shell");
-  if (!shell || !window.Alpine) return null;
-  try {
-    return window.Alpine.$data(shell);
-  } catch (_err) {
-    return null;
-  }
-}
-
-function openChatProfile() {
-  window.dispatchEvent(new CustomEvent("ai-tribe:open-profile"));
-}
-
-async function uploadChatFiles(files, { onStart, onDone, onReply, onError } = {}) {
+async function postChatUpload(files) {
   const list = Array.from(files || []);
-  if (!list.length) return;
-
   const images = [];
   let video = null;
   for (const file of list) {
-    if (file.type.startsWith("video/") && !video) {
-      video = file;
-    } else if (file.type.startsWith("image/") || /\.(jpe?g|png|webp|gif)$/i.test(file.name || "")) {
+    if (file.type.startsWith("video/") && !video) video = file;
+    else if (
+      file.type.startsWith("image/") ||
+      /\.(jpe?g|png|webp|gif)$/i.test(file.name || "")
+    ) {
       images.push(file);
     }
   }
-
   if (!images.length && !video) {
-    if (onError) onError("Please choose image or video files.");
-    return;
+    return { error: "Please choose image or video files." };
   }
 
   const form = new FormData();
   images.forEach((file) => form.append("images", file));
   if (video) form.append("video", video);
 
-  if (onStart) onStart();
   try {
     const response = await fetch("/api/chat/upload", {
       method: "POST",
@@ -216,53 +274,26 @@ async function uploadChatFiles(files, { onStart, onDone, onReply, onError } = {}
       data = {};
     }
     if (!response.ok) {
-      if (onError) onError(data.detail || "Upload failed.");
-      return;
+      return { error: data.detail || "Upload failed." };
     }
-    if (onReply) onReply(data);
+    return { data };
   } catch (_err) {
-    if (onError) onError("Upload failed — please try again.");
-  } finally {
-    if (onDone) onDone();
+    return { error: "Upload failed — please try again." };
   }
 }
 
-function appendAssistantMessage(thread, data) {
-  if (!thread) return;
-  const botBubble = document.createElement("div");
-  botBubble.className = "chat-message chat-message--assistant";
-  const text = String(data.detail || data.text || "No response.")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\n/g, "<br>");
-  let html = `<div class="chat-bubble">${text}</div>`;
-  const widgets = data.widgets || [];
-  if (widgets.some((w) => w && w.type === "file_upload")) {
-    html += `
-      <div class="chat-widget">
-        <label class="chat-upload-btn">
-          <input type="file" class="sr-only" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime" multiple data-chat-upload />
-          <span>Upload photos or video</span>
-        </label>
-        <p class="chat-upload-hint">Attach damage photos or a short video</p>
-      </div>`;
+function getChatAlpine() {
+  const shell = document.getElementById("chat-shell");
+  if (!shell || !window.Alpine) return null;
+  try {
+    return window.Alpine.$data(shell);
+  } catch (_err) {
+    return null;
   }
-  botBubble.innerHTML = html;
-  thread.appendChild(botBubble);
-  botBubble.querySelectorAll("[data-chat-upload]").forEach((input) => {
-    input.addEventListener("change", () => {
-      uploadChatFiles(input.files, {
-        onReply: (payload) => appendAssistantMessage(thread, payload),
-        onError: (msg) => appendAssistantMessage(thread, { text: msg }),
-        onDone: () => {
-          input.value = "";
-        },
-      });
-    });
-  });
-  thread.scrollTop = thread.scrollHeight;
+}
+
+function openChatProfile() {
+  window.dispatchEvent(new CustomEvent("ai-tribe:open-profile"));
 }
 
 function mountUserChromeInSidebar() {
@@ -309,7 +340,8 @@ function initChatChrome() {
         alpine.draft = input.value;
         alpine.syncSendDisabled();
       } else {
-        sendBtn.disabled = !input.value.trim();
+        const pending = document.querySelectorAll("#chat-pending-attachments .chat-pending-item");
+        sendBtn.disabled = !input.value.trim() && !pending.length;
       }
     });
 
@@ -331,24 +363,13 @@ function initChatChrome() {
   if (attachInput) {
     attachInput.addEventListener("change", () => {
       const alpine = getChatAlpine();
-      const files = Array.from(attachInput.files || []);
       if (alpine && typeof alpine.onFilesSelected === "function") {
         alpine.onFilesSelected({ target: attachInput });
         return;
       }
-      uploadChatFiles(files, {
-        onReply: (data) => {
-          const suggestions = document.getElementById("chat-suggestions");
-          if (suggestions) suggestions.hidden = true;
-          appendAssistantMessage(document.getElementById("chat-thread"), data);
-        },
-        onError: (msg) => {
-          appendAssistantMessage(document.getElementById("chat-thread"), { text: msg });
-        },
-        onDone: () => {
-          attachInput.value = "";
-        },
-      });
+      // Vanilla fallback: stage into DOM strip
+      stageFilesVanilla(attachInput.files);
+      attachInput.value = "";
     });
   }
 
@@ -366,6 +387,52 @@ function initChatChrome() {
   });
 }
 
+const vanillaPending = [];
+
+function stageFilesVanilla(fileList) {
+  const strip = document.getElementById("chat-pending-attachments");
+  const sendBtn = document.getElementById("chat-send-btn");
+  if (!strip) return;
+  Array.from(fileList || []).forEach((file) => {
+    const isVideo = file.type.startsWith("video/");
+    const isImage =
+      file.type.startsWith("image/") ||
+      /\.(jpe?g|png|webp|gif)$/i.test(file.name || "");
+    if (!isVideo && !isImage) return;
+    const url = URL.createObjectURL(file);
+    vanillaPending.push({ file, url, name: file.name, isVideo });
+    const item = document.createElement("div");
+    item.className = "chat-pending-item";
+    item.innerHTML = isVideo
+      ? `<span class="chat-msg-video">${file.name || "Video"}</span>`
+      : `<img src="${url}" alt="" />`;
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "chat-pending-remove";
+    remove.innerHTML = "&times;";
+    remove.addEventListener("click", () => {
+      const idx = vanillaPending.findIndex((p) => p.url === url);
+      if (idx >= 0) {
+        URL.revokeObjectURL(vanillaPending[idx].url);
+        vanillaPending.splice(idx, 1);
+      }
+      item.remove();
+      strip.hidden = !vanillaPending.length;
+      if (sendBtn) {
+        const input = document.getElementById("chat-input");
+        sendBtn.disabled = !(input && input.value.trim()) && !vanillaPending.length;
+      }
+    });
+    item.appendChild(remove);
+    strip.appendChild(item);
+  });
+  strip.hidden = !vanillaPending.length;
+  strip.style.display = vanillaPending.length ? "flex" : "none";
+  if (sendBtn) sendBtn.disabled = false;
+  const suggestions = document.getElementById("chat-suggestions");
+  if (suggestions) suggestions.hidden = true;
+}
+
 async function submitChatMessage() {
   const alpine = getChatAlpine();
   if (alpine && typeof alpine.sendMessage === "function") {
@@ -375,38 +442,109 @@ async function submitChatMessage() {
   }
 
   const input = document.getElementById("chat-input");
-  const text = (input && input.value || "").trim();
-  if (!text) return;
+  const text = ((input && input.value) || "").trim();
+  const staged = vanillaPending.splice(0, vanillaPending.length);
+  if (!text && !staged.length) return;
 
   const suggestions = document.getElementById("chat-suggestions");
   if (suggestions) suggestions.hidden = true;
   if (input) input.value = "";
 
+  const strip = document.getElementById("chat-pending-attachments");
+  if (strip) {
+    strip.innerHTML = "";
+    strip.hidden = true;
+    strip.style.display = "none";
+  }
+
   const thread = document.getElementById("chat-thread");
   if (thread) {
     const userBubble = document.createElement("div");
     userBubble.className = "chat-message chat-message--user";
-    userBubble.innerHTML = `<div class="chat-bubble">${text.replace(/</g, "&lt;")}</div>`;
+    let html = text
+      ? `<div class="chat-bubble">${text.replace(/</g, "&lt;")}</div>`
+      : "";
+    if (staged.length) {
+      html += `<div class="chat-msg-attachments">${staged
+        .map((a) =>
+          a.isVideo
+            ? `<span class="chat-msg-thumb chat-msg-video">${a.name || "Video"}</span>`
+            : `<button type="button" class="chat-msg-thumb"><img src="${a.url}" alt="" /></button>`
+        )
+        .join("")}</div>`;
+    }
+    userBubble.innerHTML = html;
     thread.appendChild(userBubble);
   }
 
   try {
-    const response = await fetch("/api/chat/message", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ text }),
-    });
-    const data = await response.json();
-    appendAssistantMessage(thread, data);
+    if (staged.length) {
+      const uploadReply = await postChatUpload(staged.map((a) => a.file));
+      if (uploadReply.error) {
+        appendAssistantMessage(thread, { text: uploadReply.error });
+        return;
+      }
+      if (!text) {
+        appendAssistantMessage(thread, uploadReply.data);
+        return;
+      }
+    }
+    if (text) {
+      const response = await fetch("/api/chat/message", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text }),
+      });
+      const data = await response.json();
+      appendAssistantMessage(thread, data);
+    }
   } catch (_err) {
     appendAssistantMessage(thread, {
       text: "I couldn't reach the server. Check your connection and try again.",
     });
   }
+}
+
+function appendAssistantMessage(thread, data) {
+  if (!thread) return;
+  const botBubble = document.createElement("div");
+  botBubble.className = "chat-message chat-message--assistant";
+  const text = String(data.detail || data.text || "No response.")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\n/g, "<br>");
+  let html = `<div class="chat-bubble">${text}</div>`;
+  const widgets = data.widgets || [];
+  if (widgets.some((w) => w && w.type === "file_upload")) {
+    html += `
+      <div class="chat-widget">
+        <label class="chat-upload-btn">
+          <input type="file" class="sr-only" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime" multiple data-chat-upload />
+          <span>Upload photos or video</span>
+        </label>
+        <p class="chat-upload-hint">Attach damage photos or a short video</p>
+      </div>`;
+  }
+  botBubble.innerHTML = html;
+  thread.appendChild(botBubble);
+  botBubble.querySelectorAll("[data-chat-upload]").forEach((fileInput) => {
+    fileInput.addEventListener("change", () => {
+      const alpine = getChatAlpine();
+      if (alpine) {
+        alpine.onFilesSelected({ target: fileInput });
+        return;
+      }
+      stageFilesVanilla(fileInput.files);
+      fileInput.value = "";
+    });
+  });
+  thread.scrollTop = thread.scrollHeight;
 }
 
 if (document.readyState === "loading") {
@@ -415,5 +553,4 @@ if (document.readyState === "loading") {
   initChatChrome();
 }
 
-// Move profile chip into sidebar before Alpine scans the DOM.
 mountUserChromeInSidebar();
