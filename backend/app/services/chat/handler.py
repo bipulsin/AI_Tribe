@@ -675,18 +675,22 @@ async def handle_message(
     llm_fn = _llm_classifier(db, user_id)
 
     session = _lookup_sessions.get(user_id)
-    if session and session.mode == "awaiting_garage_name" and raw and not draft.active:
-        if is_fresh_submit_intent(raw):
-            _clear_lookup_session(user_id)
-        else:
-            return handle_garage_name_lookup(db, user_id, raw, session)
+    # Never steal replies from an in-progress claim submission.
+    if not draft.active:
+        if session and session.mode == "awaiting_garage_name" and raw:
+            if is_fresh_submit_intent(raw):
+                _clear_lookup_session(user_id)
+            else:
+                return handle_garage_name_lookup(db, user_id, raw, session)
 
-    if session and session.mode == "awaiting_list_pick" and raw and re.fullmatch(r"\d{1,2}", raw):
-        return handle_lookup(db, user_id, raw, {}, force=True)
+        if session and session.mode == "awaiting_list_pick" and raw and re.fullmatch(
+            r"\d{1,2}", raw
+        ):
+            return handle_lookup(db, user_id, raw, {}, force=True)
 
-    if _lookup_awaiting_query(user_id) and raw and not draft.active:
-        _, entities = classify_intent(raw, draft_active=False, llm_classify=llm_fn)
-        return handle_lookup(db, user_id, raw, entities, force=True)
+        if _lookup_awaiting_query(user_id) and raw:
+            _, entities = classify_intent(raw, draft_active=False, llm_classify=llm_fn)
+            return handle_lookup(db, user_id, raw, entities, force=True)
 
     intent, entities = classify_intent(
         raw,
@@ -694,13 +698,18 @@ async def handle_message(
         llm_classify=llm_fn,
     )
 
-    if intent == "lookup_claim":
+    # Explicit lookup can abandon a draft; otherwise keep collecting submit details.
+    if intent == "lookup_claim" and not draft.active:
+        _clear_submit_session(user_id)
+        return handle_lookup(db, user_id, raw, entities)
+
+    if intent == "lookup_claim" and draft.active:
         clear_draft(db, user_id)
         _clear_submit_session(user_id)
         return handle_lookup(db, user_id, raw, entities)
 
     # Fresh submit phrasing — preserve any photos already uploaded in this turn.
-    if intent == "submit_claim" and is_fresh_submit_intent(raw):
+    if intent == "submit_claim" and is_fresh_submit_intent(raw) and not draft.active:
         city_hint = entities.get("city_query") or extract_city_from_text(raw)
         return begin_submit_flow(
             db,
@@ -710,7 +719,27 @@ async def handle_message(
             city_hint=city_hint,
         )
 
+    # Re-stated submit while already collecting → continue (don't wipe / re-ask from scratch).
+    if intent == "submit_claim" and is_fresh_submit_intent(raw) and draft.active:
+        _clear_lookup_session(user_id)
+        city_hint = entities.get("city_query") or extract_city_from_text(raw)
+        if city_hint and not draft.garage_name:
+            draft.flow = "await_garage"
+            persist_draft(db, user_id, draft)
+            return _garage_pick_reply(db, user_id, city_hint)
+        return await _continue_submit_flow(
+            db,
+            user_id,
+            "",
+            draft,
+            full_name=full_name,
+            username=username,
+            background_tasks=background_tasks,
+            force_submit=False,
+        )
+
     if draft.active or intent in {"submit_claim", "done"}:
+        _clear_lookup_session(user_id)
         draft = get_draft(db, user_id)
         if draft.interrupted:
             return _interrupted_reply(db, user_id)

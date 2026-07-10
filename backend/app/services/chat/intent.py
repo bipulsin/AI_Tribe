@@ -373,6 +373,24 @@ def should_use_city_garage_list(text: str, *, search_term: str | None) -> bool:
     return False
 
 
+def _is_explicit_lookup(text: str, entities: dict) -> bool:
+    """True only when the user clearly wants to search existing claims."""
+    if entities.get("claim_reference") or entities.get("claim_suffix"):
+        return True
+    lower = (text or "").strip().lower()
+    if not lower:
+        return False
+    if any(phrase in lower for phrase in _LOOKUP_PHRASES):
+        return True
+    if re.search(r"\b(find|show|get|search|lookup|look\s+up)\b", lower) and "claim" in lower:
+        return True
+    if "claim" in lower and any(
+        word in lower for word in ("detail", "status", "existing")
+    ):
+        return True
+    return False
+
+
 def classify_intent(
     text: str,
     *,
@@ -392,6 +410,24 @@ def classify_intent(
         city = extract_city_from_text(raw)
         if city:
             entities["city_query"] = city
+        return "submit_claim", entities
+
+    # While collecting a new claim, treat replies (city, garage #, dates, names)
+    # as submit continuation — never as a free-text claim search.
+    if draft_active:
+        city = extract_city_from_text(raw)
+        if city:
+            entities["city_query"] = city
+
+        ref = extract_claim_reference(raw)
+        if ref:
+            entities["claim_reference"] = ref
+        short_num = extract_short_claim_number(raw)
+        if short_num is not None:
+            entities["claim_suffix"] = pad_claim_number_suffix(short_num)
+
+        if _is_explicit_lookup(raw, entities):
+            return "lookup_claim", entities
         return "submit_claim", entities
 
     ref = extract_claim_reference(raw)
@@ -424,7 +460,7 @@ def classify_intent(
     ):
         return "lookup_claim", entities
 
-    if llm_classify and not draft_active:
+    if llm_classify:
         try:
             llm_intent, llm_entities = llm_classify(raw)
             if llm_intent:
@@ -435,9 +471,6 @@ def classify_intent(
 
     if any(phrase in lower for phrase in _LOOKUP_PHRASES):
         return "lookup_claim", entities
-
-    if draft_active:
-        return "submit_claim", entities
 
     if "claim" in lower and any(word in lower for word in ("detail", "status", "find", "show")):
         return "lookup_claim", entities
