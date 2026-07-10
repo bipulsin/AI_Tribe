@@ -23,6 +23,11 @@ OFF_TOPIC_REDIRECT = (
     "What would you like to do?"
 )
 
+CLARIFY_MESSAGE = (
+    "I'm not sure whether you want to **submit a new claim** or **look up an existing one**. "
+    "Could you clarify? For example: “Submit a claim” or “Find claim CLM-2026-000026”."
+)
+
 LOOKUP_NEED_IDENTIFIER = (
     "Which claim? Give me a claim number, garage name, or surveyor name"
 )
