@@ -83,6 +83,8 @@ services:
       SMTP_FROM: ${SMTP_FROM:-webnetin@gmail.com}
       HF_HOME: /app/backend/app/ml_weights/huggingface
       TORCH_HOME: /app/backend/app/ml_weights/torch
+      CHAT_NLU_ENABLED: "true"
+      CHAT_NLU_ROOT: /mnt/ml-scratch/chat_nlu
       HOST: 0.0.0.0
       PORT: 8000
     # Local profile smoke-test port; paperclip-vm routes via Caddy on the Docker network.
@@ -92,6 +94,7 @@ services:
       - ai_tribe_uploads:/app/data/uploads
       - ai_tribe_profile_photos:/app/data/profile_photos
       - ai_tribe_ml_weights:/app/backend/app/ml_weights
+      - /mnt/ml-scratch:/mnt/ml-scratch:rw
     mem_limit: 2g
     cpus: 2.0
     restart: unless-stopped

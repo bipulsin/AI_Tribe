@@ -27,6 +27,8 @@ from app.services.chat.draft import (
     persist_draft,
 )
 from app.services.chat.intent import (
+    CLARIFY_MESSAGE,
+    OFF_TOPIC_REDIRECT,
     classify_intent,
     extract_city_from_text,
     extract_claim_reference,
@@ -760,6 +762,12 @@ async def handle_message(
             background_tasks=background_tasks,
             force_submit=force_submit,
         )
+
+    if intent == "off_topic":
+        return ChatReply(text=OFF_TOPIC_REDIRECT)
+
+    if intent == "clarify":
+        return ChatReply(text=CLARIFY_MESSAGE)
 
     if intent == "general":
         return ChatReply(

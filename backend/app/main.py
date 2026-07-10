@@ -52,6 +52,10 @@ async def lifespan(_app: FastAPI):
     logger.info("ML_MODE=%s", settings.ml_mode)
     print(f"\n  ML_MODE={settings.ml_mode} "
           f"({'pretrained models' if settings.ml_live else 'deterministic stubs, no torch'})\n")
+    print(
+        f"  CHAT_NLU_ENABLED={settings.chat_nlu_enabled} "
+        f"root={settings.chat_nlu_path}\n"
+    )
 
     # Only configure HF/torch caches when live inference is enabled.
     if settings.ml_live:

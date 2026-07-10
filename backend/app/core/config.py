@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     # "live": load pretrained HF / torchvision models (requires requirements-ml.txt).
     ml_mode: MlMode = "stub"
 
+    # Chat NLU (MiniLM + spaCy) — understanding layer only; not BYOK / not claim ML.
+    chat_nlu_enabled: bool = True
+    chat_nlu_root: str = "/mnt/ml-scratch/chat_nlu"
+
     session_cookie_name: str = "ai_tribe_session"
     session_max_age: int = 86400
 
@@ -54,6 +58,13 @@ class Settings(BaseSettings):
     @property
     def ml_live(self) -> bool:
         return self.ml_mode == "live"
+
+    @property
+    def chat_nlu_path(self) -> Path:
+        path = Path(self.chat_nlu_root)
+        if not path.is_absolute():
+            path = REPO_ROOT / path
+        return path
 
     @property
     def frontend_dir(self) -> Path:
