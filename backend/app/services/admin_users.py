@@ -105,6 +105,8 @@ def create_user_with_email(
         "is_active": user.is_active,
         "created_at": user.created_at.isoformat() if user.created_at else None,
         "email_sent": bool(send_email),
+        # Shown once to the creating admin — never stored or listed again.
+        "temporary_password": password,
     }
 
 
@@ -147,6 +149,11 @@ def update_user_role(
 
 
 def deactivate_user(db: Session, *, user_id: int, acting_admin_id: int) -> None:
+    """Remove sign-in access without deleting claim history.
+
+    Soft-deactivates the account and rotates the password hash. Claim rows keep
+    ``created_by`` / surveyor / claimant name fields unchanged.
+    """
     if user_id == acting_admin_id:
         raise ValueError("You cannot delete your own account")
 
@@ -164,4 +171,6 @@ def deactivate_user(db: Session, *, user_id: int, acting_admin_id: int) -> None:
             raise ValueError("Cannot delete the last active admin")
 
     user.is_active = False
+    # Invalidate credentials; do not cascade-delete claims or rewrite name fields.
+    user.password_hash = hash_password(secrets.token_urlsafe(32))
     db.commit()

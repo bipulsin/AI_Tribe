@@ -32,6 +32,7 @@ function userChrome() {
     newUserEmail: "",
     newUserRole: "user",
     adminMessage: "",
+    adminTempPassword: "",
     adminSubmitting: false,
     adminRoleSavingId: null,
 
@@ -126,12 +127,14 @@ function userChrome() {
       this.settingsOpen = false;
       this.adminOpen = true;
       this.adminMessage = "";
+      this.adminTempPassword = "";
       document.body.classList.add("chrome-panel-open");
       await this.refreshAdminUsers();
     },
 
     closeAdmin() {
       this.adminOpen = false;
+      this.adminTempPassword = "";
       if (!this.profileOpen && !this.settingsOpen) {
         document.body.classList.remove("chrome-panel-open");
       }
@@ -259,6 +262,7 @@ function userChrome() {
       if (!email) return;
       this.adminSubmitting = true;
       this.adminMessage = "";
+      this.adminTempPassword = "";
       try {
         const resp = await fetch("/api/admin/users", {
           method: "POST",
@@ -273,7 +277,10 @@ function userChrome() {
         this.newUserEmail = "";
         this.newUserRole = "user";
         const roleName = data.role_label || data.role || "User";
-        this.adminMessage = `User created as ${roleName}. A password was emailed to ${data.email}.`;
+        this.adminMessage = data.email_sent
+          ? `User created as ${roleName}. Password emailed to ${data.email} (also shown once below).`
+          : `User created as ${roleName}. Share the temporary password below.`;
+        this.adminTempPassword = data.temporary_password || "";
         await this.refreshAdminUsers();
       } finally {
         this.adminSubmitting = false;
@@ -306,15 +313,22 @@ function userChrome() {
 
     async deleteUser(row) {
       if (!row?.id || !row.is_active) return;
-      if (!window.confirm(`Deactivate ${row.email}? They will not be able to sign in.`)) return;
+      if (
+        !window.confirm(
+          `Delete sign-in for ${row.email}?\n\nThey will not be able to log in. Claim records keep their surveyor/claimant name.`
+        )
+      ) {
+        return;
+      }
       this.adminMessage = "";
+      this.adminTempPassword = "";
       const resp = await fetch(`/api/admin/users/${row.id}`, { method: "DELETE" });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) {
         this.adminMessage = data.detail || "Could not delete user.";
         return;
       }
-      this.adminMessage = `${row.email} deactivated.`;
+      this.adminMessage = `${row.email} deleted (sign-in disabled; claim names preserved).`;
       await this.refreshAdminUsers();
     },
 

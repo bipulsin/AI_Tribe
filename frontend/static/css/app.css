@@ -999,6 +999,82 @@ body.chat-page .user-menu-item--enterprise {
   border-right: none;
 }
 
+.chrome-modal-panel--admin {
+  width: min(44rem, 100vw);
+}
+
+.admin-users-table {
+  min-width: 36rem;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.admin-users-table th:nth-child(1),
+.admin-users-table td:nth-child(1) {
+  width: 38%;
+  word-break: break-word;
+}
+
+.admin-users-table th:nth-child(2),
+.admin-users-table td:nth-child(2) {
+  width: 22%;
+  word-break: break-word;
+}
+
+.admin-users-table th:nth-child(3),
+.admin-users-table td:nth-child(3) {
+  width: 22%;
+}
+
+.admin-users-table th:nth-child(4),
+.admin-users-table td:nth-child(4) {
+  width: 18%;
+  white-space: nowrap;
+}
+
+.admin-users-table .chrome-input {
+  width: 100%;
+  max-width: 9.5rem;
+}
+
+.admin-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  background: rgba(127, 29, 29, 0.25);
+  padding: 0.25rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #fca5a5;
+  cursor: pointer;
+}
+
+.admin-delete-btn:hover,
+.admin-delete-btn:focus-visible {
+  border-color: rgba(248, 113, 113, 0.55);
+  background: rgba(127, 29, 29, 0.4);
+  color: #fecaca;
+  outline: none;
+}
+
+.admin-temp-password {
+  margin-top: 0.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(184, 134, 11, 0.35);
+  background: rgba(184, 134, 11, 0.08);
+  padding: 0.65rem 0.75rem;
+  font-size: 0.75rem;
+  color: rgba(232, 236, 241, 0.85);
+  word-break: break-all;
+}
+
+.admin-temp-password code {
+  font-size: 0.8125rem;
+  color: #fde68a;
+}
+
 .chrome-modal-header {
   display: flex;
   align-items: center;

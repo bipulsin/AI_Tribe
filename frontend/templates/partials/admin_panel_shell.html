@@ -6,7 +6,11 @@
   @keydown.escape.window="closeAdmin()"
 >
   <div class="chrome-modal-backdrop" @click="closeAdmin()"></div>
-  <div class="chrome-modal-panel chrome-modal-panel--slide" role="dialog" aria-labelledby="admin-panel-title">
+  <div
+    class="chrome-modal-panel chrome-modal-panel--slide chrome-modal-panel--admin"
+    role="dialog"
+    aria-labelledby="admin-panel-title"
+  >
     <header class="chrome-modal-header">
       <h2 id="admin-panel-title" class="chrome-modal-title">Admin</h2>
       <button type="button" class="chrome-modal-close" @click="closeAdmin()" aria-label="Close admin panel">&times;</button>
@@ -16,7 +20,7 @@
         <p class="chrome-field-label">Create user</p>
         <p class="mt-1 text-xs text-mist/45">
           Assign one role per user. A temporary password is generated, stored encrypted, and emailed.
-          Administrators cannot view passwords after creation.
+          The password is also shown once below so you can share it if the email lands in spam.
         </p>
         <form class="mt-3 flex flex-col gap-2" @submit.prevent="createUser()">
           <input
@@ -50,6 +54,14 @@
           </div>
         </form>
         <p class="mt-1 text-xs text-amber-300/80" x-show="adminMessage" x-text="adminMessage" x-cloak></p>
+        <div class="admin-temp-password" x-show="adminTempPassword" x-cloak>
+          <p class="mb-1 font-medium text-mist/80">Temporary password (shown once)</p>
+          <code x-text="adminTempPassword"></code>
+          <p class="mt-2 text-mist/45">
+            Ask the user to check spam/junk if the email is missing. Prefer sending from a
+            domain mailbox (e.g. noreply@tradentical.com) with SPF/DKIM for better delivery.
+          </p>
+        </div>
       </section>
 
       <section>
@@ -58,9 +70,9 @@
           Roles: <strong class="text-mist/70">User</strong> (own claims),
           <strong class="text-mist/70">Supervisor</strong> (view all claims),
           <strong class="text-mist/70">Admin</strong> (full admin).
-          Change role anytime — one role per user.
+          Delete removes sign-in access only — claim surveyor/claimant names stay on record.
         </p>
-        <div class="mt-2 overflow-hidden rounded-lg border border-white/10">
+        <div class="mt-2 overflow-x-auto rounded-lg border border-white/10">
           <table class="admin-users-table w-full text-left text-sm">
             <thead>
               <tr class="border-b border-white/10 text-xs uppercase tracking-wide text-mist/45">
@@ -74,7 +86,7 @@
               <template x-for="row in adminUsers" :key="row.id">
                 <tr class="border-b border-white/5 last:border-0" :class="!row.is_active ? 'opacity-50' : ''">
                   <td class="px-3 py-2 text-mist/85" x-text="row.email"></td>
-                  <td class="px-3 py-2 text-mist/70" x-text="row.full_name"></td>
+                  <td class="px-3 py-2 text-mist/70" x-text="row.full_name || '—'"></td>
                   <td class="px-3 py-2">
                     <select
                       class="chrome-input py-1 text-xs"
@@ -92,10 +104,10 @@
                   <td class="px-3 py-2 text-right">
                     <button
                       type="button"
-                      class="inline-flex items-center rounded border border-red-400/30 px-2 py-1 text-xs text-red-300/80"
+                      class="admin-delete-btn"
                       x-show="row.is_active"
                       @click="deleteUser(row)"
-                      title="Deactivate user"
+                      title="Remove sign-in access (keeps claim name history)"
                     >
                       Delete
                     </button>

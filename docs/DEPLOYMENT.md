@@ -88,6 +88,26 @@ tribe.tradentical.com {
 - Live secret lives only in `/opt/stack/ai_tribe/.env` (and the compose env).
   Do not commit it.
 
+### Welcome email deliverability (spam)
+
+Admin “Create & email password” sends via SMTP (`SMTP_*` in `.env`). Free Gmail
+SMTP (`@gmail.com`) often lands in spam when the body includes a temporary
+password, because the domain cannot publish custom SPF/DKIM for recipients.
+
+Mitigations already in the app:
+
+- Better From display name / Message-ID / multipart HTML+text
+- Temporary password shown **once** in the Admin panel after create (share
+  out-of-band if mail is filtered)
+
+Recommended for production:
+
+1. Send from a **domain mailbox** (e.g. `noreply@tradentical.com`) via Google
+   Workspace or a transactional provider (Resend, Postmark, Amazon SES).
+2. Publish **SPF**, **DKIM**, and **DMARC** for that domain.
+3. Set `SMTP_FROM` / `SMTP_FROM_NAME=AI Tribe` to match the authenticated domain.
+4. Ask recipients to check spam once and mark the sender as safe.
+
 ### Redeploy / update code
 
 ```bash
