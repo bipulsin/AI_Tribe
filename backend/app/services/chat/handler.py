@@ -843,12 +843,15 @@ async def handle_message(
     return handle_lookup(db, user_id, raw, entities, force=True)
 
 
-def append_uploads(
+async def append_uploads(
     db: Session,
     user_id: int,
     *,
     images: list[tuple[str, bytes, str]],
     video: tuple[str, bytes, str] | None,
+    full_name: str | None = None,
+    username: str | None = None,
+    background_tasks: BackgroundTasks | None = None,
 ) -> ChatReply:
     draft = get_draft(db, user_id)
     if draft.interrupted:
@@ -860,8 +863,30 @@ def append_uploads(
     if draft.interrupted:
         return _interrupted_reply(db, user_id)
 
-    # Guided next question — do not ask the user to say “done”.
+    # Guided next question — or auto-submit when the draft is complete.
     step = draft.next_step()
+    if step == "ready" and background_tasks is not None:
+        if not (draft.surveyor_name or "").strip():
+            draft.surveyor_name = "__self__"
+            persist_draft(db, user_id, draft)
+        if draft.accident_date:
+            _normalized, date_err = accept_accident_date_input(draft.accident_date)
+            if date_err:
+                draft.accident_date = None
+                draft.flow = "await_date"
+                persist_draft(db, user_id, draft)
+                return ChatReply(text=date_err)
+            draft.accident_date = _normalized
+            persist_draft(db, user_id, draft)
+        reply, _meta = await submit_draft(
+            db,
+            user_id,
+            draft,
+            full_name=full_name,
+            username=username,
+            background_tasks=background_tasks,
+        )
+        return reply
     if step == "ready":
         return ChatReply(
             text=(

@@ -2,6 +2,9 @@ function chatApp({ userName = "User", maxImages = 10, maxUploadMb = 25 } = {}) {
   let nextId = 1;
   let pendingId = 1;
   const completedPipelines = new Set();
+  // Keep File/Blob objects outside Alpine reactive state — deeply proxying them
+  // can crash Alpine and blank the page when the file picker closes.
+  const pendingFileStore = new Map();
 
   return {
     userName,
@@ -79,60 +82,70 @@ function chatApp({ userName = "User", maxImages = 10, maxUploadMb = 25 } = {}) {
       this.scrollToBottom();
     },
 
-    stageFiles(fileList) {
+    stageFiles(fileList, { autoSend = false } = {}) {
       const files = Array.from(fileList || []);
       if (!files.length) return;
 
-      let imageCount = this.pendingAttachments.filter((a) => !a.isVideo).length;
-      let hasVideo = this.pendingAttachments.some((a) => a.isVideo);
+      let added = 0;
+      try {
+        let imageCount = this.pendingAttachments.filter((a) => !a.isVideo).length;
+        let hasVideo = this.pendingAttachments.some((a) => a.isVideo);
 
-      for (const file of files) {
-        const isVideo = file.type.startsWith("video/");
-        const isImage =
-          file.type.startsWith("image/") ||
-          /\.(jpe?g|png|webp|gif)$/i.test(file.name || "");
-        if (!isVideo && !isImage) continue;
-        if (isVideo && hasVideo) continue;
-        if (!isVideo && imageCount >= this.maxImages) continue;
+        for (const file of files) {
+          const isVideo = file.type.startsWith("video/");
+          const isImage =
+            file.type.startsWith("image/") ||
+            /\.(jpe?g|png|webp|gif)$/i.test(file.name || "");
+          if (!isVideo && !isImage) continue;
+          if (isVideo && hasVideo) continue;
+          if (!isVideo && imageCount >= this.maxImages) continue;
 
-        const url = URL.createObjectURL(file);
-        this.pendingAttachments.push({
-          id: pendingId++,
-          file,
-          url,
-          name: file.name || (isVideo ? "Video" : "Photo"),
-          isVideo,
-        });
-        if (isVideo) hasVideo = true;
-        else imageCount += 1;
+          const id = pendingId++;
+          const url = URL.createObjectURL(file);
+          pendingFileStore.set(id, file);
+          this.pendingAttachments.push({
+            id,
+            url,
+            name: file.name || (isVideo ? "Video" : "Photo"),
+            isVideo,
+          });
+          added += 1;
+          if (isVideo) hasVideo = true;
+          else imageCount += 1;
+        }
+      } catch (_err) {
+        // Never let file staging tear down the Alpine tree.
       }
+
+      if (!added) return;
 
       this.hideSuggestions();
       this.syncSendDisabled();
-      this.renderPendingDom();
+
+      if (autoSend && !this.sending) {
+        this.$nextTick(() => {
+          if (this.pendingAttachments.length && !this.sending) {
+            this.sendMessage();
+          }
+        });
+      }
     },
 
     removePendingAttachment(index) {
       const item = this.pendingAttachments[index];
       if (!item) return;
       if (item.url) URL.revokeObjectURL(item.url);
+      pendingFileStore.delete(item.id);
       this.pendingAttachments.splice(index, 1);
       this.syncSendDisabled();
-      this.renderPendingDom();
     },
 
     clearPendingAttachments() {
       this.pendingAttachments.forEach((item) => {
         if (item.url) URL.revokeObjectURL(item.url);
+        pendingFileStore.delete(item.id);
       });
       this.pendingAttachments = [];
-      this.renderPendingDom();
-    },
-
-    renderPendingDom() {
-      // Keep a non-Alpine fallback strip in sync when Alpine is unavailable.
-      const strip = document.getElementById("chat-pending-attachments");
-      if (!strip || window.Alpine) return;
     },
 
     useSuggestion(hint) {
@@ -144,18 +157,27 @@ function chatApp({ userName = "User", maxImages = 10, maxUploadMb = 25 } = {}) {
 
     onFilesSelected(event) {
       const input = event.target;
-      this.stageFiles(input.files);
-      input.value = "";
+      // Guided "Upload photos" widget should upload immediately after pick.
+      const autoSend = !!(input && input.closest && input.closest(".chat-widget"));
+      this.stageFiles(input.files, { autoSend });
+      try {
+        input.value = "";
+      } catch (_err) {
+        /* ignore */
+      }
     },
 
     async sendMessage() {
       const input = document.getElementById("chat-input");
       const text = ((input && input.value) || this.draft || "").trim();
-      const staged = this.pendingAttachments.slice();
-      if ((!text && !staged.length) || this.sending) return;
+      const stagedMeta = this.pendingAttachments.slice();
+      const stagedFiles = stagedMeta
+        .map((a) => pendingFileStore.get(a.id))
+        .filter(Boolean);
+      if ((!text && !stagedMeta.length) || this.sending) return;
 
       this.hideSuggestions();
-      const attachmentViews = staged.map((a) => ({
+      const attachmentViews = stagedMeta.map((a) => ({
         url: a.url,
         name: a.name,
         isVideo: a.isVideo,
@@ -168,13 +190,14 @@ function chatApp({ userName = "User", maxImages = 10, maxUploadMb = 25 } = {}) {
 
       if (input) input.value = "";
       this.draft = "";
+      stagedMeta.forEach((a) => pendingFileStore.delete(a.id));
       this.pendingAttachments = [];
       this.sending = true;
       this.syncSendDisabled();
 
       try {
-        if (staged.length) {
-          const uploadReply = await postChatUpload(staged.map((a) => a.file));
+        if (stagedFiles.length) {
+          const uploadReply = await postChatUpload(stagedFiles);
           if (uploadReply.error) {
             this.pushMessage({
               role: "assistant",
@@ -182,7 +205,7 @@ function chatApp({ userName = "User", maxImages = 10, maxUploadMb = 25 } = {}) {
             });
             return;
           }
-          // If there is no accompanying text, show the server's draft guidance.
+          // If there is no accompanying text, show the server's draft guidance / submit result.
           if (!text) {
             this.pushMessage(uploadReply.data);
             return;
@@ -619,6 +642,8 @@ function appendAssistantMessage(thread, data) {
       }
       stageFilesVanilla(fileInput.files);
       fileInput.value = "";
+      // Guided upload widget: send immediately after pick (vanilla path).
+      submitChatMessage();
     });
   });
   botBubble.querySelectorAll("[data-preview-src]").forEach((btn) => {

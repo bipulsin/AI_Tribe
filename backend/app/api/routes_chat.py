@@ -66,7 +66,11 @@ async def chat_message(
 
 
 @router.post("/api/chat/upload")
-async def chat_upload(request: Request, db: Session = Depends(get_db)):
+async def chat_upload(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
     user_id = request.session.get("user_id")
     form = await request.form()
 
@@ -109,14 +113,16 @@ async def chat_upload(request: Request, db: Session = Depends(get_db)):
     if not image_payloads and not video_payload:
         return JSONResponse({"detail": "No supported files received."}, status_code=400)
 
-    reply = append_uploads(
+    reply = await append_uploads(
         db,
         user_id,
         images=image_payloads,
         video=video_payload,
+        full_name=request.session.get("full_name"),
+        username=request.session.get("username"),
+        background_tasks=background_tasks,
     )
     return JSONResponse(_reply_json(reply))
-
 
 @router.get("/api/chat/claims/{claim_id}/summary")
 async def chat_claim_summary(
