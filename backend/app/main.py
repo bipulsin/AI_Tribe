@@ -127,6 +127,7 @@ async def require_session(request: Request, call_next):
         path in PUBLIC_PATHS
         or path.startswith("/static/")
         or path.startswith("/uploads/")
+        or path.startswith("/api/v1/external/")
     ):
         return await call_next(request)
 
@@ -209,6 +210,10 @@ try:
     from app.api import routes_chat
 
     app.include_router(routes_chat.router)
+    from app.api_marketplace import routes_external, routes_marketplace
+
+    app.include_router(routes_marketplace.router)
+    app.include_router(routes_external.router)
 except ImportError:
     # Partial scaffold during early milestones — routes land incrementally.
     pass

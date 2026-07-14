@@ -12,6 +12,13 @@
       <button type="button" class="chrome-modal-close" @click="closeSettings()" aria-label="Close settings">&times;</button>
     </header>
     <div class="chrome-modal-body space-y-6">
+      <a
+        href="/settings/api-marketplace"
+        class="block rounded-lg border border-gold/25 bg-gold/5 px-3 py-2 text-sm font-medium text-gold hover:bg-gold/10"
+        @click="closeSettings()"
+      >
+        API Marketplace →
+      </a>
       <p class="text-sm text-mist/60">
         Your LLM API key is encrypted and stored only for your account. It is never shared
         with other users and is not cleared when you sign out.

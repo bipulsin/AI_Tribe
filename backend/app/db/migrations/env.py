@@ -17,6 +17,7 @@ from app.models import (  # noqa: F401 — register models with metadata
     User,
     Vehicle,
 )
+from app.api_marketplace import models as api_marketplace_models  # noqa: F401
 
 config = context.config
 settings = get_settings()

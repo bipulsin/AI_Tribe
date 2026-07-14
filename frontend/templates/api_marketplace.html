@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}API Marketplace{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/api_marketplace.css" />
+{% endblock %}
+
+{% block body %}
+<main
+  class="mx-auto max-w-5xl px-4 py-8 api-mp"
+  id="api-marketplace"
+  x-data="apiMarketplace({
+    validityOptions: {{ validity_options|tojson }},
+    defaultValidity: {{ default_validity }},
+    chainableApis: {{ chainable_apis|tojson }},
+    tokenView: {{ token_view|tojson }},
+    catalog: {{ catalog|tojson }},
+    chains: {{ chains|tojson }},
+    baseUrl: {{ app_public_url|tojson }}
+  })"
+  x-init="init()"
+>
+  <header class="mb-8">
+    <h1 class="text-2xl font-bold text-mist">AI Tribe API Marketplace</h1>
+    <p class="mt-2 max-w-3xl text-sm text-mist/60">
+      Self-service partner API into the same claim assessment pipeline used by Enterprise and Chat.
+      Generate a bearer token, subscribe to endpoints, and chain calls with the claim number returned from submit.
+    </p>
+  </header>
+
+  {# —— Token manager —— #}
+  <section class="api-mp-card mb-6">
+    <h2 class="api-mp-section-title">My API Token</h2>
+    <p class="mt-1 text-xs text-mist/50">
+      Format <code class="text-gold/80">atr_live_…</code>. Only the latest token is valid.
+      Showing the token is logged for security review.
+    </p>
+
+    <div class="mt-4 flex flex-wrap items-end gap-3">
+      <div>
+        <label class="chrome-field-label" for="api-mp-validity">Validity</label>
+        <select id="api-mp-validity" class="chrome-input mt-1" x-model.number="validityDays">
+          <template x-for="d in validityOptions" :key="d">
+            <option :value="d" x-text="d + ' days'" :selected="d === defaultValidity"></option>
+          </template>
+        </select>
+      </div>
+      <button type="button" class="btn-primary rounded-lg px-4 py-2 text-xs font-semibold" :disabled="busy" @click="generateToken()">
+        Generate / Refresh Token
+      </button>
+      <button type="button" class="rounded-lg border border-white/15 px-4 py-2 text-xs text-mist/80" :disabled="busy || !tokenView" @click="showToken()">
+        Show Token
+      </button>
+    </div>
+
+    <div class="mt-4 grid gap-2 text-sm text-mist/75" x-show="tokenView">
+      <p>Prefix: <code class="text-gold/90" x-text="tokenView.token_prefix + '…'"></code></p>
+      <p>
+        Expires:
+        <strong x-text="tokenView.expires_at"></strong>
+        <span
+          class="ml-2 rounded bg-amber-500/15 px-2 py-0.5 text-xs text-amber-200"
+          x-show="tokenView.expiring_soon"
+          x-text="'expires in ' + tokenView.days_remaining + ' days'"
+        ></span>
+      </p>
+    </div>
+    <p class="mt-2 text-xs text-mist/45" x-show="!tokenView">No token yet — generate one to call the external API.</p>
+
+    <div class="mt-3" x-show="revealedToken" x-cloak>
+      <label class="chrome-field-label">Current token (copyable)</label>
+      <div class="mt-1 flex gap-2">
+        <input class="chrome-input w-full font-mono text-xs" readonly :value="revealedToken" @click="$el.select()" />
+        <button type="button" class="rounded-lg border border-white/15 px-3 text-xs" @click="copyToken()">Copy</button>
+      </div>
+    </div>
+    <p class="mt-2 text-xs text-amber-300/80" x-show="message" x-text="message" x-cloak></p>
+  </section>
+
+  {# —— Catalog —— #}
+  <section class="mb-6">
+    <h2 class="api-mp-section-title mb-3">API Catalog</h2>
+    <div class="grid gap-4">
+      <template x-for="item in catalog" :key="item.api_name">
+        <article class="api-mp-card">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 class="text-sm font-semibold text-mist">
+                <span x-text="item.title"></span>
+                <span class="ml-2 rounded bg-white/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-mist/50" x-show="item.wip">WIP</span>
+              </h3>
+              <p class="mt-1 text-xs text-mist/55" x-text="item.description"></p>
+              <p class="mt-2 font-mono text-[11px] text-gold/70">
+                <span x-text="item.method"></span>
+                <span x-text="item.path"></span>
+              </p>
+            </div>
+            <label class="inline-flex items-center gap-2 text-xs text-mist/70" :title="item.wip ? 'Coming soon — not yet available for subscription.' : ''">
+              <span>Subscribe</span>
+              <input
+                type="checkbox"
+                class="rounded border-white/20"
+                :checked="item.subscribed"
+                :disabled="item.subscribe_disabled || busy"
+                @change="toggleSubscribe(item, $event.target.checked)"
+              />
+            </label>
+          </div>
+          <details class="mt-3" x-show="!item.wip">
+            <summary class="cursor-pointer text-xs text-mist/50">Code samples</summary>
+            <pre class="api-mp-code mt-2" x-text="sampleCurl(item)"></pre>
+            <pre class="api-mp-code mt-2" x-text="samplePython(item)"></pre>
+          </details>
+        </article>
+      </template>
+    </div>
+  </section>
+
+  {# —— Chains —— #}
+  <section class="api-mp-card mb-6">
+    <h2 class="api-mp-section-title">API Chains</h2>
+    <p class="mt-1 text-xs text-mist/50">
+      Document how integrators should sequence calls. <strong class="text-mist/70">submit_claim</strong> is always step 1.
+    </p>
+    <form class="mt-4 grid gap-3" @submit.prevent="createChain()">
+      <div>
+        <label class="chrome-field-label" for="chain-name">Chain name</label>
+        <input id="chain-name" class="chrome-input mt-1 w-full max-w-md" x-model="chainName" placeholder="Intake → assess → estimate" required />
+      </div>
+      <p class="text-xs text-mist/55">Step 1 (locked): submit_claim</p>
+      <div class="flex flex-wrap gap-3 text-xs text-mist/70">
+        <template x-for="api in chainableApis" :key="api">
+          <label class="inline-flex items-center gap-1.5">
+            <input type="checkbox" :value="api" x-model="chainFollowOn" />
+            <span x-text="api"></span>
+          </label>
+        </template>
+      </div>
+      <button type="submit" class="btn-primary w-fit rounded-lg px-4 py-2 text-xs font-semibold" :disabled="busy">Create Chain</button>
+    </form>
+
+    <ul class="mt-6 space-y-4">
+      <template x-for="chain in chains" :key="chain.id">
+        <li class="rounded-lg border border-white/10 p-3">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <p class="text-sm font-medium text-mist" x-text="chain.chain_name"></p>
+              <p class="mt-1 text-xs text-mist/50" x-text="chain.steps.map(s => s.order + '. ' + s.api_name).join(' → ')"></p>
+            </div>
+            <button type="button" class="text-xs text-red-300/80" @click="removeChain(chain.id)">Delete</button>
+          </div>
+          <details class="mt-2">
+            <summary class="cursor-pointer text-xs text-mist/50">Chained curl examples</summary>
+            <pre class="api-mp-code mt-2" x-text="chainCurl(chain)"></pre>
+          </details>
+        </li>
+      </template>
+      <li class="text-xs text-mist/40" x-show="!chains.length">No chains yet.</li>
+    </ul>
+  </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/api_marketplace.js"></script>
+{% endblock %}

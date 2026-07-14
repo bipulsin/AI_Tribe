@@ -107,6 +107,151 @@ async def _read_validated(
     return filename, data
 
 
+def create_claim_shell(
+    db: Session,
+    *,
+    user_id: int,
+    garage_id: int | None = None,
+    surveyor_name: str | None = None,
+    claimant_name: str | None = None,
+    accident_date: date | None = None,
+) -> Claim:
+    """Persist claim metadata without images (API marketplace submit path)."""
+    accident_date = validate_accident_date(accident_date)
+    claim = Claim(
+        claim_reference="PENDING",
+        created_by=user_id,
+        garage_id=garage_id,
+        surveyor_name=(surveyor_name or "").strip() or None,
+        claimant_name=(claimant_name or "").strip() or None,
+        accident_date=accident_date,
+        status=ClaimStatus.submitted,
+    )
+    db.add(claim)
+    db.flush()
+    year = datetime.now(timezone.utc).year
+    claim.claim_reference = f"CLM-{year}-{claim.id:06d}"
+    db.commit()
+    db.refresh(claim)
+    return claim
+
+
+async def append_images_to_claim(
+    db: Session,
+    claim: Claim,
+    *,
+    images: list[UploadFile],
+    video: UploadFile | None = None,
+    storage: StorageBackend | None = None,
+) -> tuple[list[ClaimImage], list[dict]]:
+    """Attach validated images/video to an existing claim. Returns (accepted, rejected)."""
+    settings = get_settings()
+    storage = storage or get_storage()
+    max_bytes = settings.max_upload_mb * 1024 * 1024
+    existing = len([img for img in (claim.images or []) if not img.is_video])
+    accepted: list[ClaimImage] = []
+    rejected: list[dict] = []
+
+    image_files = [f for f in images if f and f.filename]
+    video_file = video if video and video.filename else None
+
+    remaining_slots = max(0, settings.max_images_per_claim - existing)
+    existing_rows = list(claim.images or [])
+    order = (max((img.image_order for img in existing_rows), default=0) + 1)
+
+    for upload in image_files:
+        filename = upload.filename or "photo.jpg"
+        if not _is_image(upload):
+            rejected.append(
+                {
+                    "filename": filename,
+                    "code": "UNSUPPORTED_TYPE",
+                    "message": "Not a supported image type.",
+                }
+            )
+            continue
+        if remaining_slots <= 0:
+            rejected.append(
+                {
+                    "filename": filename,
+                    "code": "TOO_MANY_IMAGES",
+                    "message": f"A claim can include at most {settings.max_images_per_claim} images.",
+                }
+            )
+            continue
+        try:
+            fname, data = await _read_validated(
+                upload,
+                kind="image",
+                max_bytes=max_bytes,
+                max_upload_mb=settings.max_upload_mb,
+            )
+        except ClaimValidationError as exc:
+            code = "FILE_TOO_LARGE" if "exceeds" in str(exc).lower() else "VALIDATION_ERROR"
+            rejected.append({"filename": filename, "code": code, "message": str(exc)})
+            continue
+        relative = storage.save_bytes(data, claim.id, fname)
+        row = ClaimImage(
+            claim_id=claim.id,
+            file_path=relative,
+            image_order=order,
+            is_video=False,
+            authenticity_verdict=AuthenticityVerdict.pending,
+        )
+        db.add(row)
+        accepted.append(row)
+        order += 1
+        remaining_slots -= 1
+
+    if video_file:
+        filename = video_file.filename or "video.mp4"
+        if not _is_video(video_file):
+            rejected.append(
+                {
+                    "filename": filename,
+                    "code": "UNSUPPORTED_TYPE",
+                    "message": "Not a supported video type.",
+                }
+            )
+        elif any(img.is_video for img in (claim.images or [])) or any(
+            a.is_video for a in accepted
+        ):
+            rejected.append(
+                {
+                    "filename": filename,
+                    "code": "VALIDATION_ERROR",
+                    "message": "Claim already has a video.",
+                }
+            )
+        else:
+            try:
+                fname, data = await _read_validated(
+                    video_file,
+                    kind="video",
+                    max_bytes=max_bytes,
+                    max_upload_mb=settings.max_upload_mb,
+                )
+                relative = storage.save_bytes(data, claim.id, fname)
+                row = ClaimImage(
+                    claim_id=claim.id,
+                    file_path=relative,
+                    image_order=order,
+                    is_video=True,
+                    authenticity_verdict=AuthenticityVerdict.pending,
+                )
+                db.add(row)
+                accepted.append(row)
+            except ClaimValidationError as exc:
+                code = "FILE_TOO_LARGE" if "exceeds" in str(exc).lower() else "VALIDATION_ERROR"
+                rejected.append({"filename": filename, "code": code, "message": str(exc)})
+
+    if accepted:
+        db.commit()
+        for row in accepted:
+            db.refresh(row)
+    return accepted, rejected
+
+
 async def create_claim_with_uploads(
     db: Session,
     *,

@@ -108,6 +108,33 @@ Recommended for production:
 3. Set `SMTP_FROM` / `SMTP_FROM_NAME=AI Tribe` to match the authenticated domain.
 4. Ask recipients to check spam once and mark the sender as safe.
 
+### API Marketplace (partner external API)
+
+Third intake channel alongside Enterprise form and Chat. Additive only —
+does not change `ML_MODE` or claim ML tiers.
+
+| Item | Value |
+| --- | --- |
+| UI | `/settings/api-marketplace` (all authenticated users) |
+| External base | `/api/v1/external/...` (Bearer `atr_live_…`, no session cookie) |
+| Tables | `api_tokens`, `api_token_reveal_log`, `api_subscriptions`, `api_chains`, `api_chain_steps`, `api_request_log` |
+| Migration | `018_api_marketplace` |
+| Token crypto | `API_TOKEN_ENCRYPTION_KEY` (Fernet; falls back to `LLM_ENCRYPTION_KEY`) |
+| Rate limits | `API_RATE_LIMIT_PER_MIN` (default 60), `API_RATE_LIMIT_PER_DAY` (default 5000) |
+| Expiry reminders | Daily script `scripts/api_marketplace_token_reminders.py` (7d / 1d email) |
+
+Cron on paperclip (example):
+
+```bash
+15 6 * * * docker exec ai_tribe_app_ml python /app/scripts/api_marketplace_token_reminders.py
+```
+
+Admin can also `POST /api/marketplace/jobs/token-reminders` while signed in as admin.
+
+Endpoints: `claims/submit`, `claims/{claim_no}/images`, `claims/{claim_ref}`,
+`claims/{claim_no}/assessment`, `claims/{claim_no}/estimate`.
+`police-details` returns `501 NOT_AVAILABLE` (WIP, not subscribeable).
+
 ### Redeploy / update code
 
 ```bash

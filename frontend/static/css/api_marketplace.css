@@ -1,0 +1,28 @@
+.api-mp-card {
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(10, 15, 26, 0.85);
+  padding: 1.1rem 1.2rem;
+}
+
+.api-mp-section-title {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(232, 236, 241, 0.5);
+}
+
+.api-mp-code {
+  overflow-x: auto;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.35);
+  padding: 0.75rem 0.9rem;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: rgba(232, 236, 241, 0.75);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
