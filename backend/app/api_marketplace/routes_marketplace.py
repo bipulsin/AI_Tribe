@@ -10,13 +10,14 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
-from app.api_marketplace.catalog import CHAINABLE_APIS, DEFAULT_VALIDITY_DAYS, VALIDITY_DAYS
+from app.api_marketplace.catalog import DEFAULT_VALIDITY_DAYS, VALIDITY_DAYS
 from app.api_marketplace.crypto import TokenCryptoError
 from app.api_marketplace.deps import client_ip
 from app.api_marketplace.subscriptions import (
     catalog_with_subscriptions,
     create_chain,
     delete_chain,
+    ensure_default_subscriptions,
     list_chains,
     set_subscription,
 )
@@ -41,22 +42,28 @@ def _user_id(request: Request) -> int | None:
 @router.get("/settings/api-marketplace", response_class=HTMLResponse)
 async def api_marketplace_page(request: Request, db: Session = Depends(get_db)):
     user_id = _user_id(request)
+    if user_id:
+        ensure_default_subscriptions(db, user_id)
     token = current_token(db, user_id) if user_id else None
+    bootstrap = {
+        "validityOptions": list(VALIDITY_DAYS),
+        "defaultValidity": DEFAULT_VALIDITY_DAYS,
+        "tokenView": token_public_view(token),
+        "catalog": catalog_with_subscriptions(db, user_id) if user_id else [],
+        "chains": list_chains(db, user_id) if user_id else [],
+        "baseUrl": (
+            __import__("os")
+            .environ.get("APP_PUBLIC_URL", "https://tribe.tradentical.com")
+            .rstrip("/")
+        ),
+    }
     return templates.TemplateResponse(
         "api_marketplace.html",
         {
             "request": request,
             "username": request.session.get("username", ""),
             "full_name": request.session.get("full_name", "") or "",
-            "validity_options": list(VALIDITY_DAYS),
-            "default_validity": DEFAULT_VALIDITY_DAYS,
-            "chainable_apis": list(CHAINABLE_APIS),
-            "token_view": token_public_view(token),
-            "catalog": catalog_with_subscriptions(db, user_id) if user_id else [],
-            "chains": list_chains(db, user_id) if user_id else [],
-            "app_public_url": (
-                __import__("os").environ.get("APP_PUBLIC_URL", "https://tribe.tradentical.com").rstrip("/")
-            ),
+            "bootstrap": bootstrap,
         },
     )
 

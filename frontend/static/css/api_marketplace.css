@@ -26,3 +26,96 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+.api-mp-wip,
+.api-mp-always {
+  margin-left: 0.4rem;
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.api-mp-wip {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(232, 236, 241, 0.55);
+}
+
+.api-mp-always {
+  background: rgba(184, 134, 11, 0.18);
+  color: #fde68a;
+}
+
+.api-mp-subscribe-btn {
+  min-width: 7.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(184, 134, 11, 0.45);
+  background: rgba(184, 134, 11, 0.12);
+  padding: 0.45rem 0.85rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #fde68a;
+  cursor: pointer;
+}
+
+.api-mp-subscribe-btn:hover:not(:disabled),
+.api-mp-subscribe-btn:focus-visible:not(:disabled) {
+  background: rgba(184, 134, 11, 0.22);
+  outline: none;
+}
+
+.api-mp-subscribe-btn--on {
+  border-color: rgba(52, 211, 153, 0.4);
+  background: rgba(6, 78, 59, 0.35);
+  color: #a7f3d0;
+}
+
+.api-mp-subscribe-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.api-mp-chain-builder {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.api-mp-chain-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.22);
+  padding: 0.85rem 1rem;
+}
+
+.api-mp-chain-step--locked {
+  border-color: rgba(184, 134, 11, 0.28);
+  background: rgba(184, 134, 11, 0.06);
+}
+
+.api-mp-step-badge {
+  display: inline-flex;
+  height: 1.5rem;
+  width: 1.5rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(184, 134, 11, 0.2);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #fde68a;
+}
+
+.api-mp-chain-arrow {
+  padding: 0.15rem 0 0.15rem 1.85rem;
+  font-size: 1rem;
+  line-height: 1;
+  color: rgba(184, 134, 11, 0.75);
+}

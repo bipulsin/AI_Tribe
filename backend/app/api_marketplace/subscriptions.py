@@ -8,7 +8,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api_marketplace.catalog import (
+    ALWAYS_SUBSCRIBED_APIS,
     API_CATALOG,
+    API_TITLE_BY_NAME,
     CHAINABLE_APIS,
     HEAD_API,
     SUBSCRIBEABLE_APIS,
@@ -24,9 +26,31 @@ def list_subscriptions(db: Session, user_id: int) -> dict[str, bool]:
     return {row.api_name: row.enabled for row in rows}
 
 
+def ensure_default_subscriptions(db: Session, user_id: int) -> None:
+    """Submit Claim is always subscribed for marketplace users."""
+    changed = False
+    for api_name in ALWAYS_SUBSCRIBED_APIS:
+        row = db.scalar(
+            select(ApiSubscription).where(
+                ApiSubscription.user_id == user_id,
+                ApiSubscription.api_name == api_name,
+            )
+        )
+        if row is None:
+            db.add(ApiSubscription(user_id=user_id, api_name=api_name, enabled=True))
+            changed = True
+        elif not row.enabled:
+            row.enabled = True
+            changed = True
+    if changed:
+        db.commit()
+
+
 def is_subscribed(db: Session, user_id: int, api_name: str) -> bool:
     if api_name in WIP_APIS:
         return False
+    if api_name in ALWAYS_SUBSCRIBED_APIS:
+        return True
     row = db.scalar(
         select(ApiSubscription).where(
             ApiSubscription.user_id == user_id,
@@ -48,6 +72,9 @@ def set_subscription(
         raise ValueError("This API is not yet available for subscription.")
     if api_name not in SUBSCRIBEABLE_APIS:
         raise ValueError(f"Unknown API: {api_name}")
+    if api_name in ALWAYS_SUBSCRIBED_APIS and not enabled:
+        raise ValueError("Submit Claim is always subscribed and cannot be turned off.")
+
     row = db.scalar(
         select(ApiSubscription).where(
             ApiSubscription.user_id == user_id,
@@ -65,15 +92,19 @@ def set_subscription(
 
 
 def catalog_with_subscriptions(db: Session, user_id: int) -> list[dict]:
+    ensure_default_subscriptions(db, user_id)
     sub = list_subscriptions(db, user_id)
     out = []
     for item in API_CATALOG:
         name = item["api_name"]
+        always = bool(item.get("always_subscribed"))
+        subscribed = True if always else bool(sub.get(name))
         out.append(
             {
                 **item,
-                "subscribed": bool(sub.get(name)),
-                "subscribe_disabled": bool(item.get("wip")),
+                "subscribed": subscribed,
+                "subscribe_disabled": bool(item.get("wip")) or always,
+                "always_subscribed": always,
             }
         )
     return out
@@ -94,7 +125,14 @@ def list_chains(db: Session, user_id: int) -> list[dict]:
                 "id": str(chain.id),
                 "chain_name": chain.chain_name,
                 "head_api": chain.head_api,
-                "steps": [{"order": s.step_order, "api_name": s.api_name} for s in steps],
+                "steps": [
+                    {
+                        "order": s.step_order,
+                        "api_name": s.api_name,
+                        "title": API_TITLE_BY_NAME.get(s.api_name, s.api_name),
+                    }
+                    for s in steps
+                ],
                 "created_at": chain.created_at.isoformat() if chain.created_at else None,
             }
         )
@@ -108,16 +146,21 @@ def create_chain(
     chain_name: str,
     follow_on: list[str],
 ) -> ApiChain:
+    ensure_default_subscriptions(db, user_id)
     name = (chain_name or "").strip()
     if not name:
         raise ValueError("Chain name is required")
     cleaned: list[str] = []
     for api in follow_on:
         api = (api or "").strip()
-        if not api or api == HEAD_API:
+        if not api or api == HEAD_API or api.upper() == "END":
             continue
         if api not in CHAINABLE_APIS:
             raise ValueError(f"Cannot chain API: {api}")
+        if not is_subscribed(db, user_id, api):
+            raise ValueError(
+                f"Subscribe to '{API_TITLE_BY_NAME.get(api, api)}' before adding it to a chain."
+            )
         if api not in cleaned:
             cleaned.append(api)
 
