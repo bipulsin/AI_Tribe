@@ -66,14 +66,15 @@ API_CATALOG: list[dict] = [
         "always_subscribed": False,
     },
     {
-        "api_name": "police_details",
-        "title": "Get Police Details",
+        "api_name": "policy_details",
+        "title": "Get Policy Details",
         "description": (
-            "Retrieve police-report details linked to a claim. "
+            "Fetch policy information from the Policy Administration system for a claim "
+            "(cover, policy number, status, and related policy attributes). "
             "Coming soon — not available for subscription yet."
         ),
         "method": "GET",
-        "path": "/api/v1/external/police-details/{claim_no}",
+        "path": "/api/v1/external/policy-details/{claim_no}",
         "wip": True,
         "always_subscribed": False,
     },
@@ -88,7 +89,7 @@ CHAINABLE_APIS = (
     "assessment_detail",
     "estimation_detail",
 )
-WIP_APIS = frozenset({"police_details"})
+WIP_APIS = frozenset({"policy_details"})
 SUBSCRIBEABLE_APIS = frozenset(
     item["api_name"] for item in API_CATALOG if not item["wip"]
 )

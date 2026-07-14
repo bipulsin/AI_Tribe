@@ -318,8 +318,8 @@ async def external_claim_detail(
     return ok(data, request_id=request_id)
 
 
-@router.get("/police-details/{claim_no}")
-async def external_police_details(
+@router.get("/policy-details/{claim_no}")
+async def external_policy_details(
     claim_no: str,
     request: Request,
     db: Session = Depends(get_db),
@@ -329,14 +329,14 @@ async def external_police_details(
     request_id = new_request_id()
     resp = fail(
         code="NOT_AVAILABLE",
-        message="Police details API is not yet available.",
+        message="Policy details API is not yet available.",
         request_id=request_id,
         status_code=501,
     )
     finish_log(
         db,
         request,
-        api_name="police_details",
+        api_name="policy_details",
         claim_no=claim_no,
         status_code=501,
         error_code="NOT_AVAILABLE",

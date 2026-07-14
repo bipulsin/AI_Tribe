@@ -133,7 +133,7 @@ Admin can also `POST /api/marketplace/jobs/token-reminders` while signed in as a
 
 Endpoints: `claims/submit`, `claims/{claim_no}/images`, `claims/{claim_ref}`,
 `claims/{claim_no}/assessment`, `claims/{claim_no}/estimate`.
-`police-details` returns `501 NOT_AVAILABLE` (WIP, not subscribeable).
+`policy-details` returns `501 NOT_AVAILABLE` (WIP, not subscribeable).
 
 ### Redeploy / update code
 
