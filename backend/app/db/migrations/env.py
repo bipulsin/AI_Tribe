@@ -14,6 +14,7 @@ from app.models import (  # noqa: F401 — register models with metadata
     Garage,
     PartsCatalog,
     PipelineEvent,
+    UsageEvent,
     User,
     Vehicle,
 )

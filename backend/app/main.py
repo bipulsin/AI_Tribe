@@ -160,6 +160,70 @@ async def require_session(request: Request, call_next):
     return await call_next(request)
 
 
+@app.middleware("http")
+async def log_usage_events(request: Request, call_next):
+    """Record lightweight feature usage after the response (never fails the request)."""
+    response = await call_next(request)
+    try:
+        from app.services.usage_logging import (
+            classify_route,
+            extract_metadata,
+            record_usage_event,
+            should_skip_path,
+        )
+
+        path = request.url.path
+        method = request.method
+        if should_skip_path(path, method):
+            return response
+
+        user_id = request.session.get("user_id")
+        username = request.session.get("username") or request.session.get("full_name")
+        # Prefer email-like username when present
+        event_type, feature_area = classify_route(method, path)
+        # Successful login is POST /auth/login — session may already be set after handler
+        if path.rstrip("/").endswith("/auth/login") and method.upper() == "POST":
+            event_type, feature_area = "login", "auth"
+            user_id = user_id or request.session.get("user_id")
+            username = username or request.session.get("username")
+
+        forwarded = request.headers.get("x-forwarded-for")
+        ip = (
+            forwarded.split(",")[0].strip()[:64]
+            if forwarded
+            else (request.client.host[:64] if request.client and request.client.host else None)
+        )
+        session_key = None
+        try:
+            # Opaque session cookie value is not available as id; use user+day bucket only via session user.
+            session_key = str(user_id) if user_id else None
+        except Exception:
+            session_key = None
+
+        db = SessionLocal()
+        try:
+            record_usage_event(
+                db,
+                user_id=int(user_id) if user_id else None,
+                username_snapshot=str(username)[:128] if username else None,
+                event_type=event_type,
+                feature_area=feature_area,
+                endpoint_or_route=f"{method.upper()} {path}"[:256],
+                session_id=session_key,
+                ip_address=ip,
+                metadata=extract_metadata(path),
+            )
+            db.commit()
+        except Exception as exc:
+            db.rollback()
+            logger.debug("usage event not recorded: %s", exc)
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.debug("usage middleware skipped: %s", exc)
+    return response
+
+
 # SessionMiddleware must be added last so it is the outermost middleware
 # (Starlette runs last-added middleware first on the request path).
 app.add_middleware(
@@ -210,6 +274,9 @@ try:
     from app.api import routes_chat
 
     app.include_router(routes_chat.router)
+    from app.api import routes_usage_report
+
+    app.include_router(routes_usage_report.router)
     from app.api_marketplace import routes_external, routes_marketplace
 
     app.include_router(routes_marketplace.router)

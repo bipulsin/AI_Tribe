@@ -15,6 +15,7 @@ from app.models.user_llm_preferences import UserLlmPreferences
 from app.models.user_llm_provider_key import UserLlmProviderKey
 from app.models.vmmr_correction_queue import VmmrCorrectionQueue
 from app.models.vmmr_lab_label import VmmrLabLabel
+from app.models.usage_event import UsageEvent
 
 __all__ = [
     "User",
@@ -34,4 +35,5 @@ __all__ = [
     "LlmAssistLog",
     "UserLlmProviderKey",
     "UserLlmPreferences",
+    "UsageEvent",
 ]

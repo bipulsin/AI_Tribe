@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Usability Report{% endblock %}
+
+{% block body %}
+<script type="application/json" id="usage-report-bootstrap">{{ {
+  "defaultStart": default_start,
+  "defaultEnd": default_end,
+  "users": users
+}|tojson }}</script>
+<div
+  class="min-h-screen px-4 py-8 sm:px-6 lg:px-8"
+  x-data="usageReport(JSON.parse(document.getElementById('usage-report-bootstrap').textContent))"
+  x-init="init()"
+>
+  <div class="mx-auto max-w-6xl">
+    <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wide text-gold">Admin · observability</p>
+        <h1 class="mt-1 text-2xl font-semibold text-navy dark:text-mist">Usability Report</h1>
+        <p class="mt-2 max-w-2xl text-sm text-navy/60 dark:text-mist/55">
+          Who accessed AI Tribe, on which days, and which feature areas they used.
+          Times are UTC. Expand a row for event-level detail.
+        </p>
+      </div>
+      <a href="/claims/new" class="text-sm font-medium text-gold hover:underline">← Back to claims</a>
+    </div>
+
+    <form class="mb-6 flex flex-wrap items-end gap-3 rounded-2xl border border-navy/10 bg-white p-4 dark:border-white/10 dark:bg-navy/40" @submit.prevent="load()">
+      <div>
+        <label class="chrome-field-label" for="ur-start">From</label>
+        <input id="ur-start" type="date" class="chrome-input mt-1" x-model="start" />
+      </div>
+      <div>
+        <label class="chrome-field-label" for="ur-end">To</label>
+        <input id="ur-end" type="date" class="chrome-input mt-1" x-model="end" />
+      </div>
+      <div>
+        <label class="chrome-field-label" for="ur-user">User</label>
+        <select id="ur-user" class="chrome-input mt-1 min-w-[12rem]" x-model="userId">
+          <option value="">All users</option>
+          <template x-for="u in users" :key="u.id">
+            <option :value="String(u.id)" x-text="u.username + (u.full_name ? ' (' + u.full_name + ')' : '')"></option>
+          </template>
+        </select>
+      </div>
+      <button type="submit" class="btn-primary rounded-lg px-4 py-2 text-xs font-semibold" :disabled="busy">
+        <span x-show="!busy">Apply filters</span>
+        <span x-show="busy" x-cloak>Loading…</span>
+      </button>
+    </form>
+
+    <p class="mb-3 text-xs text-amber-300/80" x-show="error" x-text="error" x-cloak></p>
+
+    <div class="overflow-x-auto rounded-2xl border border-navy/10 bg-white dark:border-white/10 dark:bg-navy/40">
+      <table class="w-full min-w-[40rem] text-left text-sm">
+        <thead>
+          <tr class="border-b border-navy/10 text-xs uppercase tracking-wide text-navy/45 dark:border-white/10 dark:text-mist/45">
+            <th class="px-4 py-3 font-medium">User</th>
+            <th class="px-4 py-3 font-medium">Date (UTC)</th>
+            <th class="px-4 py-3 font-medium">Features used</th>
+            <th class="px-4 py-3 font-medium text-right">Total events</th>
+            <th class="px-4 py-3 font-medium text-right">Detail</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="row in rows" :key="row.user.id + '-' + row.date">
+            <tr class="border-b border-navy/5 last:border-0 dark:border-white/5 align-top">
+              <td class="px-4 py-3">
+                <p class="font-medium text-navy dark:text-mist" x-text="row.user.username"></p>
+                <p class="text-xs text-navy/45 dark:text-mist/45" x-show="row.user.full_name" x-text="row.user.full_name"></p>
+              </td>
+              <td class="px-4 py-3 tabular-nums text-navy/80 dark:text-mist/80">
+                <span x-text="row.date"></span>
+                <p class="mt-1 text-[10px] text-navy/40 dark:text-mist/40" x-show="row.first_seen">
+                  <span x-text="formatTime(row.first_seen)"></span>
+                  –
+                  <span x-text="formatTime(row.last_seen)"></span>
+                </p>
+              </td>
+              <td class="px-4 py-3">
+                <div class="flex flex-wrap gap-1.5">
+                  <template x-for="f in row.features_used" :key="f">
+                    <span class="rounded-full border border-gold/25 bg-gold/10 px-2 py-0.5 text-[11px] text-gold">
+                      <span x-text="f"></span>
+                      <span class="opacity-70" x-text="'×' + (row.event_counts[f] || 0)"></span>
+                    </span>
+                  </template>
+                </div>
+              </td>
+              <td class="px-4 py-3 text-right tabular-nums font-medium" x-text="row.total_events"></td>
+              <td class="px-4 py-3 text-right">
+                <button
+                  type="button"
+                  class="text-xs font-medium text-gold hover:underline"
+                  @click="toggleDetail(row)"
+                  x-text="isExpanded(row) ? 'Hide' : 'Expand'"
+                ></button>
+              </td>
+            </tr>
+            <tr x-show="isExpanded(row)" x-cloak class="border-b border-navy/5 bg-navy/5 dark:border-white/5 dark:bg-black/20">
+              <td colspan="5" class="px-4 py-3">
+                <p class="mb-2 text-xs text-navy/50 dark:text-mist/50" x-show="detailLoadingKey === rowKey(row)">Loading events…</p>
+                <div class="overflow-x-auto" x-show="details[rowKey(row)]">
+                  <table class="w-full text-left text-xs">
+                    <thead>
+                      <tr class="text-navy/45 dark:text-mist/45">
+                        <th class="py-1 pr-3 font-medium">Time (UTC)</th>
+                        <th class="py-1 pr-3 font-medium">Type</th>
+                        <th class="py-1 pr-3 font-medium">Area</th>
+                        <th class="py-1 font-medium">Route</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="ev in (details[rowKey(row)] || [])" :key="ev.id">
+                        <tr class="border-t border-navy/5 dark:border-white/5">
+                          <td class="py-1.5 pr-3 tabular-nums" x-text="formatTime(ev.occurred_at)"></td>
+                          <td class="py-1.5 pr-3" x-text="ev.event_type"></td>
+                          <td class="py-1.5 pr-3" x-text="ev.feature_area"></td>
+                          <td class="py-1.5 font-mono text-[11px] text-navy/70 dark:text-mist/70" x-text="ev.endpoint_or_route"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                  <p class="mt-2 text-xs text-navy/40 dark:text-mist/40" x-show="details[rowKey(row)] && !details[rowKey(row)].length">No events.</p>
+                </div>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+      <p class="px-4 py-8 text-center text-sm text-navy/45 dark:text-mist/45" x-show="!busy && !rows.length">
+        No usage in this range yet. Activity is recorded as users navigate the app.
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/usage_report.js?v=1"></script>
+{% endblock %}
