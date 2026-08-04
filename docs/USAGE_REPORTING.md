@@ -6,6 +6,8 @@ Admin panel → **Usability Report**).
 
 ## What is tracked
 
+### Live route logs
+
 Table: `usage_events`
 
 | Column | Notes |
@@ -29,11 +31,31 @@ External partner API calls are also classified under `api_marketplace` when they
 hit `/api/v1/external/*` (session may be absent; user_id may be null unless a
 session cookie is also present).
 
+### Historical evidence (claims & related tables)
+
+Because `usage_events` only exists from migration `019` onward, the report also
+reads operational tables for earlier (and parallel) activity:
+
+| Source table | User link | Proves |
+| --- | --- | --- |
+| `claims` | `created_by` | Submitted a claim |
+| `llm_assist_logs` | `user_id` | Ran LLM assist on a claim |
+| `vmmr_correction_queue` | `submitted_by` | Confirmed make/model |
+| `vmmr_lab_labels` | `labeled_by` | Lab VMMR labeling |
+| `api_request_log` | `user_id` | Partner API call |
+| `chat_draft_states` | `user_id` | Used chat claim draft |
+
+The report merges these traces live. Optional admin action
+**Scan history into report** (`POST /api/admin/usage-report/scan-history`) imports
+missing rows into `usage_events` with `endpoint_or_route` like `LEGACY|claims|42`
+(idempotent).
+
 ## Admin API
 
 ```http
 GET /api/admin/usage-report?start=2026-07-01&end=2026-07-31&user_id=
 GET /api/admin/usage-report/detail?user_id=3&start=2026-07-01&end=2026-07-31
+POST /api/admin/usage-report/scan-history
 ```
 
 The report returns **one row per system user** (or a single user when
@@ -41,9 +63,9 @@ The report returns **one row per system user** (or a single user when
 
 | Status | Meaning | UI label |
 | --- | --- | --- |
-| `accessed` | Events in the selected range | Feature chips + times |
-| `not_accessed` | Has older usage events, none in range | **Not accessed** |
-| `no_data` | Never appeared in `usage_events` | **No data** |
+| `accessed` | Live or historical activity in the selected range | Feature chips + times |
+| `not_accessed` | Has older activity (live or historical), none in range | **Not accessed** |
+| `no_data` | No `usage_events` and no historical evidence | **No data** |
 
 The user filter dropdown lists **all** users in `users`, not only those with events.
 
@@ -62,6 +84,12 @@ WHERE occurred_at >= now() - interval '14 days'
   AND user_id IS NOT NULL
 GROUP BY 1, 2, 3
 ORDER BY 1 DESC, 2;
+
+-- Claims as historical usage evidence
+SELECT created_by AS user_id, count(*) AS claims, min(created_at), max(created_at)
+FROM claims
+GROUP BY 1
+ORDER BY 2 DESC;
 
 -- Feature mix for one user
 SELECT feature_area, event_type, count(*)

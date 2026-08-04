@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import require_admin
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.services.usage_evidence_service import backfill_usage_events_from_evidence
 from app.services.usage_report_service import (
     build_usage_report,
     list_report_users,
@@ -111,3 +112,14 @@ async def usage_report_detail_api(
         "end": end_d.isoformat(),
         "events": usage_event_detail(db, user_id=user_id, start=start_d, end=end_d),
     }
+
+
+@router.post("/api/admin/usage-report/scan-history")
+async def usage_report_scan_history(request: Request, db: Session = Depends(get_db)):
+    """Scan claims / LLM / VMMR / API logs and import missing traces into usage_events."""
+    admin = require_admin(request, db)
+    if isinstance(admin, JSONResponse):
+        return admin
+
+    result = backfill_usage_events_from_evidence(db)
+    return {"ok": True, **result}

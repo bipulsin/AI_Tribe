@@ -9,7 +9,9 @@ function usageReport({ defaultStart, defaultEnd, users = [] } = {}) {
     expanded: {},
     detailLoadingKey: "",
     busy: false,
+    scanning: false,
     error: "",
+    scanMessage: "",
 
     init() {
       this.load();
@@ -59,6 +61,33 @@ function usageReport({ defaultStart, defaultEnd, users = [] } = {}) {
         this.error = "Network error loading report.";
       } finally {
         this.busy = false;
+      }
+    },
+
+    async scanHistory() {
+      this.scanning = true;
+      this.scanMessage = "";
+      this.error = "";
+      try {
+        const resp = await fetch("/api/admin/usage-report/scan-history", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { Accept: "application/json" },
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          this.error = data.detail || "History scan failed.";
+          return;
+        }
+        this.scanMessage =
+          `Imported ${data.inserted || 0} historical trace(s)` +
+          (data.skipped ? ` (${data.skipped} already present)` : "") +
+          ` from ${data.scanned || 0} scanned record(s).`;
+        await this.load();
+      } catch (_err) {
+        this.error = "Network error during history scan.";
+      } finally {
+        this.scanning = false;
       }
     },
 
