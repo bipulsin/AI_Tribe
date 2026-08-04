@@ -16,7 +16,7 @@ function usageReport({ defaultStart, defaultEnd, users = [] } = {}) {
     },
 
     rowKey(row) {
-      return `${row.user.id}:${row.date}`;
+      return String(row.user.id);
     },
 
     isExpanded(row) {
@@ -63,6 +63,7 @@ function usageReport({ defaultStart, defaultEnd, users = [] } = {}) {
     },
 
     async toggleDetail(row) {
+      if (!row || row.status !== "accessed") return;
       const key = this.rowKey(row);
       if (this.expanded[key]) {
         this.expanded = { ...this.expanded, [key]: false };
@@ -74,7 +75,8 @@ function usageReport({ defaultStart, defaultEnd, users = [] } = {}) {
       try {
         const params = new URLSearchParams({
           user_id: String(row.user.id),
-          day: row.date,
+          start: row.range_start || this.start,
+          end: row.range_end || this.end,
         });
         const resp = await fetch(`/api/admin/usage-report/detail?${params}`, {
           credentials: "same-origin",

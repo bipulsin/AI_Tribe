@@ -33,11 +33,19 @@ session cookie is also present).
 
 ```http
 GET /api/admin/usage-report?start=2026-07-01&end=2026-07-31&user_id=
-GET /api/admin/usage-report/detail?user_id=3&day=2026-07-15
+GET /api/admin/usage-report/detail?user_id=3&start=2026-07-01&end=2026-07-31
 ```
 
-Requires an admin session (same `require_admin` gate as other `/api/admin/*`
-routes).
+The report returns **one row per system user** (or a single user when
+`user_id` is set). Status values:
+
+| Status | Meaning | UI label |
+| --- | --- | --- |
+| `accessed` | Events in the selected range | Feature chips + times |
+| `not_accessed` | Has older usage events, none in range | **Not accessed** |
+| `no_data` | Never appeared in `usage_events` | **No data** |
+
+The user filter dropdown lists **all** users in `users`, not only those with events.
 
 ## Manual psql queries
 

@@ -1,4 +1,4 @@
-"""Aggregate usage_events into per-user-per-day Usability Report rows."""
+"""Aggregate usage_events into per-user Usability Report rows (all users)."""
 
 from __future__ import annotations
 
@@ -14,9 +14,28 @@ from app.models.usage_event import UsageEvent
 
 def _as_utc_day_bounds(start: date, end: date) -> tuple[datetime, datetime]:
     start_dt = datetime.combine(start, time.min, tzinfo=timezone.utc)
-    # Inclusive end date → start of next day exclusive
-    end_exclusive = datetime.combine(end, time.max, tzinfo=timezone.utc)
-    return start_dt, end_exclusive
+    end_inclusive = datetime.combine(end, time.max, tzinfo=timezone.utc)
+    return start_dt, end_inclusive
+
+
+def _user_label(user: User) -> str:
+    return (user.email or user.username or f"user:{user.id}").strip()
+
+
+def list_report_users(db: Session) -> list[dict[str, Any]]:
+    """All system users for the filter dropdown."""
+    users = db.scalars(
+        select(User).order_by(User.is_active.desc(), User.username.asc(), User.id.asc())
+    ).all()
+    return [
+        {
+            "id": u.id,
+            "username": _user_label(u),
+            "full_name": u.full_name,
+            "is_active": bool(u.is_active),
+        }
+        for u in users
+    ]
 
 
 def build_usage_report(
@@ -26,91 +45,156 @@ def build_usage_report(
     end: date,
     user_id: int | None = None,
 ) -> list[dict[str, Any]]:
-    """Return one row per user per UTC day with feature areas and counts."""
+    """Return one row per user for the date range.
+
+    Status:
+    - ``accessed`` — has events in the selected range
+    - ``not_accessed`` — has historical usage events, but none in this range
+    - ``no_data`` — never recorded in usage_events
+    """
     if end < start:
         start, end = end, start
     start_dt, end_dt = _as_utc_day_bounds(start, end)
 
+    user_stmt = select(User).order_by(
+        User.is_active.desc(), User.username.asc(), User.id.asc()
+    )
+    if user_id is not None:
+        user_stmt = user_stmt.where(User.id == user_id)
+    users = list(db.scalars(user_stmt).all())
+    if not users:
+        return []
+
+    user_ids = [u.id for u in users]
+
+    # Users who have any usage_events ever
+    ever_ids = set(
+        db.scalars(
+            select(UsageEvent.user_id)
+            .where(UsageEvent.user_id.in_(user_ids))
+            .distinct()
+        ).all()
+    )
+
     day_col = cast(UsageEvent.occurred_at, Date).label("day")
 
-    stmt = (
+    # Aggregate within range
+    agg_stmt = (
         select(
             UsageEvent.user_id,
-            UsageEvent.username_snapshot,
-            day_col,
             func.min(UsageEvent.occurred_at).label("first_seen"),
             func.max(UsageEvent.occurred_at).label("last_seen"),
             func.count(UsageEvent.id).label("total_events"),
+            func.count(func.distinct(day_col)).label("active_days"),
         )
         .where(UsageEvent.occurred_at >= start_dt)
         .where(UsageEvent.occurred_at <= end_dt)
-        .where(UsageEvent.user_id.is_not(None))
-        .group_by(UsageEvent.user_id, UsageEvent.username_snapshot, day_col)
-        .order_by(day_col.desc(), UsageEvent.user_id.asc())
+        .where(UsageEvent.user_id.in_(user_ids))
+        .group_by(UsageEvent.user_id)
     )
-    if user_id is not None:
-        stmt = stmt.where(UsageEvent.user_id == user_id)
+    aggregates = {
+        int(r.user_id): r for r in db.execute(agg_stmt).all() if r.user_id is not None
+    }
 
-    aggregates = db.execute(stmt).all()
-    if not aggregates:
-        return []
-
-    # Feature-area counts per (user_id, day)
     area_stmt = (
         select(
             UsageEvent.user_id,
-            day_col,
             UsageEvent.feature_area,
             func.count(UsageEvent.id).label("cnt"),
         )
         .where(UsageEvent.occurred_at >= start_dt)
         .where(UsageEvent.occurred_at <= end_dt)
-        .where(UsageEvent.user_id.is_not(None))
-        .group_by(UsageEvent.user_id, day_col, UsageEvent.feature_area)
+        .where(UsageEvent.user_id.in_(user_ids))
+        .group_by(UsageEvent.user_id, UsageEvent.feature_area)
     )
-    if user_id is not None:
-        area_stmt = area_stmt.where(UsageEvent.user_id == user_id)
+    area_map: dict[int, dict[str, int]] = {}
+    for uid, area, cnt in db.execute(area_stmt).all():
+        if uid is None:
+            continue
+        area_map.setdefault(int(uid), {})[str(area)] = int(cnt)
 
-    area_rows = db.execute(area_stmt).all()
-    area_map: dict[tuple[int, date], dict[str, int]] = {}
-    for uid, day, area, cnt in area_rows:
-        key = (int(uid), day)
-        area_map.setdefault(key, {})[str(area)] = int(cnt)
-
-    # Resolve display usernames from users table when possible
-    user_ids = {int(r.user_id) for r in aggregates if r.user_id is not None}
-    users = {
-        u.id: u
-        for u in db.scalars(select(User).where(User.id.in_(user_ids))).all()
-    }
+    # Active days list for display (optional compact)
+    days_stmt = (
+        select(UsageEvent.user_id, day_col)
+        .where(UsageEvent.occurred_at >= start_dt)
+        .where(UsageEvent.occurred_at <= end_dt)
+        .where(UsageEvent.user_id.in_(user_ids))
+        .group_by(UsageEvent.user_id, day_col)
+        .order_by(UsageEvent.user_id.asc(), day_col.asc())
+    )
+    days_map: dict[int, list[str]] = {}
+    for uid, day in db.execute(days_stmt).all():
+        if uid is None:
+            continue
+        days_map.setdefault(int(uid), []).append(
+            day.isoformat() if hasattr(day, "isoformat") else str(day)
+        )
 
     rows: list[dict[str, Any]] = []
-    for row in aggregates:
-        uid = int(row.user_id)
-        day = row.day
-        user = users.get(uid)
-        username = (
-            (user.email or user.username)
-            if user
-            else (row.username_snapshot or f"user:{uid}")
-        )
-        counts = area_map.get((uid, day), {})
+    for user in users:
+        uid = user.id
+        agg = aggregates.get(uid)
+        counts = area_map.get(uid, {})
         features = sorted(counts.keys())
+        active_days = days_map.get(uid, [])
+
+        if agg and int(agg.total_events) > 0:
+            status = "accessed"
+            status_label = "Accessed"
+            date_label = (
+                f"{active_days[0]} → {active_days[-1]}"
+                if len(active_days) > 1
+                else (active_days[0] if active_days else start.isoformat())
+            )
+            first_seen = agg.first_seen.isoformat() if agg.first_seen else None
+            last_seen = agg.last_seen.isoformat() if agg.last_seen else None
+            total = int(agg.total_events)
+        elif uid in ever_ids:
+            status = "not_accessed"
+            status_label = "Not accessed"
+            date_label = "Not accessed"
+            first_seen = None
+            last_seen = None
+            total = 0
+            features = []
+            counts = {}
+            active_days = []
+        else:
+            status = "no_data"
+            status_label = "No data"
+            date_label = "No data"
+            first_seen = None
+            last_seen = None
+            total = 0
+            features = []
+            counts = {}
+            active_days = []
+
         rows.append(
             {
                 "user": {
                     "id": uid,
-                    "username": username,
-                    "full_name": (user.full_name if user else None),
+                    "username": _user_label(user),
+                    "full_name": user.full_name,
+                    "is_active": bool(user.is_active),
                 },
-                "date": day.isoformat() if hasattr(day, "isoformat") else str(day),
-                "first_seen": row.first_seen.isoformat() if row.first_seen else None,
-                "last_seen": row.last_seen.isoformat() if row.last_seen else None,
+                "status": status,
+                "status_label": status_label,
+                "date": date_label,
+                "active_days": active_days,
+                "range_start": start.isoformat(),
+                "range_end": end.isoformat(),
+                "first_seen": first_seen,
+                "last_seen": last_seen,
                 "features_used": features,
                 "event_counts": counts,
-                "total_events": int(row.total_events),
+                "total_events": total,
             }
         )
+
+    # Accessed users first, then not accessed, then no data; stable by username
+    order = {"accessed": 0, "not_accessed": 1, "no_data": 2}
+    rows.sort(key=lambda r: (order.get(r["status"], 9), r["user"]["username"].lower()))
     return rows
 
 
@@ -118,11 +202,14 @@ def usage_event_detail(
     db: Session,
     *,
     user_id: int,
-    day: date,
-    limit: int = 200,
+    start: date,
+    end: date,
+    limit: int = 500,
 ) -> list[dict[str, Any]]:
-    """Event-level detail for one user on one UTC day."""
-    start_dt, end_dt = _as_utc_day_bounds(day, day)
+    """Event-level detail for one user over a UTC date range."""
+    if end < start:
+        start, end = end, start
+    start_dt, end_dt = _as_utc_day_bounds(start, end)
     rows = db.scalars(
         select(UsageEvent)
         .where(UsageEvent.user_id == user_id)
@@ -142,25 +229,4 @@ def usage_event_detail(
             "metadata": r.metadata_json,
         }
         for r in rows
-    ]
-
-
-def list_report_users(db: Session) -> list[dict[str, Any]]:
-    """Users that appear in usage_events (for filter dropdown)."""
-    ids = db.scalars(
-        select(UsageEvent.user_id)
-        .where(UsageEvent.user_id.is_not(None))
-        .distinct()
-        .order_by(UsageEvent.user_id.asc())
-    ).all()
-    if not ids:
-        return []
-    users = db.scalars(select(User).where(User.id.in_(list(ids))).order_by(User.username)).all()
-    return [
-        {
-            "id": u.id,
-            "username": u.email or u.username,
-            "full_name": u.full_name,
-        }
-        for u in users
     ]

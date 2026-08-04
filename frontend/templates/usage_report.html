@@ -18,8 +18,11 @@
         <p class="text-xs font-semibold uppercase tracking-wide text-gold">Admin · observability</p>
         <h1 class="mt-1 text-2xl font-semibold text-navy dark:text-mist">Usability Report</h1>
         <p class="mt-2 max-w-2xl text-sm text-navy/60 dark:text-mist/55">
-          Who accessed AI Tribe, on which days, and which feature areas they used.
-          Times are UTC. Expand a row for event-level detail.
+          Every system user is listed. For the selected date range:
+          feature activity if they accessed,
+          <strong class="text-mist/70">Not accessed</strong> if they have history but none in range,
+          <strong class="text-mist/70">No data</strong> if we have never recorded usage for them.
+          Times are UTC.
         </p>
       </div>
       <a href="/claims/new" class="text-sm font-medium text-gold hover:underline">← Back to claims</a>
@@ -36,10 +39,13 @@
       </div>
       <div>
         <label class="chrome-field-label" for="ur-user">User</label>
-        <select id="ur-user" class="chrome-input mt-1 min-w-[12rem]" x-model="userId">
+        <select id="ur-user" class="chrome-input mt-1 min-w-[14rem]" x-model="userId">
           <option value="">All users</option>
           <template x-for="u in users" :key="u.id">
-            <option :value="String(u.id)" x-text="u.username + (u.full_name ? ' (' + u.full_name + ')' : '')"></option>
+            <option
+              :value="String(u.id)"
+              x-text="u.username + (u.full_name ? ' (' + u.full_name + ')' : '') + (u.is_active === false ? ' · inactive' : '')"
+            ></option>
           </template>
         </select>
       </div>
@@ -52,49 +58,70 @@
     <p class="mb-3 text-xs text-amber-300/80" x-show="error" x-text="error" x-cloak></p>
 
     <div class="overflow-x-auto rounded-2xl border border-navy/10 bg-white dark:border-white/10 dark:bg-navy/40">
-      <table class="w-full min-w-[40rem] text-left text-sm">
+      <table class="w-full min-w-[44rem] text-left text-sm">
         <thead>
           <tr class="border-b border-navy/10 text-xs uppercase tracking-wide text-navy/45 dark:border-white/10 dark:text-mist/45">
             <th class="px-4 py-3 font-medium">User</th>
-            <th class="px-4 py-3 font-medium">Date (UTC)</th>
+            <th class="px-4 py-3 font-medium">Access (UTC)</th>
             <th class="px-4 py-3 font-medium">Features used</th>
             <th class="px-4 py-3 font-medium text-right">Total events</th>
             <th class="px-4 py-3 font-medium text-right">Detail</th>
           </tr>
         </thead>
         <tbody>
-          <template x-for="row in rows" :key="row.user.id + '-' + row.date">
-            <tr class="border-b border-navy/5 last:border-0 dark:border-white/5 align-top">
+          <template x-for="row in rows" :key="row.user.id">
+            <tr class="border-b border-navy/5 last:border-0 dark:border-white/5 align-top" :class="row.status !== 'accessed' ? 'opacity-80' : ''">
               <td class="px-4 py-3">
                 <p class="font-medium text-navy dark:text-mist" x-text="row.user.username"></p>
                 <p class="text-xs text-navy/45 dark:text-mist/45" x-show="row.user.full_name" x-text="row.user.full_name"></p>
+                <p class="text-[10px] text-amber-300/70" x-show="row.user.is_active === false">Inactive</p>
               </td>
-              <td class="px-4 py-3 tabular-nums text-navy/80 dark:text-mist/80">
-                <span x-text="row.date"></span>
-                <p class="mt-1 text-[10px] text-navy/40 dark:text-mist/40" x-show="row.first_seen">
-                  <span x-text="formatTime(row.first_seen)"></span>
-                  –
-                  <span x-text="formatTime(row.last_seen)"></span>
-                </p>
+              <td class="px-4 py-3 text-navy/80 dark:text-mist/80">
+                <template x-if="row.status === 'accessed'">
+                  <div>
+                    <span class="tabular-nums" x-text="row.date"></span>
+                    <p class="mt-1 text-[10px] text-navy/40 dark:text-mist/40" x-show="row.first_seen">
+                      <span x-text="formatTime(row.first_seen)"></span>
+                      –
+                      <span x-text="formatTime(row.last_seen)"></span>
+                    </p>
+                  </div>
+                </template>
+                <template x-if="row.status === 'not_accessed'">
+                  <span class="text-mist/55">Not accessed</span>
+                </template>
+                <template x-if="row.status === 'no_data'">
+                  <span class="text-mist/45">No data</span>
+                </template>
               </td>
               <td class="px-4 py-3">
-                <div class="flex flex-wrap gap-1.5">
-                  <template x-for="f in row.features_used" :key="f">
-                    <span class="rounded-full border border-gold/25 bg-gold/10 px-2 py-0.5 text-[11px] text-gold">
-                      <span x-text="f"></span>
-                      <span class="opacity-70" x-text="'×' + (row.event_counts[f] || 0)"></span>
-                    </span>
-                  </template>
-                </div>
+                <template x-if="row.status === 'accessed' && row.features_used.length">
+                  <div class="flex flex-wrap gap-1.5">
+                    <template x-for="f in row.features_used" :key="f">
+                      <span class="rounded-full border border-gold/25 bg-gold/10 px-2 py-0.5 text-[11px] text-gold">
+                        <span x-text="f"></span>
+                        <span class="opacity-70" x-text="'×' + (row.event_counts[f] || 0)"></span>
+                      </span>
+                    </template>
+                  </div>
+                </template>
+                <template x-if="row.status === 'not_accessed'">
+                  <span class="text-sm text-mist/55">Not accessed</span>
+                </template>
+                <template x-if="row.status === 'no_data'">
+                  <span class="text-sm text-mist/45">No data</span>
+                </template>
               </td>
               <td class="px-4 py-3 text-right tabular-nums font-medium" x-text="row.total_events"></td>
               <td class="px-4 py-3 text-right">
                 <button
                   type="button"
                   class="text-xs font-medium text-gold hover:underline"
+                  x-show="row.status === 'accessed'"
                   @click="toggleDetail(row)"
                   x-text="isExpanded(row) ? 'Hide' : 'Expand'"
                 ></button>
+                <span class="text-xs text-mist/35" x-show="row.status !== 'accessed'">—</span>
               </td>
             </tr>
             <tr x-show="isExpanded(row)" x-cloak class="border-b border-navy/5 bg-navy/5 dark:border-white/5 dark:bg-black/20">
@@ -129,7 +156,7 @@
         </tbody>
       </table>
       <p class="px-4 py-8 text-center text-sm text-navy/45 dark:text-mist/45" x-show="!busy && !rows.length">
-        No usage in this range yet. Activity is recorded as users navigate the app.
+        No users found.
       </p>
     </div>
   </div>
@@ -137,5 +164,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/usage_report.js?v=1"></script>
+<script src="/static/js/usage_report.js?v=2"></script>
 {% endblock %}

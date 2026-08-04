@@ -36,7 +36,6 @@ def _parse_day(value: str | None, *, default: date) -> date:
 async def usage_report_page(request: Request, db: Session = Depends(get_db)):
     admin = require_admin(request, db)
     if isinstance(admin, JSONResponse):
-        # HTML: redirect to login / claims
         from fastapi.responses import RedirectResponse
 
         if admin.status_code == 401:
@@ -87,17 +86,28 @@ async def usage_report_detail_api(
     request: Request,
     db: Session = Depends(get_db),
     user_id: int = Query(...),
-    day: str = Query(...),
+    start: str | None = Query(default=None),
+    end: str | None = Query(default=None),
+    day: str | None = Query(default=None),  # backward compatible
 ):
     admin = require_admin(request, db)
     if isinstance(admin, JSONResponse):
         return admin
-    try:
-        day_d = date.fromisoformat(day.strip()[:10])
-    except ValueError:
-        return JSONResponse({"detail": "Invalid day"}, status_code=400)
+
+    today = datetime.now(timezone.utc).date()
+    if day and not start and not end:
+        try:
+            day_d = date.fromisoformat(day.strip()[:10])
+        except ValueError:
+            return JSONResponse({"detail": "Invalid day"}, status_code=400)
+        start_d = end_d = day_d
+    else:
+        start_d = _parse_day(start, default=today - timedelta(days=13))
+        end_d = _parse_day(end, default=today)
+
     return {
         "user_id": user_id,
-        "date": day_d.isoformat(),
-        "events": usage_event_detail(db, user_id=user_id, day=day_d),
+        "start": start_d.isoformat(),
+        "end": end_d.isoformat(),
+        "events": usage_event_detail(db, user_id=user_id, start=start_d, end=end_d),
     }
