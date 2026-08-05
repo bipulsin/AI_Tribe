@@ -100,7 +100,7 @@
                 class="api-mp-subscribe-btn"
                 :class="item.subscribed ? 'api-mp-subscribe-btn--on' : ''"
                 :disabled="item.subscribe_disabled || busy"
-                :title="item.wip ? 'Coming soon — not yet available for subscription.' : (item.always_subscribed ? 'Submit Claim is always subscribed.' : '')"
+                :title="item.wip && !item.wip_subscribable ? 'Coming soon — not yet available for subscription.' : (item.always_subscribed ? 'Submit Claim is always subscribed.' : (item.wip ? 'WIP — stub integration only.' : ''))"
                 @click="toggleSubscribe(item, !item.subscribed)"
               >
                 <span x-show="item.subscribed" x-cloak>Subscribed</span>
@@ -108,7 +108,49 @@
               </button>
             </div>
           </div>
-          <details class="mt-3" x-show="!item.wip" x-cloak>
+          <div
+            class="api-mp-connector mt-4 grid gap-3 border-t border-white/10 pt-4"
+            x-show="item.api_name === 'connect_salesforce' && item.subscribed"
+            x-cloak
+          >
+            <p class="text-xs text-mist/55">
+              Enter your Salesforce endpoints, then call
+              <code class="text-gold/75">GET /api/v1/external/salesforce/leads</code>
+              to fetch stub lead details (WIP).
+            </p>
+            <div>
+              <label class="chrome-field-label" :for="'sf-server-' + item.api_name">Salesforce server IP / URL</label>
+              <input
+                class="chrome-input mt-1 w-full font-mono text-xs"
+                :id="'sf-server-' + item.api_name"
+                type="url"
+                placeholder="https://your-org.my.salesforce.com"
+                x-model="salesforceServerUrl"
+              />
+            </div>
+            <div>
+              <label class="chrome-field-label" :for="'sf-connector-' + item.api_name">Salesforce API / Connector URL</label>
+              <input
+                class="chrome-input mt-1 w-full font-mono text-xs"
+                :id="'sf-connector-' + item.api_name"
+                type="url"
+                placeholder="https://connector.example.com/salesforce/v1"
+                x-model="salesforceConnectorUrl"
+              />
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                class="btn-primary rounded-lg px-4 py-2 text-xs font-semibold"
+                :disabled="busy || !salesforceServerUrl.trim() || !salesforceConnectorUrl.trim()"
+                @click="saveSalesforceConfig()"
+              >
+                Save connector settings
+              </button>
+              <span class="text-xs text-emerald-300/80" x-show="salesforceConfigSaved" x-cloak>Saved</span>
+            </div>
+          </div>
+          <details class="mt-3" x-show="!item.wip || item.wip_subscribable" x-cloak>
             <summary class="cursor-pointer text-xs text-mist/50">Code samples</summary>
             <pre class="api-mp-code mt-2" x-text="sampleCurl(item)"></pre>
             <pre class="api-mp-code mt-2" x-text="samplePython(item)"></pre>
@@ -203,5 +245,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/api_marketplace.js?v=2"></script>
+<script src="/static/js/api_marketplace.js?v=3"></script>
 {% endblock %}

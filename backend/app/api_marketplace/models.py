@@ -57,6 +57,27 @@ class ApiTokenRevealLog(Base):
     )
 
 
+class ApiConnectorSetting(Base):
+    __tablename__ = "api_connector_settings"
+    __table_args__ = (
+        UniqueConstraint("user_id", "api_name", name="uq_api_connector_settings_user_api"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    api_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    server_url: Mapped[str] = mapped_column(String(512), nullable=False, default="")
+    connector_url: Mapped[str] = mapped_column(String(512), nullable=False, default="")
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
 class ApiSubscription(Base):
     __tablename__ = "api_subscriptions"
     __table_args__ = (UniqueConstraint("user_id", "api_name", name="uq_api_subscriptions_user_api"),)

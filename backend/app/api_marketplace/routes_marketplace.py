@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from app.api_marketplace.catalog import DEFAULT_VALIDITY_DAYS, VALIDITY_DAYS
+from app.api_marketplace.connectors import SALESFORCE_API, save_connector_config
 from app.api_marketplace.crypto import TokenCryptoError
 from app.api_marketplace.deps import client_ip
 from app.api_marketplace.subscriptions import (
@@ -188,6 +189,49 @@ async def marketplace_delete_chain(
     except ValueError as exc:
         return JSONResponse({"detail": str(exc)}, status_code=400)
     return {"chains": list_chains(db, user_id)}
+
+
+class SalesforceConnectorBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    server_url: str = Field(default="", max_length=512)
+    connector_url: str = Field(default="", max_length=512)
+
+
+@router.post("/api/marketplace/connectors/salesforce")
+async def marketplace_save_salesforce_connector(
+    body: SalesforceConnectorBody,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    from app.api_marketplace.subscriptions import is_subscribed
+
+    user_id = _user_id(request)
+    if not user_id:
+        return JSONResponse({"detail": "Not authenticated"}, status_code=401)
+    if not is_subscribed(db, user_id, SALESFORCE_API):
+        return JSONResponse(
+            {"detail": "Subscribe to Connect Salesforce before saving connector settings."},
+            status_code=400,
+        )
+    server = body.server_url.strip()
+    connector = body.connector_url.strip()
+    if not server or not connector:
+        return JSONResponse(
+            {"detail": "Both Salesforce server URL and connector URL are required."},
+            status_code=400,
+        )
+    save_connector_config(
+        db,
+        user_id=user_id,
+        api_name=SALESFORCE_API,
+        server_url=server,
+        connector_url=connector,
+    )
+    return {
+        "ok": True,
+        "connector_config": {"server_url": server, "connector_url": connector},
+        "catalog": catalog_with_subscriptions(db, user_id),
+    }
 
 
 @router.post("/api/marketplace/jobs/token-reminders")

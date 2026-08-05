@@ -13,6 +13,9 @@ function apiMarketplace(bootstrap = {}) {
     chainName: "",
     // Cascading dropdown selections; "" means END (shown as first option value "END")
     chainSelections: ["END"],
+    salesforceServerUrl: "",
+    salesforceConnectorUrl: "",
+    salesforceConfigSaved: false,
     busy: false,
     message: "",
 
@@ -46,6 +49,11 @@ function apiMarketplace(bootstrap = {}) {
       }
       if (!this.chainSelections.length) {
         this.chainSelections = ["END"];
+      }
+      const sf = (this.catalog || []).find((i) => i && i.api_name === "connect_salesforce");
+      if (sf && sf.connector_config) {
+        this.salesforceServerUrl = sf.connector_config.server_url || "";
+        this.salesforceConnectorUrl = sf.connector_config.connector_url || "";
       }
     },
 
@@ -148,7 +156,8 @@ function apiMarketplace(bootstrap = {}) {
     },
 
     async toggleSubscribe(item, enabled) {
-      if (!item || item.wip || item.always_subscribed) return;
+      if (!item || item.always_subscribed) return;
+      if (item.wip && !item.wip_subscribable) return;
       const previous = !!item.subscribed;
       item.subscribed = !!enabled;
       this.busy = true;
@@ -167,11 +176,43 @@ function apiMarketplace(bootstrap = {}) {
           return;
         }
         if (data.catalog) this.catalog = data.catalog;
+        const sf = (this.catalog || []).find((i) => i && i.api_name === "connect_salesforce");
+        if (sf && sf.connector_config) {
+          this.salesforceServerUrl = sf.connector_config.server_url || "";
+          this.salesforceConnectorUrl = sf.connector_config.connector_url || "";
+        }
         // Reset chain picker so options stay in sync with subscriptions.
         this.chainSelections = ["END"];
         this.message = enabled
           ? `Subscribed to ${item.title}.`
           : `Unsubscribed from ${item.title}.`;
+      } finally {
+        this.busy = false;
+      }
+    },
+
+    async saveSalesforceConfig() {
+      this.busy = true;
+      this.message = "";
+      this.salesforceConfigSaved = false;
+      try {
+        const resp = await fetch("/api/marketplace/connectors/salesforce", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({
+            server_url: (this.salesforceServerUrl || "").trim(),
+            connector_url: (this.salesforceConnectorUrl || "").trim(),
+          }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          this.message = data.detail || "Could not save connector settings.";
+          return;
+        }
+        if (data.catalog) this.catalog = data.catalog;
+        this.salesforceConfigSaved = true;
+        this.message = "Salesforce connector settings saved (WIP stub).";
       } finally {
         this.busy = false;
       }
@@ -188,6 +229,9 @@ function apiMarketplace(bootstrap = {}) {
       }
       if (item.api_name === "submit_images") {
         return `curl -X POST '${url}' \\\n  -H 'Authorization: Bearer ${token}' \\\n  -F 'images=@damage1.jpg'`;
+      }
+      if (item.api_name === "connect_salesforce") {
+        return `curl -X GET '${this.baseUrl}/api/v1/external/salesforce/leads' \\\n  -H 'Authorization: Bearer ${token}' \\\n  -H 'Accept: application/json'`;
       }
       return `curl -X ${item.method} '${url}' \\\n  -H 'Authorization: Bearer ${token}' \\\n  -H 'Accept: application/json'`;
     },

@@ -15,7 +15,9 @@ from app.api_marketplace.catalog import (
     HEAD_API,
     SUBSCRIBEABLE_APIS,
     WIP_APIS,
+    WIP_SUBSCRIBABLE_APIS,
 )
+from app.api_marketplace.connectors import SALESFORCE_API, get_connector_config
 from app.api_marketplace.models import ApiChain, ApiChainStep, ApiSubscription
 
 
@@ -47,7 +49,7 @@ def ensure_default_subscriptions(db: Session, user_id: int) -> None:
 
 
 def is_subscribed(db: Session, user_id: int, api_name: str) -> bool:
-    if api_name in WIP_APIS:
+    if api_name in WIP_APIS and api_name not in WIP_SUBSCRIBABLE_APIS:
         return False
     if api_name in ALWAYS_SUBSCRIBED_APIS:
         return True
@@ -68,7 +70,7 @@ def set_subscription(
     api_name: str,
     enabled: bool,
 ) -> ApiSubscription:
-    if api_name in WIP_APIS:
+    if api_name in WIP_APIS and api_name not in WIP_SUBSCRIBABLE_APIS:
         raise ValueError("This API is not yet available for subscription.")
     if api_name not in SUBSCRIBEABLE_APIS:
         raise ValueError(f"Unknown API: {api_name}")
@@ -98,15 +100,20 @@ def catalog_with_subscriptions(db: Session, user_id: int) -> list[dict]:
     for item in API_CATALOG:
         name = item["api_name"]
         always = bool(item.get("always_subscribed"))
+        wip = bool(item.get("wip"))
+        wip_sub = bool(item.get("wip_subscribable"))
         subscribed = True if always else bool(sub.get(name))
-        out.append(
-            {
-                **item,
-                "subscribed": subscribed,
-                "subscribe_disabled": bool(item.get("wip")) or always,
-                "always_subscribed": always,
-            }
-        )
+        row = {
+            **item,
+            "subscribed": subscribed,
+            "subscribe_disabled": always or (wip and not wip_sub),
+            "always_subscribed": always,
+        }
+        if name == SALESFORCE_API and user_id:
+            row["connector_config"] = get_connector_config(
+                db, user_id=user_id, api_name=SALESFORCE_API
+            )
+        out.append(row)
     return out
 
 

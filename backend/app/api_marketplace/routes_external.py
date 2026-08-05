@@ -342,3 +342,66 @@ async def external_policy_details(
         error_code="NOT_AVAILABLE",
     )
     return resp
+
+
+@router.get("/salesforce/leads")
+async def external_salesforce_leads(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """WIP stub — returns dummy lead rows using saved connector URLs."""
+    from app.api_marketplace.connectors import (
+        SALESFORCE_API,
+        dummy_salesforce_leads,
+        get_connector_config,
+    )
+    from app.api_marketplace.envelope import new_request_id
+    from app.api_marketplace.subscriptions import is_subscribed
+
+    auth = await require_external_auth(request, db, api_name=SALESFORCE_API)
+    if not isinstance(auth, tuple):
+        return auth
+    user, _token_row = auth
+    request_id = new_request_id()
+
+    if not is_subscribed(db, user.id, SALESFORCE_API):
+        resp = fail(
+            code="NOT_SUBSCRIBED",
+            message="Subscribe to Connect Salesforce in the API Marketplace first.",
+            request_id=request_id,
+            status_code=403,
+        )
+        finish_log(
+            db,
+            request,
+            api_name=SALESFORCE_API,
+            claim_no=None,
+            status_code=403,
+            error_code="NOT_SUBSCRIBED",
+        )
+        return resp
+
+    cfg = get_connector_config(db, user_id=user.id, api_name=SALESFORCE_API)
+    if not cfg.get("server_url") or not cfg.get("connector_url"):
+        resp = fail(
+            code="CONNECTOR_NOT_CONFIGURED",
+            message="Set Salesforce server URL and connector URL in the API Marketplace.",
+            request_id=request_id,
+            status_code=400,
+        )
+        finish_log(
+            db,
+            request,
+            api_name=SALESFORCE_API,
+            claim_no=None,
+            status_code=400,
+            error_code="CONNECTOR_NOT_CONFIGURED",
+        )
+        return resp
+
+    data = dummy_salesforce_leads(
+        server_url=cfg["server_url"],
+        connector_url=cfg["connector_url"],
+    )
+    finish_log(db, request, api_name=SALESFORCE_API, claim_no=None, status_code=200)
+    return ok(data, request_id=request_id)

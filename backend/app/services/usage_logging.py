@@ -78,6 +78,10 @@ def classify_route(method: str, path: str) -> tuple[str, str]:
             return "api_estimate", "api_marketplace"
         if "/policy-details" in p:
             return "api_policy_details", "api_marketplace"
+        if "/salesforce/leads" in p:
+            return "api_salesforce_leads", "api_marketplace"
+        if "/connectors/salesforce" in p:
+            return "api_connector_config", "api_marketplace"
         if p.startswith("/api/marketplace/token"):
             return "api_token_manage", "api_marketplace"
         if p.startswith("/api/marketplace/subscribe"):

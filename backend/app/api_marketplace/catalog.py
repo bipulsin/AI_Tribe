@@ -78,6 +78,21 @@ API_CATALOG: list[dict] = [
         "wip": True,
         "always_subscribed": False,
     },
+    {
+        "api_name": "connect_salesforce",
+        "title": "Connect Salesforce",
+        "description": (
+            "Connect to your Salesforce org and fetch lead details into AI Tribe. "
+            "Configure your Salesforce server and connector URLs after subscribing. "
+            "Work in progress — returns stub lead data only."
+        ),
+        "method": "GET",
+        "path": "/api/v1/external/salesforce/leads",
+        "wip": True,
+        "wip_subscribable": True,
+        "has_connector_config": True,
+        "always_subscribed": False,
+    },
 ]
 
 VALIDITY_DAYS = (30, 60, 90, 120, 180, 360)
@@ -90,8 +105,11 @@ CHAINABLE_APIS = (
     "estimation_detail",
 )
 WIP_APIS = frozenset({"policy_details"})
+WIP_SUBSCRIBABLE_APIS = frozenset({"connect_salesforce"})
 SUBSCRIBEABLE_APIS = frozenset(
-    item["api_name"] for item in API_CATALOG if not item["wip"]
+    item["api_name"]
+    for item in API_CATALOG
+    if not item["wip"] or item.get("wip_subscribable")
 )
 ALWAYS_SUBSCRIBED_APIS = frozenset(
     item["api_name"] for item in API_CATALOG if item.get("always_subscribed")

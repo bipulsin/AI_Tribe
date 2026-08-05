@@ -27,6 +27,10 @@
   word-break: break-word;
 }
 
+.api-mp-connector input.chrome-input {
+  font-size: 0.75rem;
+}
+
 .api-mp-wip,
 .api-mp-always {
   margin-left: 0.4rem;
