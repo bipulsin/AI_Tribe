@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Chat{% endblock %}
+{% block title %}{{ t('chat.title') }}{% endblock %}
 
 {% block body_class %}chat-page h-screen overflow-hidden bg-ink text-mist antialiased{% endblock %}
 
@@ -24,7 +24,7 @@
       type="button"
       class="chat-sidebar-toggle"
       id="chat-sidebar-toggle"
-      aria-label="Collapse sidebar"
+      aria-label="{{ t('chat.collapse_sidebar') }}"
       aria-expanded="true"
     >
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
@@ -33,7 +33,7 @@
     </button>
 
     <div class="chat-sidebar-inner" id="chat-sidebar-expanded">
-      <p class="chat-sidebar-brand">AI Tribe</p>
+      <p class="chat-sidebar-brand">{{ t('app.name') }}</p>
       <div id="chat-user-menu-slot" class="chat-user-menu-slot"></div>
     </div>
 
@@ -49,8 +49,8 @@
 
   <main class="chat-main">
     <header class="chat-header">
-      <h1 class="chat-title">AI Tribe</h1>
-      <p class="chat-subtitle">Claims Chat</p>
+      <h1 class="chat-title">{{ t('app.name') }}</h1>
+      <p class="chat-subtitle">{{ t('chat.title') }}</p>
     </header>
 
     <div class="chat-thread" x-ref="thread" id="chat-thread" role="log" aria-live="polite">
@@ -180,16 +180,16 @@
 
               <div class="chat-widget chat-estimate-widget" x-show="widget.type === 'claim_estimate'">
                 <p class="chat-widget-title">
-                  Estimate · <span x-text="widget.claim_reference"></span>
+                  {{ t('chat.estimate_title') }} <span x-text="widget.claim_reference"></span>
                 </p>
                 <div class="chat-estimate-table-wrap">
                   <table class="chat-estimate-table">
                     <thead>
                       <tr>
-                        <th>Part</th>
-                        <th>Damage</th>
-                        <th>Action</th>
-                        <th class="text-right">Total</th>
+                        <th>{{ t('chat.part') }}</th>
+                        <th>{{ t('chat.damage') }}</th>
+                        <th>{{ t('chat.action') }}</th>
+                        <th class="text-right">{{ t('estimate.total') }}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -205,13 +205,13 @@
                   </table>
                 </div>
                 <p class="chat-estimate-total" x-show="widget.grand_total > 0">
-                  Grand total: <strong x-text="'₹' + Number(widget.grand_total).toLocaleString('en-IN')"></strong>
+                  {{ t('chat.grand_total') }} <strong x-text="'₹' + Number(widget.grand_total).toLocaleString('en-IN')"></strong>
                 </p>
               </div>
 
               <div class="chat-widget chat-gallery-widget" x-show="widget.type === 'claim_images'">
                 <p class="chat-widget-title">
-                  Claim photos · <span x-text="widget.claim_reference"></span>
+                  {{ t('chat.photos_title') }} <span x-text="widget.claim_reference"></span>
                 </p>
                 <div class="chat-gallery-grid">
                   <template x-for="(image, iIdx) in (widget.images || [])" :key="iIdx">
@@ -259,7 +259,7 @@
       </div>
 
       <form class="chat-composer" id="chat-composer-form">
-        <label class="chat-attach" title="Attach photos or video" aria-label="Attach photos or video">
+        <label class="chat-attach" title="{{ t('chat.attach') }}" aria-label="{{ t('chat.attach') }}">
           <input
             id="chat-attach-input"
             type="file"
@@ -276,10 +276,11 @@
           name="message"
           rows="1"
           class="chat-input"
-          placeholder="Ask about a claim or describe what you need…"
+          placeholder="{{ t('chat.input_placeholder') }}"
         ></textarea>
-        <button type="submit" class="chat-send" id="chat-send-btn">Send</button>
+        <button type="submit" class="chat-send" id="chat-send-btn">{{ t('chat.send') }}</button>
       </form>
+      <p class="mt-2 text-center text-xs text-mist/45">{{ t('chat.nlu_english_note') }}</p>
     </div>
   </main>
 </div>
@@ -296,8 +297,8 @@
   <div class="chat-claim-modal-backdrop" data-chat-claim-close></div>
   <div class="chat-claim-modal-panel" tabindex="-1">
     <header class="chat-claim-modal-header">
-      <h2 id="chat-claim-modal-title" class="chat-claim-modal-title">Claim details</h2>
-      <button type="button" class="chat-claim-modal-close" data-chat-claim-close aria-label="Close">&times;</button>
+      <h2 id="chat-claim-modal-title" class="chat-claim-modal-title">{{ t('chat.claim_details') }}</h2>
+      <button type="button" class="chat-claim-modal-close" data-chat-claim-close aria-label="{{ t('chat.close') }}">&times;</button>
     </header>
     <iframe id="chat-claim-modal-frame" class="chat-claim-modal-frame" title="Claim estimate"></iframe>
   </div>

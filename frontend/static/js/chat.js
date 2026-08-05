@@ -240,7 +240,9 @@ function chatApp({ userName = "User", maxImages = 10, maxUploadMb = 25 } = {}) {
       } catch (_err) {
         this.pushMessage({
           role: "assistant",
-          text: "I couldn't reach the server. Check your connection and try again.",
+          text: typeof window.atrT === "function"
+            ? window.atrT("chat.server_error")
+            : "I couldn't reach the server. Check your connection and try again.",
         });
       } finally {
         this.sending = false;
@@ -285,7 +287,7 @@ async function postChatUpload(files) {
     }
   }
   if (!images.length && !video) {
-    return { error: "Please choose image or video files." };
+    return { error: typeof window.atrT === "function" ? window.atrT("chat.upload_type_error") : "Please choose image or video files." };
   }
 
   const form = new FormData();
@@ -309,7 +311,7 @@ async function postChatUpload(files) {
     }
     return { data };
   } catch (_err) {
-    return { error: "Upload failed — please try again." };
+    return { error: typeof window.atrT === "function" ? window.atrT("chat.upload_failed") : "Upload failed — please try again." };
   }
 }
 
@@ -536,7 +538,9 @@ async function submitChatMessage() {
     }
   } catch (_err) {
     appendAssistantMessage(thread, {
-      text: "I couldn't reach the server. Check your connection and try again.",
+      text: typeof window.atrT === "function"
+        ? window.atrT("chat.server_error")
+        : "I couldn't reach the server. Check your connection and try again.",
     });
   }
 }

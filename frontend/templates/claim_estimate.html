@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}Estimate{% endblock %}
+{% block title %}{{ t('estimate.title') }}{% endblock %}
 
 {% block body %}
 <div class="mx-auto max-w-3xl px-6 py-8" x-data="estimatePage({{ claim.id if claim else 'null' }}, {{ 'true' if pricing_complete else 'false' }})" x-init="init()">
   <header class="mb-6 flex items-start justify-between gap-4">
     <div>
-      <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gold">AI Tribe</p>
-      <h1 class="mt-2 text-3xl font-semibold tracking-tight text-navy dark:text-mist">Survey estimate</h1>
+      <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gold">{{ t('app.name') }}</p>
+      <h1 class="mt-2 text-3xl font-semibold tracking-tight text-navy dark:text-mist">{{ t('estimate.title') }}</h1>
       {% if claim %}
       <p class="mt-2 text-sm text-navy/60 dark:text-mist/55">{{ claim.claim_reference }}</p>
       {% endif %}
@@ -18,7 +18,7 @@
         href="/claims/{{ claim.id }}/processing{% if embed %}?embed=1{% endif %}"
         class="rounded-lg border border-gold/40 bg-gold/10 px-3 py-1.5 text-sm font-semibold text-navy transition hover:border-gold/60 hover:bg-gold/20 dark:border-gold/50 dark:bg-gold/15 dark:text-mist dark:hover:bg-gold/25"
       >
-        View assessment
+        {{ t('estimate.view_assessment') }}
       </a>
       {% endif %}
       {% if not embed %}
@@ -26,7 +26,7 @@
         href="/claims/new"
         class="rounded-lg border border-navy/10 bg-white px-3 py-1.5 text-sm text-navy/70 transition hover:border-navy/20 hover:text-navy dark:border-white/10 dark:bg-navy dark:text-mist/70 dark:hover:border-white/20 dark:hover:text-mist"
       >
-        New claim
+        {{ t('claims.new_claim') }}
       </a>
       {% endif %}
     </div>
@@ -34,18 +34,16 @@
 
   {% if error %}
   <section class="notice" role="status">
-    <p class="notice-title">Estimate unavailable</p>
+    <p class="notice-title">{{ t('estimate.unavailable') }}</p>
     <p class="notice-body">{{ error }}</p>
   </section>
   {% else %}
 
   {% if estimate.pricing_basis == "extensive_damage_manual_review" %}
   <section class="notice notice-warning" role="status">
-    <p class="notice-title">Extensive damage — manual review required</p>
+    <p class="notice-title">{{ t('estimate.extensive_damage_title') }}</p>
     <p class="notice-body">
-      The assessment detected a possible extensive or total-loss pattern across multiple images.
-      No auto-generated settlement total is shown. A surveyor must confirm damage scope and
-      vehicle identity before pricing.
+      {{ t('estimate.extensive_damage_body') }}
     </p>
   </section>
   {% endif %}
@@ -53,46 +51,46 @@
   <section class="rounded-2xl border border-navy/10 bg-white px-5 py-4 dark:border-white/10 dark:bg-navy">
     <div class="flex flex-wrap items-baseline justify-between gap-4">
       <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">Vehicle</p>
+        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">{{ t('estimate.vehicle') }}</p>
         {% if vehicle and vehicle.identity_confirmed %}
         <p class="mt-2 text-xl font-semibold text-navy dark:text-mist">
-          {{ vehicle.make or "Unknown" }}
+          {{ vehicle.make or t('estimate.unknown') }}
           {{ vehicle.model or "" }}
           {% if vehicle.year %}<span class="font-normal text-navy/50 dark:text-mist/45">· {{ vehicle.year }}</span>{% endif %}
         </p>
         <p class="mt-1 text-sm text-navy/55 dark:text-mist/50">
-          Identity confirmed
+          {{ t('estimate.identity_confirmed') }}
           {% if max_confidence is not none %}
-          · damage confidence up to {{ '%.0f'|format(max_confidence * 100) }}%
+          · {{ t('estimate.damage_confidence', pct='%.0f'|format(max_confidence * 100)) }}
           {% endif %}
         </p>
         {% elif vehicle and identity_pricing_basis == "needs_confirmation" %}
         <p class="mt-2 text-xl font-semibold text-navy dark:text-mist">
-          {{ vehicle.make or "Unknown" }}
+          {{ vehicle.make or t('estimate.unknown') }}
           {{ vehicle.model or "" }}
-          <span class="font-normal text-navy/50 dark:text-mist/45">· needs confirmation</span>
+          <span class="font-normal text-navy/50 dark:text-mist/45">· {{ t('estimate.needs_confirmation') }}</span>
         </p>
         <p class="mt-1 text-sm text-navy/55 dark:text-mist/50">
-          Low-confidence tier — confirm before final pricing
+          {{ t('estimate.low_confidence_tier') }}
           {% if max_confidence is not none %}
-          · damage confidence up to {{ '%.0f'|format(max_confidence * 100) }}%
+          · {{ t('estimate.damage_confidence', pct='%.0f'|format(max_confidence * 100)) }}
           {% endif %}
         </p>
         {% elif vehicle and estimate.pricing_basis == "model_fallback_priced" %}
         <p class="mt-2 text-xl font-semibold text-navy dark:text-mist">
-          {{ vehicle.make or "Unknown" }}
+          {{ vehicle.make or t('estimate.unknown') }}
           {{ vehicle.model or "" }}
         </p>
         <p class="mt-1 text-sm text-navy/55 dark:text-mist/50">
-          Priced via catalogue approximation
+          {{ t('estimate.catalogue_approx') }}
           {% if max_confidence is not none %}
-          · damage confidence up to {{ '%.0f'|format(max_confidence * 100) }}%
+          · {{ t('estimate.damage_confidence', pct='%.0f'|format(max_confidence * 100)) }}
           {% endif %}
         </p>
         {% else %}
-        <p class="mt-2 text-xl font-semibold text-navy dark:text-mist">Vehicle identity unconfirmed</p>
+        <p class="mt-2 text-xl font-semibold text-navy dark:text-mist">{{ t('estimate.identity_unconfirmed') }}</p>
         <p class="mt-1 text-sm text-navy/55 dark:text-mist/50">
-          Provisional vs {{ catalogue_vehicle_label or "nearest catalogue entry" }}
+          {{ t('estimate.provisional_vs', label=catalogue_vehicle_label or t('estimate.nearest_catalogue')) }}
         </p>
         {% endif %}
       </div>
@@ -108,7 +106,7 @@
           {% elif estimate.pricing_basis == "model_fallback_priced" or fallback_source_model %}
           Approximate total
           {% else %}
-          Grand total
+          {{ t('estimate.grand_total') }}
           {% endif %}
         </p>
         {% if pricing_complete and estimate.pricing_basis != "pending_manual_prices" %}
@@ -132,7 +130,7 @@
 
   <section class="notice mt-4" role="status">
     <p class="notice-body">
-      Indicative pricing only — not for binding settlement.
+      {{ t('estimate.indicative_notice') }} — not for binding settlement.
       {% if estimate.pricing_basis == "extensive_damage_manual_review" %}
       Extensive-damage review state — no priced total until surveyor confirmation.
       {% elif not pricing_complete or estimate.pricing_basis == "pending_manual_prices" %}
@@ -145,7 +143,7 @@
       Catalogue approx: {{ catalogue_vehicle_label or fallback_source_model }}.
       {% endif %}
       {% if estimate.pricing_basis == "provisional_fallback" %}
-      Provisional vs {{ catalogue_vehicle_label or "catalogue fallback" }}.
+      {{ t('estimate.provisional_vs', label=catalogue_vehicle_label or "catalogue fallback") }}.
       {% endif %}
     </p>
   </section>
@@ -153,18 +151,18 @@
   {# Sizes to row count; scrolls only when content exceeds max-height. #}
   <section class="parts-table-panel mt-4 overflow-hidden rounded-2xl border border-navy/10 bg-white dark:border-white/10 dark:bg-navy">
     <div class="border-b border-navy/10 px-5 py-3 dark:border-white/10">
-      <p class="text-xs font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">Parts and pricing</p>
+      <p class="text-xs font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">{{ t('estimate.line_items') }}</p>
     </div>
     <div class="parts-table-scroll overflow-x-auto">
       <table class="w-full min-w-[36rem] text-left text-sm">
         <thead class="sticky top-0 bg-canvas text-navy/50 dark:bg-ink/95 dark:text-mist/45">
           <tr>
-            <th class="px-5 py-3 font-medium">Part</th>
-            <th class="px-3 py-3 font-medium">Damage</th>
-            <th class="px-3 py-3 font-medium">Action</th>
+            <th class="px-5 py-3 font-medium">{{ t('estimate.part') }}</th>
+            <th class="px-3 py-3 font-medium">{{ t('estimate.damage') }}</th>
+            <th class="px-3 py-3 font-medium">{{ t('estimate.action') }}</th>
             <th class="px-3 py-3 font-medium text-right">Unit</th>
             <th class="px-3 py-3 font-medium text-right">Labour</th>
-            <th class="px-5 py-3 font-medium text-right">Line total</th>
+            <th class="px-5 py-3 font-medium text-right">{{ t('estimate.total') }}</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-navy/5 dark:divide-white/5">
@@ -225,7 +223,7 @@
   </section>
 
   <section class="mt-4 rounded-2xl border border-navy/10 bg-white px-5 py-4 dark:border-white/10 dark:bg-navy" x-show="pricingComplete" x-cloak>
-    <p class="text-xs uppercase tracking-wide text-navy/45 dark:text-mist/40">Finalized total</p>
+    <p class="text-xs uppercase tracking-wide text-navy/45 dark:text-mist/40">{{ t('estimate.grand_total') }}</p>
     <p class="mt-1 text-2xl font-semibold tabular-nums text-navy dark:text-white" x-text="totalLabel"></p>
     <p class="mt-1 text-sm tabular-nums text-navy/50 dark:text-mist/45" x-text="subtotalLabel"></p>
   </section>

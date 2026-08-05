@@ -3,7 +3,7 @@
   class="app-chrome-left"
   x-data="userChrome()"
   x-init="init()"
-  data-initial-name="{{ request.session.get('full_name') or request.session.get('username') or 'User' }}"
+  data-initial-name="{{ request.session.get('full_name') or request.session.get('username') or t('common.user') }}"
   @keydown.escape.window="menuOpen = false"
 >
   <div class="user-menu-wrap">
@@ -40,8 +40,8 @@
       @click.outside="menuOpen = false"
       role="menu"
     >
-      <button type="button" class="user-menu-item" role="menuitem" @click="openProfile()">Profile</button>
-      <button type="button" class="user-menu-item" role="menuitem" @click="openSettings()">Settings</button>
+      <button type="button" class="user-menu-item" role="menuitem" @click="openProfile()">{{ t('nav.profile') }}</button>
+      <button type="button" class="user-menu-item" role="menuitem" @click="openSettings()">{{ t('nav.settings') }}</button>
       <a href="/settings/api-marketplace" class="user-menu-item" role="menuitem">API Marketplace</a>
       <button
         type="button"
@@ -53,8 +53,8 @@
       >
         Admin
       </button>
-      <a href="/claims/new" class="user-menu-item user-menu-item--enterprise" role="menuitem">Enterprise</a>
-      <a href="/auth/logout" class="user-menu-item user-menu-item--signout" role="menuitem">Sign out</a>
+      <a href="/claims/new" class="user-menu-item user-menu-item--enterprise" role="menuitem">{{ t('nav.enterprise') }}</a>
+      <a href="/auth/logout" class="user-menu-item user-menu-item--signout" role="menuitem">{{ t('nav.sign_out') }}</a>
     </div>
   </div>
 

@@ -6,7 +6,6 @@ import json
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 from starlette.datastructures import UploadFile
@@ -14,6 +13,8 @@ from starlette.datastructures import UploadFile
 from app.core.config import get_settings
 from app.api.deps import session_user, user_can_access_claim
 from app.core.database import get_db
+from app.core.templates import templates
+from app.i18n.catalog import translate_pipeline_stage
 from app.models import Claim, Garage, LlmAssistLog, PipelineEvent, Vehicle
 from app.models.enums import ClaimStatus
 from app.services.claim_search import search_claims
@@ -24,7 +25,6 @@ from app.services.vmmr.vehicle_confirmation import catalog_makes_models
 
 router = APIRouter(tags=["claims"])
 settings = get_settings()
-templates = Jinja2Templates(directory=str(settings.templates_dir))
 
 
 @router.get("/claims/new", response_class=HTMLResponse)
@@ -270,7 +270,7 @@ async def claim_processing(
             "id": event.id,
             "claim_id": event.claim_id,
             "stage_key": event.stage_key,
-            "stage_label": event.stage_label,
+            "stage_label": translate_pipeline_stage(event.stage_key, event.stage_label),
             "status": event.status.value if hasattr(event.status, "value") else event.status,
             "detail": event.detail,
             "work_seconds": event.work_seconds,

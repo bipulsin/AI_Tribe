@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}New claim{% endblock %}
+{% block title %}{{ t('claims.title') }}{% endblock %}
 
 {% block body %}
 <div
@@ -9,33 +9,32 @@
 >
   <header class="mb-3 flex items-start justify-between gap-4">
     <div>
-      <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gold">AI Tribe</p>
-      <h1 class="mt-1 text-2xl font-semibold tracking-tight text-navy dark:text-mist">Claims</h1>
+      <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gold">{{ t('app.name') }}</p>
+      <h1 class="mt-1 text-2xl font-semibold tracking-tight text-navy dark:text-mist">{{ t('claims.title') }}</h1>
       <p class="mt-1 text-sm text-navy/60 dark:text-mist/55">
-        Signed in as {{ full_name or username }}
+        {{ t('claims.signed_in_as') }} {{ full_name or username }}
       </p>
     </div>
     <a
       href="/chat"
       class="inline-flex items-center gap-1.5 rounded-lg border border-gold/40 bg-gold/10 px-3 py-1.5 text-sm font-semibold text-navy transition hover:border-gold/60 hover:bg-gold/20 dark:border-gold/50 dark:bg-gold/15 dark:text-mist dark:hover:bg-gold/25"
-      title="Open conversational claims assistant"
+      title="{{ t('claims.open_chat') }}"
     >
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
         <path fill-rule="evenodd" d="M2 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H6.414l-3.707 3.707A1 1 0 0 1 2 14.586V5Zm3.293 1.293a1 1 0 0 1 1.414 0L10 9.586l3.293-3.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4a1 1 0 0 1 0-1.414Z" clip-rule="evenodd" />
       </svg>
-      Chat
+      {{ t('nav.chat') }}
     </a>
   </header>
 
-  {# Search only — no section headings; minimal top footprint #}
   <section class="rounded-xl border border-navy/10 bg-white px-3 py-2 dark:border-white/10 dark:bg-navy">
-    <label for="claim_search" class="sr-only">Search claims</label>
+    <label for="claim_search" class="sr-only">{{ t('claims.search_label') }}</label>
     <input
       id="claim_search"
       name="q"
       type="search"
       autocomplete="off"
-      placeholder="Claim reference, garage, or surveyor"
+      placeholder="{{ t('claims.search_placeholder') }}"
       hx-get="/api/claims/search"
       hx-trigger="keyup changed delay:300ms, search"
       hx-target="#claim-search-results"
@@ -46,7 +45,7 @@
       id="claim-search-results"
       class="mt-1.5 max-h-36 overflow-y-auto rounded-lg border border-navy/10 dark:border-white/10"
     >
-      <p class="px-2 py-1 text-xs text-navy/45 dark:text-mist/40">Type to search.</p>
+      <p class="px-2 py-1 text-xs text-navy/45 dark:text-mist/40">{{ t('claims.search_hint') }}</p>
     </div>
   </section>
 
@@ -70,26 +69,26 @@
         @change="onFileSelect($event)"
       />
 
-      <p class="text-lg font-medium text-navy dark:text-mist">Drop damage photos</p>
+      <p class="text-lg font-medium text-navy dark:text-mist">{{ t('claims.drop_photos') }}</p>
       <p class="mt-1 text-sm text-navy/55 dark:text-mist/50">
-        Up to {{ max_images }} images · optional video · max {{ max_upload_mb }} MB
+        {{ t('claims.upload_limits', max_images=max_images, max_mb=max_upload_mb) }}
       </p>
       <button
         type="button"
         class="btn-primary mt-3 rounded-lg px-5 py-2.5 text-sm font-semibold"
         @click.stop="$refs.fileInput.click()"
       >
-        Browse files
+        {{ t('claims.browse_files') }}
       </button>
     </div>
 
     <div class="mt-2 flex items-center justify-between gap-4 text-sm text-navy/60 dark:text-mist/55">
       <p x-text="imageCounterLabel"></p>
-      <p x-show="video" x-cloak>1 video attached</p>
+      <p x-show="video" x-cloak>{{ t('upload.video_attached') }}</p>
     </div>
 
     <div class="notice mt-2" x-show="error" x-cloak role="alert">
-      <p class="notice-title">Could not add that file</p>
+      <p class="notice-title">{{ t('upload.file_error_title') }}</p>
       <p class="notice-body" x-text="error"></p>
     </div>
 
@@ -104,7 +103,7 @@
             type="button"
             class="media-thumb block w-full text-left"
             @click="window.openMediaPreview({ src: item.previewUrl, alt: item.name, isVideo: item.isVideo })"
-            :aria-label="item.isVideo ? 'Preview video' : 'Preview ' + item.name"
+            :aria-label="item.isVideo ? atrT('upload.preview_video') : ('Preview ' + item.name)"
           >
             <div class="aspect-square">
               <template x-if="item.isVideo">
@@ -127,15 +126,15 @@
           <div class="flex items-center justify-between gap-2 px-2 py-1.5">
             <span
               class="truncate text-xs text-navy/60 dark:text-mist/55"
-              x-text="item.isVideo ? 'Video' : item.name"
+              x-text="item.isVideo ? atrT('upload.video') : item.name"
             ></span>
             <button
               type="button"
               class="rounded-md px-1.5 py-0.5 text-xs text-navy/50 transition hover:bg-navy/5 hover:text-navy dark:text-mist/45 dark:hover:bg-white/5 dark:hover:text-mist"
               @click="removeItem(item.id)"
-              aria-label="Remove file"
+              :aria-label="atrT('upload.remove_file')"
             >
-              Remove
+              {{ t('upload.remove') }}
             </button>
           </div>
         </li>
@@ -144,7 +143,7 @@
 
     <div class="mt-3 grid gap-3 sm:grid-cols-2">
       <div class="relative">
-        <label for="garage_name" class="block text-sm font-medium text-navy dark:text-mist">Garage</label>
+        <label for="garage_name" class="block text-sm font-medium text-navy dark:text-mist">{{ t('claims.garage') }}</label>
         <input
           id="garage_name"
           name="garage_name"
@@ -156,7 +155,7 @@
           hx-target="#garage-suggestions"
           hx-include="this"
           class="mt-1 w-full rounded-lg border border-navy/15 bg-canvas px-3 py-2 text-sm text-navy outline-none focus:border-gold/50 dark:border-white/15 dark:bg-ink dark:text-mist"
-          placeholder="Garage name"
+          placeholder="{{ t('claims.garage_placeholder') }}"
         />
         <div
           id="garage-suggestions"
@@ -166,7 +165,7 @@
         ></div>
       </div>
       <div class="relative">
-        <label for="surveyor_name" class="block text-sm font-medium text-navy dark:text-mist">Surveyor</label>
+        <label for="surveyor_name" class="block text-sm font-medium text-navy dark:text-mist">{{ t('claims.surveyor') }}</label>
         <input
           id="surveyor_name"
           name="surveyor_name"
@@ -178,7 +177,7 @@
           hx-target="#surveyor-suggestions"
           hx-include="this"
           class="mt-1 w-full rounded-lg border border-navy/15 bg-canvas px-3 py-2 text-sm text-navy outline-none focus:border-gold/50 dark:border-white/15 dark:bg-ink dark:text-mist"
-          placeholder="Surveyor name"
+          placeholder="{{ t('claims.surveyor_placeholder') }}"
         />
         <div
           id="surveyor-suggestions"
@@ -188,7 +187,7 @@
         ></div>
       </div>
       <div>
-        <label for="accident_date" class="block text-sm font-medium text-navy dark:text-mist">Accident date</label>
+        <label for="accident_date" class="block text-sm font-medium text-navy dark:text-mist">{{ t('claims.accident_date') }}</label>
         <input
           id="accident_date"
           name="accident_date"
@@ -197,7 +196,7 @@
           :max="accidentDateMax"
           class="mt-1 w-full rounded-lg border border-navy/15 bg-canvas px-3 py-2 text-sm text-navy outline-none focus:border-gold/50 dark:border-white/15 dark:bg-ink dark:text-mist"
         />
-        <p class="mt-1 text-xs text-navy/45 dark:text-mist/40">Must be before today (past dates only).</p>
+        <p class="mt-1 text-xs text-navy/45 dark:text-mist/40">{{ t('claims.accident_date_hint') }}</p>
       </div>
     </div>
 
@@ -207,7 +206,7 @@
         x-show="!canSubmit && !submitting"
         x-cloak
       >
-        Add at least one image and an accident date (before today) to enable submit.
+        {{ t('claims.submit_hint') }}
       </p>
       <button
         type="button"
@@ -216,8 +215,8 @@
         @click="submitClaim()"
       >
         <span class="btn-spinner" x-show="submitting" x-cloak></span>
-        <span x-show="!submitting">Submit claim</span>
-        <span x-show="submitting" x-cloak>Submitting…</span>
+        <span x-show="!submitting">{{ t('claims.submit') }}</span>
+        <span x-show="submitting" x-cloak>{{ t('claims.submitting') }}</span>
       </button>
     </div>
   </section>
@@ -225,5 +224,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/upload.js"></script>
+<script src="/static/js/upload.js?v=2"></script>
 {% endblock %}

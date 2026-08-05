@@ -1,9 +1,9 @@
 {% if not searched %}
-<p class="px-2 py-1 text-xs text-navy/45 dark:text-mist/40">Type to search.</p>
+<p class="px-2 py-1 text-xs text-navy/45 dark:text-mist/40">{{ t('claims.search_hint') }}</p>
 {% elif not hits %}
-<p class="px-2 py-1 text-xs text-navy/55 dark:text-mist/50">No claims match “{{ query }}”.</p>
+<p class="px-2 py-1 text-xs text-navy/55 dark:text-mist/50">{{ t('claims.search_no_results', query=query) }}</p>
 {% else %}
-<ul class="divide-y divide-navy/10 dark:divide-white/10" role="listbox" aria-label="Claim search results">
+<ul class="divide-y divide-navy/10 dark:divide-white/10" role="listbox" aria-label="{{ t('claims.search_results') }}">
   {% for hit in hits %}
   <li>
     <a

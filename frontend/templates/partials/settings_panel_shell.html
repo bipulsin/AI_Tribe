@@ -8,8 +8,8 @@
   <div class="chrome-modal-backdrop" @click="closeSettings()"></div>
   <div class="chrome-modal-panel chrome-modal-panel--slide" role="dialog" aria-labelledby="settings-panel-title">
     <header class="chrome-modal-header">
-      <h2 id="settings-panel-title" class="chrome-modal-title">Settings</h2>
-      <button type="button" class="chrome-modal-close" @click="closeSettings()" aria-label="Close settings">&times;</button>
+      <h2 id="settings-panel-title" class="chrome-modal-title">{{ t('settings.title') }}</h2>
+      <button type="button" class="chrome-modal-close" @click="closeSettings()" aria-label="{{ t('settings.close') }}">&times;</button>
     </header>
     <div class="chrome-modal-body space-y-6">
       <a
@@ -20,8 +20,7 @@
         API Marketplace →
       </a>
       <p class="text-sm text-mist/60">
-        Your LLM API key is encrypted and stored only for your account. It is never shared
-        with other users and is not cleared when you sign out.
+        {{ t('settings.llm_intro') }}
       </p>
 
       <p
@@ -29,33 +28,32 @@
         x-show="llmSettings && !llmSettings.encryption_configured"
         x-cloak
       >
-        Server encryption is not configured (<code class="text-amber-100">LLM_ENCRYPTION_KEY</code>).
-        Key storage is disabled until an administrator sets this on the server.
+        {{ t('settings.encryption_missing') }}
       </p>
 
       <section x-show="llmSettings" x-cloak>
-        <label for="llm_provider_select" class="chrome-field-label">Select provider</label>
+        <label for="llm_provider_select" class="chrome-field-label">{{ t('settings.select_provider') }}</label>
         <select
           id="llm_provider_select"
           class="chrome-input mt-1 w-full"
           x-model="selectedProvider"
         >
-          <option value="">Select provider…</option>
-          <option value="openai">OpenAI ChatGPT</option>
-          <option value="anthropic">Anthropic Claude</option>
-          <option value="gemini">Google Gemini</option>
-          <option value="grok">X Grok</option>
+          <option value="">{{ t('settings.select_provider_placeholder') }}</option>
+          <option value="openai">{{ t('settings.provider_openai') }}</option>
+          <option value="anthropic">{{ t('settings.provider_anthropic') }}</option>
+          <option value="gemini">{{ t('settings.provider_gemini') }}</option>
+          <option value="grok">{{ t('settings.provider_grok') }}</option>
         </select>
       </section>
 
       <section x-show="llmSettings && selectedProvider" x-cloak>
-        <label for="llm_api_key" class="chrome-field-label">API key</label>
+        <label for="llm_api_key" class="chrome-field-label">{{ t('settings.api_key') }}</label>
         <input
           id="llm_api_key"
           type="password"
           class="chrome-input mt-1 w-full"
           x-model="apiKeyDraft"
-          :placeholder="savedKeyHint ? 'Enter new key to replace saved key' : 'Paste API key'"
+          :placeholder="savedKeyHint ? '{{ t('settings.api_key_replace') }}' : '{{ t('settings.api_key_paste') }}'"
           autocomplete="off"
         />
         <div class="mt-2 flex flex-wrap items-center gap-2">
@@ -65,7 +63,7 @@
             @click="saveLlmKey()"
             :disabled="!apiKeyDraft || llmSaving || !selectedProvider"
           >
-            Save
+            {{ t('settings.save') }}
           </button>
           <button
             type="button"
@@ -73,16 +71,16 @@
             @click="testLlmKey()"
             :disabled="llmTesting || !selectedProvider"
           >
-            <span x-show="!llmTesting">Test</span>
-            <span x-show="llmTesting" x-cloak>Testing…</span>
+            <span x-show="!llmTesting">{{ t('settings.test') }}</span>
+            <span x-show="llmTesting" x-cloak>{{ t('settings.testing') }}</span>
           </button>
-          <span class="text-xs text-emerald-300/80" x-show="savedKeyHint" x-text="'Saved ' + savedKeyHint" x-cloak></span>
+          <span class="text-xs text-emerald-300/80" x-show="savedKeyHint" x-text="'{{ t('settings.saved_prefix') }} ' + savedKeyHint" x-cloak></span>
           <button
             type="button"
             class="ml-auto inline-flex items-center gap-1 rounded-lg border border-red-400/30 px-2 py-1.5 text-xs font-medium text-red-300/80"
             x-show="savedKeyHint"
             @click="removeLlmKey()"
-            title="Remove saved API key"
+            title="{{ t('settings.remove_key') }}"
             x-cloak
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">

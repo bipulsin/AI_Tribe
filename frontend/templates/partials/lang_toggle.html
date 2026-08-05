@@ -1,0 +1,18 @@
+{# EN / FR display toggle — cookie-backed, no NLU impact #}
+{% set next_url = request.url.path ~ ('?' ~ request.url.query if request.url.query else '') %}
+<div class="lang-toggle" role="group" aria-label="{{ t('lang.toggle_label') }}">
+  <a
+    href="/lang/en?next={{ next_url|urlencode }}"
+    class="lang-toggle-btn{% if get_lang() == 'en' %} lang-toggle-btn--active{% endif %}"
+    lang="en"
+    aria-current="{{ 'true' if get_lang() == 'en' else 'false' }}"
+    title="English"
+  >{{ t('lang.en') }}</a>
+  <a
+    href="/lang/fr?next={{ next_url|urlencode }}"
+    class="lang-toggle-btn{% if get_lang() == 'fr' %} lang-toggle-btn--active{% endif %}"
+    lang="fr"
+    aria-current="{{ 'true' if get_lang() == 'fr' else 'false' }}"
+    title="Français"
+  >{{ t('lang.fr') }}</a>
+</div>

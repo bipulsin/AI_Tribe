@@ -5,13 +5,14 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.core.config import get_settings
 from app.core.database import SessionLocal
 from app.core.security import verify_password
+from app.core.templates import templates
+from app.i18n.catalog import reset_request_lang, resolve_lang, set_request_lang
 from app.models import User
 
 logger = logging.getLogger("ai_tribe")
@@ -98,7 +99,6 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
-templates = Jinja2Templates(directory=str(settings.templates_dir))
 app.state.templates = templates
 
 app.mount("/static", StaticFiles(directory=str(settings.static_dir)), name="static")
@@ -117,7 +117,20 @@ PUBLIC_PATHS = {
     "/docs",
     "/openapi.json",
     "/redoc",
+    "/api/i18n/smoke",
 }
+
+
+@app.middleware("http")
+async def resolve_ui_language(request: Request, call_next):
+    """Resolve UI language from explicit ``atr_lang`` cookie only (default en)."""
+    lang = resolve_lang(request.cookies.get("atr_lang"))
+    request.state.lang = lang
+    token = set_request_lang(lang)
+    try:
+        return await call_next(request)
+    finally:
+        reset_request_lang(token)
 
 
 @app.middleware("http")
@@ -128,6 +141,7 @@ async def require_session(request: Request, call_next):
         or path.startswith("/static/")
         or path.startswith("/uploads/")
         or path.startswith("/api/v1/external/")
+        or path.startswith("/lang/")
     ):
         return await call_next(request)
 
@@ -259,6 +273,9 @@ try:
     from app.api import routes_admin
 
     app.include_router(routes_admin.router)
+    from app.api import routes_i18n
+
+    app.include_router(routes_i18n.router)
     from app.api import routes_lab_labeling
 
     app.include_router(routes_lab_labeling.router)

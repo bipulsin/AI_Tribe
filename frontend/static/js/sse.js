@@ -131,7 +131,7 @@ function pipelineTracker({
       const haltAfterKey = haltEarly ? "duplicate_check" : null;
       const seedStages = CANONICAL_PIPELINE_STAGES.map(([key, label]) => ({
         key,
-        label,
+        label: typeof atrPipelineStageLabel === "function" ? atrPipelineStageLabel(key, label) : label,
         status: "pending",
         detail: null,
         startedAtMs: null,
@@ -305,7 +305,10 @@ function pipelineTracker({
         if (!stage && (isStart || fromHistory)) {
           stage = {
             key: event.stage_key,
-            label: event.stage_label || event.stage_key,
+            label:
+              typeof atrPipelineStageLabel === "function"
+                ? atrPipelineStageLabel(event.stage_key, event.stage_label || event.stage_key)
+                : event.stage_label || event.stage_key,
             status: "pending",
             detail: null,
             startedAtMs: null,
@@ -360,7 +363,10 @@ function pipelineTracker({
           }
 
           if (event.stage_label) {
-            stage.label = event.stage_label;
+            stage.label =
+              typeof atrPipelineStageLabel === "function"
+                ? atrPipelineStageLabel(event.stage_key, event.stage_label)
+                : event.stage_label;
           }
           if (Object.prototype.hasOwnProperty.call(event, "detail")) {
             stage.detail = event.detail;

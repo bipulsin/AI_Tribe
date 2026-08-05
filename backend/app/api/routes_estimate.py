@@ -6,7 +6,6 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -14,13 +13,13 @@ from sqlalchemy.orm import Session, selectinload
 from app.api.deps import session_user, user_can_access_claim
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.templates import templates
 from app.models import Claim
 from app.services.parts import estimate_builder
 from app.services.parts.estimate_builder import PRICE_SOURCE_UNPRICED
 
 router = APIRouter(tags=["estimate"])
 settings = get_settings()
-templates = Jinja2Templates(directory=str(settings.templates_dir))
 
 
 class ManualPriceRow(BaseModel):

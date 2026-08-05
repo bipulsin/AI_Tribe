@@ -10,40 +10,39 @@
   <div class="help-guide-backdrop" data-help-close></div>
   <div class="help-guide-panel" tabindex="-1">
     <div class="help-guide-header">
-      <h2 id="help-guide-title" class="help-guide-title">AI Tribe</h2>
-      <button type="button" class="help-guide-close" data-help-close aria-label="Close help">
+      <h2 id="help-guide-title" class="help-guide-title">{{ t('app.name') }}</h2>
+      <button type="button" class="help-guide-close" data-help-close aria-label="{{ t('help.close') }}">
         ×
       </button>
     </div>
     <div class="help-guide-body" id="help-guide-content">
       <p class="help-guide-lead">
-        Submit up to 10 photos and an optional short video of vehicle damage.
-        Watch the assessment pipeline run, then review a parts-priced survey estimate.
+        {{ t('help.lead') }}
       </p>
       <ul class="help-guide-list">
         <li>
-          <strong>Vehicle Forensics</strong>
-          <span>Authenticity and reuse checks on submitted media before pricing starts.</span>
+          <strong>{{ t('help.vehicle_forensics') }}</strong>
+          <span>{{ t('help.vehicle_forensics_desc') }}</span>
         </li>
         <li>
-          <strong>DeepFake AI detection</strong>
-          <span>Screens submitted photos for AI-generation and deepfake artefacts before pricing starts.</span>
+          <strong>{{ t('help.deepfake') }}</strong>
+          <span>{{ t('help.deepfake_desc') }}</span>
         </li>
         <li>
-          <strong>VMMR</strong>
-          <span>Make/model recognition with confidence tiers — low-confidence guesses need surveyor confirmation.</span>
+          <strong>{{ t('help.vmmr') }}</strong>
+          <span>{{ t('help.vmmr_desc') }}</span>
         </li>
         <li>
-          <strong>Multi-Image Cross-Vehicle Consistency</strong>
-          <span>Compares images within a claim so mixed-vehicle submissions surface as risk signals.</span>
+          <strong>{{ t('help.consistency') }}</strong>
+          <span>{{ t('help.consistency_desc') }}</span>
         </li>
         <li>
-          <strong>Organised Fraud Graph Intelligence</strong>
-          <span>Network of claimants, surveyors, and garages linked by shared claims — flags high-degree nodes and recurring garage–surveyor pairs.</span>
+          <strong>{{ t('help.fraud_graph') }}</strong>
+          <span>{{ t('help.fraud_graph_desc') }}</span>
         </li>
         <li>
-          <strong>Parts-Grounded Estimation</strong>
-          <span>Maps damage to catalogue parts and prices; public-source prices are indicative only.</span>
+          <strong>{{ t('help.parts_estimate') }}</strong>
+          <span>{{ t('help.parts_estimate_desc') }}</span>
         </li>
       </ul>
     </div>

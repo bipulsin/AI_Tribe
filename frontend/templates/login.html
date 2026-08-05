@@ -1,9 +1,15 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ get_lang() }}">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sign in · AI Tribe</title>
+  <title>{{ t('login.sign_in') }} · {{ t('app.name') }}</title>
+  <script type="application/json" id="atr-i18n-bootstrap">{{ js_i18n()|tojson }}</script>
+  <script>
+    window.__atrLang = {{ get_lang()|tojson }};
+    window.__atrI18n = JSON.parse(document.getElementById("atr-i18n-bootstrap").textContent);
+  </script>
+  <script src="/static/js/i18n.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -23,6 +29,7 @@
   <link rel="stylesheet" href="/static/css/app.css" />
 </head>
 <body class="login-page min-h-screen overflow-hidden text-white antialiased">
+  {% include "partials/lang_toggle.html" %}
   <div class="login-stage relative flex min-h-screen items-center px-6 sm:px-10 lg:px-16">
     <video
       id="login-bg-video"
@@ -37,7 +44,6 @@
     </video>
     <div class="login-overlay absolute inset-0" aria-hidden="true"></div>
 
-    {# Ambient line-art texture — abstract, non-interactive #}
     <div class="login-decor pointer-events-none absolute inset-y-0 right-0 hidden w-1/2 lg:block" aria-hidden="true">
       <svg class="login-decor-svg absolute right-[8%] top-[18%] h-16 w-16" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.2">
         <circle cx="32" cy="32" r="18" />
@@ -60,14 +66,14 @@
     <main class="login-panel relative z-10 w-full max-w-sm">
       <div class="mb-8 flex items-center gap-2.5">
         <span class="login-mark inline-flex h-7 w-7 items-center justify-center rounded-md border border-gold/50 text-xs font-bold text-gold" aria-hidden="true">AI</span>
-        <p class="text-sm font-semibold tracking-wide text-white">AI Tribe</p>
+        <p class="text-sm font-semibold tracking-wide text-white">{{ t('app.name') }}</p>
       </div>
 
       <h1 class="text-3xl font-bold leading-tight tracking-tight text-white sm:text-4xl">
-        Motor Claim Damage Detection AI Model
+        {{ t('login.title') }}
       </h1>
       <p class="mt-3 text-sm leading-relaxed text-white/65">
-        Use your email or username and password to access this instance.
+        {{ t('login.subtitle') }}
       </p>
 
       <form
@@ -81,7 +87,7 @@
         autocomplete="on"
       >
         <div>
-          <label for="username" class="mb-1.5 block text-sm font-medium text-white/85">Email or username</label>
+          <label for="username" class="mb-1.5 block text-sm font-medium text-white/85">{{ t('login.email_or_username') }}</label>
           <input
             id="username"
             name="username"
@@ -95,7 +101,7 @@
         </div>
 
         <div>
-          <label for="password" class="mb-1.5 block text-sm font-medium text-white/85">Password</label>
+          <label for="password" class="mb-1.5 block text-sm font-medium text-white/85">{{ t('login.password') }}</label>
           <input
             id="password"
             name="password"
@@ -118,12 +124,12 @@
           class="login-submit inline-flex w-full items-center justify-center rounded-md px-4 py-2.5 text-sm font-semibold tracking-wide"
         >
           <span id="login-spinner" class="btn-spinner login-submit-spinner htmx-indicator"></span>
-          Sign In
+          {{ t('login.sign_in') }}
         </button>
       </form>
 
       <p class="mt-6 flex flex-wrap items-center gap-2 text-sm text-white/60">
-        Need an account?
+        {{ t('login.need_account') }}
         <a
           href="https://www.linkedin.com/in/bipulsahay"
           target="_blank"
@@ -133,16 +139,15 @@
           <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
           </svg>
-          Let's connect on LinkedIn
+          {{ t('login.linkedin') }}
         </a>
       </p>
     </main>
   </div>
 
-  {# Login chrome: icon centered above "by" without widening the text run. #}
   <div class="login-chrome">
     <p class="attribution-byline attribution-byline--login">
-      <span class="attribution-prefix">Conceptualized, Architected &amp; Built </span><span
+      <span class="attribution-prefix">{{ t('attribution.concept') }} </span><span
         class="attribution-by-stack"
       ><button
           type="button"
@@ -151,11 +156,11 @@
           aria-haspopup="dialog"
           aria-controls="help-guide-modal"
           aria-expanded="false"
-          title="What is AI Tribe?"
+          title="{{ t('help.what_is') }}"
         >
           <span aria-hidden="true">?</span>
-          <span class="sr-only">Open help guide</span>
-        </button><span class="attribution-by">by</span></span><a
+          <span class="sr-only">{{ t('help.open') }}</span>
+        </button><span class="attribution-by">{{ t('attribution.by') }}</span></span><a
         class="attribution-name"
         href="http://www.linkedin.com/in/bipulsahay"
         target="_blank"

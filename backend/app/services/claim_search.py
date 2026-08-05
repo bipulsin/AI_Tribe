@@ -15,14 +15,7 @@ from app.models.enums import ClaimStatus
 # Letters, dash, optional alphanumerics — e.g. CLM-2026-000001, CLM-2026, CLM-
 _CLAIM_REF_LIKE = re.compile(r"^[A-Za-z]+(?:-[A-Za-z0-9]*)+$")
 
-_STATUS_LABELS = {
-    ClaimStatus.submitted: "Submitted",
-    ClaimStatus.processing: "Processing",
-    ClaimStatus.authenticity_failed: "Authenticity failed",
-    ClaimStatus.paused_awaiting_vehicle_confirmation: "Awaiting vehicle confirmation",
-    ClaimStatus.estimate_ready: "Estimate ready",
-    ClaimStatus.closed: "Closed",
-}
+from app.i18n.catalog import claim_status_label
 
 _ESTIMATE_LINE_KEYS = ("part_name", "damage_type", "repair_or_replace", "notes")
 
@@ -70,7 +63,7 @@ def _claim_to_hit(claim: Claim, score: float, *, match_hint: str | None = None) 
         garage_name=garage_name,
         surveyor_name=claim.surveyor_name,
         status=status_val,
-        status_label=_STATUS_LABELS.get(claim.status, status_val.replace("_", " ").title()),
+        status_label=claim_status_label(status_val),
         created_at=claim.created_at,
         href=claim_detail_href(claim),
         score=score,

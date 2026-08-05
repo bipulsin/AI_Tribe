@@ -28,6 +28,10 @@ function claimUpload({
     submitting: false,
     _idSeq: 0,
 
+    atrT(key, vars = {}) {
+      return typeof window.atrT === "function" ? window.atrT(key, vars) : key;
+    },
+
     get previews() {
       const items = [...this.images];
       if (this.video) items.push(this.video);
@@ -35,7 +39,9 @@ function claimUpload({
     },
 
     get imageCounterLabel() {
-      return `${this.images.length} of ${this.maxImages} images added`;
+      return typeof window.atrT === "function"
+        ? window.atrT("upload.images_counter", { count: this.images.length, max: this.maxImages })
+        : `${this.images.length} of ${this.maxImages} images added`;
     },
 
     get canSubmit() {
@@ -78,7 +84,7 @@ function claimUpload({
 
       for (const file of files) {
         if (file.size > maxBytes) {
-          this.error = `"${file.name}" exceeds the ${maxUploadMb} MB limit.`;
+          this.error = this.atrT("upload.file_too_large", { name: file.name, max_mb: maxUploadMb });
           continue;
         }
 
@@ -91,7 +97,7 @@ function claimUpload({
 
         if (isImage) {
           if (nextImages.length >= this.maxImages) {
-            this.error = `You can add at most ${this.maxImages} images.`;
+            this.error = this.atrT("upload.max_images", { max: this.maxImages });
             continue;
           }
           nextImages.push(this._makeItem(file, false));
@@ -101,7 +107,7 @@ function claimUpload({
           }
           nextVideo = this._makeItem(file, true);
         } else {
-          this.error = `"${file.name}" is not a supported image or video type.`;
+          this.error = this.atrT("upload.unsupported_type", { name: file.name });
         }
       }
 
@@ -173,14 +179,14 @@ function claimUpload({
 
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
-          this.error = payload.detail || "Could not submit the claim. Try again.";
+          this.error = payload.detail || this.atrT("upload.submit_failed");
           this.submitting = false;
           return;
         }
 
         window.location.href = payload.redirect || `/claims/${payload.claim_id}/processing`;
       } catch (_err) {
-        this.error = "Network error while submitting. Check your connection and try again.";
+        this.error = this.atrT("upload.network_error");
         this.submitting = false;
       }
     },

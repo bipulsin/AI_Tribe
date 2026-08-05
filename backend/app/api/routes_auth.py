@@ -4,18 +4,16 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.security import verify_password
+from app.core.templates import templates
+from app.i18n.catalog import translate
 from app.models import User
 
 router = APIRouter(tags=["auth"])
-settings = get_settings()
-templates = Jinja2Templates(directory=str(settings.templates_dir))
 
 
 @router.get("/login", response_class=HTMLResponse)
@@ -43,7 +41,7 @@ async def auth_login(
     is_htmx = request.headers.get("HX-Request") == "true"
 
     if not user or not user.is_active or not verify_password(password, user.password_hash):
-        error = "Incorrect username or password."
+        error = translate("login.error_invalid")
         if is_htmx:
             # 200 so HTMX swaps the error partial into the card (no full reload).
             return templates.TemplateResponse(

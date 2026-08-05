@@ -1175,3 +1175,51 @@ body:not(.login-page) {
     font-size: 0.6875rem;
   }
 }
+
+/* Top-right EN / FR UI language toggle */
+.lang-toggle {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 70;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.125rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(184, 134, 11, 0.35);
+  background: rgba(0, 31, 63, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.lang-toggle-btn {
+  display: inline-flex;
+  min-width: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  color: rgba(232, 236, 241, 0.72);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.lang-toggle-btn:hover,
+.lang-toggle-btn:focus-visible {
+  color: #fde68a;
+  outline: none;
+  background: rgba(184, 134, 11, 0.12);
+}
+
+.lang-toggle-btn--active {
+  background: rgba(184, 134, 11, 0.22);
+  color: #fde68a;
+}
+
+.login-page .lang-toggle {
+  background: rgba(0, 31, 63, 0.55);
+  border-color: rgba(255, 255, 255, 0.18);
+}

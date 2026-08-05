@@ -8,12 +8,12 @@
   <div class="chrome-modal-backdrop" @click="closeProfile()"></div>
   <div class="chrome-modal-panel chrome-modal-panel--wide" role="dialog" aria-labelledby="profile-panel-title">
     <header class="chrome-modal-header">
-      <h2 id="profile-panel-title" class="chrome-modal-title">Profile</h2>
-      <button type="button" class="chrome-modal-close" @click="closeProfile()" aria-label="Close profile">&times;</button>
+      <h2 id="profile-panel-title" class="chrome-modal-title">{{ t('profile.title') }}</h2>
+      <button type="button" class="chrome-modal-close" @click="closeProfile()" aria-label="{{ t('profile.close') }}">&times;</button>
     </header>
     <div class="chrome-modal-body space-y-6">
       <section>
-        <p class="chrome-field-label">Profile photo</p>
+        <p class="chrome-field-label">{{ t('profile.photo') }}</p>
         <div class="mt-2 flex items-center gap-4">
           <div class="profile-panel-avatar-wrap">
             <img x-show="profile.photo_url" :src="profile.photo_url" alt="" class="profile-panel-avatar" x-cloak />
@@ -21,7 +21,7 @@
           </div>
           <div class="flex flex-wrap gap-2">
             <label class="btn-primary cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold">
-              Upload
+              {{ t('profile.upload') }}
               <input type="file" accept="image/jpeg,image/png,image/webp" class="sr-only" @change="uploadPhoto($event)" />
             </label>
             <button
@@ -31,16 +31,16 @@
               @click="removePhoto()"
               x-cloak
             >
-              Remove
+              {{ t('profile.remove') }}
             </button>
           </div>
         </div>
-        <p class="mt-1 text-xs text-mist/45">JPEG, PNG, or WebP · max 2 MB · stored on disk only</p>
+        <p class="mt-1 text-xs text-mist/45">{{ t('profile.photo_hint') }}</p>
         <p class="mt-1 text-xs text-amber-300/80" x-show="photoMessage" x-text="photoMessage" x-cloak></p>
       </section>
 
       <section>
-        <label for="profile_full_name" class="chrome-field-label">Full name</label>
+        <label for="profile_full_name" class="chrome-field-label">{{ t('profile.full_name') }}</label>
         <div class="mt-1 flex gap-2">
           <input
             id="profile_full_name"
@@ -49,39 +49,39 @@
             class="chrome-input flex-1"
             maxlength="128"
           />
-          <button type="button" class="btn-primary rounded-lg px-3 py-2 text-xs font-semibold" @click="saveFullName()">Save</button>
+          <button type="button" class="btn-primary rounded-lg px-3 py-2 text-xs font-semibold" @click="saveFullName()">{{ t('profile.save') }}</button>
         </div>
         <p class="mt-1 text-xs text-amber-300/80" x-show="nameMessage" x-text="nameMessage" x-cloak></p>
       </section>
 
       <section>
-        <label for="profile_dob" class="chrome-field-label">Date of birth</label>
+        <label for="profile_dob" class="chrome-field-label">{{ t('profile.dob') }}</label>
         <div class="mt-1 flex gap-2">
           <input id="profile_dob" type="date" x-model="profile.date_of_birth" class="chrome-input flex-1" />
-          <button type="button" class="btn-primary rounded-lg px-3 py-2 text-xs font-semibold" @click="saveDob()">Save</button>
+          <button type="button" class="btn-primary rounded-lg px-3 py-2 text-xs font-semibold" @click="saveDob()">{{ t('profile.save') }}</button>
         </div>
         <p class="mt-1 text-xs text-amber-300/80" x-show="dobMessage" x-text="dobMessage" x-cloak></p>
       </section>
 
       <section class="border-t border-white/10 pt-4">
-        <p class="chrome-field-label">Change password</p>
+        <p class="chrome-field-label">{{ t('profile.change_password') }}</p>
         <div class="mt-2 space-y-2">
           <input
             type="password"
             x-model="passwordCurrent"
-            placeholder="Current password"
+            placeholder="{{ t('profile.current_password') }}"
             class="chrome-input w-full"
             autocomplete="current-password"
           />
           <input
             type="password"
             x-model="passwordNew"
-            placeholder="New password (min 8 characters)"
+            placeholder="{{ t('profile.new_password') }}"
             class="chrome-input w-full"
             autocomplete="new-password"
           />
           <button type="button" class="btn-primary rounded-lg px-3 py-2 text-xs font-semibold" @click="savePassword()">
-            Update password
+            {{ t('profile.update_password') }}
           </button>
         </div>
         <p class="mt-1 text-xs text-amber-300/80" x-show="passwordMessage" x-text="passwordMessage" x-cloak></p>

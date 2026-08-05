@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Processing claim{% endblock %}
+{% block title %}{{ t('processing.title') }}{% endblock %}
 
 {% block body %}
 {# Bootstrap JSON must not sit inside an HTML attribute — embedded " breaks Alpine. #}
@@ -12,8 +12,8 @@
 >
   <header class="mb-6 flex items-start justify-between gap-4">
     <div>
-      <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gold">AI Tribe</p>
-      <h1 class="mt-2 text-3xl font-semibold tracking-tight text-navy dark:text-mist">Assessment</h1>
+      <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gold">{{ t('app.name') }}</p>
+      <h1 class="mt-2 text-3xl font-semibold tracking-tight text-navy dark:text-mist">{{ t('processing.title') }}</h1>
       {% if claim %}
       <p class="mt-2 text-sm text-navy/60 dark:text-mist/55">{{ claim.claim_reference }}</p>
       {% endif %}
@@ -24,7 +24,7 @@
         href="/claims/{{ claim.id }}/estimate{% if embed %}?embed=1{% endif %}"
         class="rounded-lg border border-gold/40 bg-gold/10 px-3 py-1.5 text-sm font-semibold text-navy transition hover:border-gold/60 hover:bg-gold/20 dark:border-gold/50 dark:bg-gold/15 dark:text-mist dark:hover:bg-gold/25"
       >
-        View estimate
+        {{ t('processing.view_estimate') }}
       </a>
       {% endif %}
       {% if not embed %}
@@ -32,7 +32,7 @@
         href="/claims/new"
         class="rounded-lg border border-navy/10 bg-white px-3 py-1.5 text-sm text-navy/70 transition hover:border-navy/20 hover:text-navy dark:border-white/10 dark:bg-navy dark:text-mist/70 dark:hover:border-white/20 dark:hover:text-mist"
       >
-        New claim
+        {{ t('claims.new_claim') }}
       </a>
       {% endif %}
     </div>
@@ -40,7 +40,7 @@
 
   {% if error %}
   <section class="notice" role="status">
-    <p class="notice-title">Claim unavailable</p>
+    <p class="notice-title">{{ t('processing.claim_unavailable') }}</p>
     <p class="notice-body">{{ error }}</p>
   </section>
   {% else %}
@@ -54,7 +54,7 @@
           type="button"
           class="media-thumb block w-full text-left"
           onclick="openMediaPreview({ src: '/uploads/{{ image.file_path }}', alt: 'Claim image {{ image.image_order }}', isVideo: {{ 'true' if image.is_video else 'false' }} })"
-          aria-label="Preview claim image {{ image.image_order }}"
+          aria-label="{{ t('processing.preview_image', order=image.image_order) }}"
         >
           <div class="aspect-square">
             {% if image.is_video %}
@@ -68,17 +68,17 @@
       {% endfor %}
     </ul>
     {% else %}
-    <p class="py-2 text-center text-sm text-navy/50 dark:text-mist/45">No images attached.</p>
+    <p class="py-2 text-center text-sm text-navy/50 dark:text-mist/45">{{ t('processing.no_images') }}</p>
     {% endif %}
   </section>
 
   <div class="flex flex-col gap-4 lg:flex-row">
   <section class="min-w-0 flex-1 rounded-2xl border border-navy/10 bg-white px-5 py-4 dark:border-white/10 dark:bg-navy">
     <div class="flex items-center justify-between gap-3">
-      <h2 class="text-sm font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">Progress</h2>
+      <h2 class="text-sm font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">{{ t('processing.progress') }}</h2>
       <div class="flex items-center gap-3 text-xs tabular-nums text-navy/45 dark:text-mist/40">
         <p x-show="totalTimerLabel" x-cloak>
-          Elapsed <span x-text="totalTimerLabel"></span>
+          {{ t('processing.elapsed') }} <span x-text="totalTimerLabel"></span>
         </p>
         <p
           class="inline-flex items-center"
@@ -86,7 +86,7 @@
           x-cloak
         >
           <span class="stage-spinner mr-2 h-3 w-3 border border-navy/20 border-t-navy/60 dark:border-white/20 dark:border-t-mist/70"></span>
-          Connecting…
+          {{ t('processing.connecting') }}
         </p>
       </div>
     </div>
@@ -95,7 +95,7 @@
     <div
       class="stage-window mt-4 overflow-y-auto pr-1"
       x-ref="stageWindow"
-      aria-label="Pipeline stages"
+      aria-label="{{ t('processing.stages') }}"
     >
       <ol class="stage-tracker">
         <template x-for="(stage, index) in stages" :key="stage.key">
@@ -161,29 +161,29 @@
                     x-show="confirmMake && confirmModel && awaitingVehicleConfirmation"
                     x-cloak
                   >
-                    Pre-filled from LLM assist when available — please confirm before continuing.
+                    {{ t('processing.llm_prefill') }}
                   </p>
                   <form class="mt-3 grid gap-3 sm:grid-cols-2" @submit.prevent="submitVehicleConfirmation()">
                     <div>
-                      <label for="confirm_make" class="block text-sm font-medium text-navy dark:text-mist">Make</label>
+                      <label for="confirm_make" class="block text-sm font-medium text-navy dark:text-mist">{{ t('processing.make') }}</label>
                       <input
                         id="confirm_make"
                         type="text"
                         list="catalog-makes"
                         x-model="confirmMake"
                         class="mt-1 w-full rounded-lg border border-navy/15 bg-canvas px-3 py-2 text-sm text-navy outline-none focus:border-gold/50 dark:border-white/15 dark:bg-ink dark:text-mist"
-                        placeholder="e.g. Toyota"
+                        placeholder="{{ t('processing.make_placeholder') }}"
                         required
                       />
                     </div>
                     <div>
-                      <label for="confirm_model" class="block text-sm font-medium text-navy dark:text-mist">Model</label>
+                      <label for="confirm_model" class="block text-sm font-medium text-navy dark:text-mist">{{ t('processing.model') }}</label>
                       <input
                         id="confirm_model"
                         type="text"
                         x-model="confirmModel"
                         class="mt-1 w-full rounded-lg border border-navy/15 bg-canvas px-3 py-2 text-sm text-navy outline-none focus:border-gold/50 dark:border-white/15 dark:bg-ink dark:text-mist"
-                        placeholder="e.g. Innova"
+                        placeholder="{{ t('processing.model_placeholder') }}"
                         required
                       />
                     </div>
@@ -193,8 +193,8 @@
                         class="btn-primary rounded-lg px-4 py-2 text-sm font-semibold"
                         :disabled="confirmSubmitting || !confirmMake.trim() || !confirmModel.trim()"
                       >
-                        <span x-show="!confirmSubmitting">Confirm and continue</span>
-                        <span x-show="confirmSubmitting" x-cloak>Continuing…</span>
+                        <span x-show="!confirmSubmitting">{{ t('processing.confirm_continue') }}</span>
+                        <span x-show="confirmSubmitting" x-cloak>{{ t('processing.continuing') }}</span>
                       </button>
                     </div>
                   </form>
@@ -212,7 +212,7 @@
     </div>
 
     <div class="notice mt-4" x-show="halted && !awaitingVehicleConfirmation" x-cloak role="status">
-      <p class="notice-title">Assessment paused</p>
+      <p class="notice-title">{{ t('processing.assessment_paused') }}</p>
       <p class="notice-body" x-text="haltMessage"></p>
       <button
         type="button"
@@ -220,45 +220,45 @@
         :disabled="reviewSent"
         @click="requestReview()"
       >
-        <span x-show="!reviewSent">Send for manual review</span>
-        <span x-show="reviewSent" x-cloak>Sent for manual review</span>
+        <span x-show="!reviewSent">{{ t('processing.send_review') }}</span>
+        <span x-show="reviewSent" x-cloak>{{ t('processing.sent_review') }}</span>
       </button>
     </div>
 
     <div class="notice notice-success mt-4" x-show="complete && !halted" x-cloak role="status">
-      <p class="notice-title">Survey estimate ready</p>
-      <p class="notice-body">The assessment pipeline finished. Review the estimate sheet next.</p>
+      <p class="notice-title">{{ t('processing.estimate_ready_title') }}</p>
+      <p class="notice-body">{{ t('processing.estimate_ready_body') }}</p>
       <a
         :href="estimateUrl"
         class="btn-primary mt-3 inline-flex rounded-lg px-4 py-2 text-sm font-semibold"
       >
-        View estimate
+        {{ t('processing.view_estimate') }}
       </a>
     </div>
   </section>
 
   <aside class="fraud-network-panel w-full shrink-0 rounded-2xl border border-navy/10 bg-white px-4 py-3 dark:border-white/10 dark:bg-navy lg:w-64">
-    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">Claim network</p>
+    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-navy/45 dark:text-mist/40">{{ t('fraud.claim_network') }}</p>
     <button
       type="button"
       id="fraud-network-open"
       class="fraud-network-open mt-2 w-full text-left"
       aria-haspopup="dialog"
       aria-controls="fraud-network-modal"
-      title="Open claim network"
+      title="{{ t('processing.open_network') }}"
     >
       <div class="fraud-network-frame relative">
         <div id="fraud-network" class="fraud-network-canvas" aria-label="Local claim network diagram"></div>
-        <div id="fraud-network-clear-badge" class="fraud-network-clear-badge" hidden aria-label="No network pattern detected">
+        <div id="fraud-network-clear-badge" class="fraud-network-clear-badge" hidden aria-label="{{ t('fraud.no_pattern') }}">
           <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
             <path fill-rule="evenodd" d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.25 7.333a1 1 0 0 1-1.44-.02L3.27 9.96a1 1 0 1 1 1.46-1.366l3.98 4.253 6.53-6.603a1 1 0 0 1 1.464.046z" clip-rule="evenodd"/>
           </svg>
         </div>
-        <span class="fraud-network-expand-hint" aria-hidden="true">Expand</span>
+        <span class="fraud-network-expand-hint" aria-hidden="true">{{ t('fraud.expand') }}</span>
       </div>
     </button>
     <p id="fraud-network-caption" class="fraud-network-caption mt-2">
-      Network view of claims sharing this garage or surveyor. Click the map to enlarge.
+      {{ t('processing.network_caption') }}{{ t('processing.network_caption_suffix') }}
     </p>
     <p
       id="fraud-network-llm"
@@ -282,16 +282,16 @@
   <div class="fraud-network-modal-backdrop" data-fraud-network-close></div>
   <div class="fraud-network-modal-panel" tabindex="-1">
     <header class="fraud-network-modal-header">
-      <h2 id="fraud-network-modal-title" class="fraud-network-modal-title">Claim network</h2>
-      <div class="fraud-network-zoom-controls" role="group" aria-label="Zoom">
-        <button type="button" id="fraud-network-zoom-in" class="fraud-network-zoom-btn" aria-label="Zoom in" title="Zoom in">
+      <h2 id="fraud-network-modal-title" class="fraud-network-modal-title">{{ t('fraud.claim_network') }}</h2>
+      <div class="fraud-network-zoom-controls" role="group" aria-label="{{ t('fraud.zoom') }}">
+        <button type="button" id="fraud-network-zoom-in" class="fraud-network-zoom-btn" aria-label="{{ t('fraud.zoom_in') }}" title="{{ t('fraud.zoom_in') }}">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <circle cx="10.5" cy="10.5" r="6.25" stroke="currentColor" stroke-width="1.75"/>
             <path d="M15.2 15.2 20 20" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
             <path d="M10.5 7.75v5.5M7.75 10.5h5.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
           </svg>
         </button>
-        <button type="button" id="fraud-network-zoom-out" class="fraud-network-zoom-btn" aria-label="Zoom out" title="Zoom out">
+        <button type="button" id="fraud-network-zoom-out" class="fraud-network-zoom-btn" aria-label="{{ t('fraud.zoom_out') }}" title="{{ t('fraud.zoom_out') }}">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <circle cx="10.5" cy="10.5" r="6.25" stroke="currentColor" stroke-width="1.75"/>
             <path d="M15.2 15.2 20 20" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
@@ -299,7 +299,7 @@
           </svg>
         </button>
       </div>
-      <button type="button" class="fraud-network-modal-close" data-fraud-network-close aria-label="Close">&times;</button>
+      <button type="button" class="fraud-network-modal-close" data-fraud-network-close aria-label="{{ t('fraud.close') }}">&times;</button>
     </header>
     <div class="fraud-network-modal-body">
       <div id="fraud-network-modal-canvas" class="fraud-network-modal-canvas" aria-label="Enlarged claim network"></div>
@@ -318,7 +318,7 @@
     if (bootstrap.network) {
       const caption = document.getElementById("fraud-network-caption");
       if (caption && bootstrap.network.caption) {
-        caption.textContent = bootstrap.network.caption + " Click the map to enlarge.";
+        caption.textContent = bootstrap.network.caption + (typeof atrT === "function" ? atrT("fraud.network_caption_suffix") : " Click the map to enlarge.");
       }
       const llmNote = document.getElementById("fraud-network-llm");
       if (llmNote && bootstrap.network.llmInterpretation) {

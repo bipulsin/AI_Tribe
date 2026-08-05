@@ -4,20 +4,19 @@ from __future__ import annotations
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile
 
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.templates import templates
 from app.services.chat.handler import append_uploads, handle_message
 from app.services.chat.lookup import build_claim_detail
 from app.services.claim_service import IMAGE_CONTENT_TYPES
 
 router = APIRouter(tags=["chat"])
 settings = get_settings()
-templates = Jinja2Templates(directory=str(settings.templates_dir))
 
 
 class ChatMessagePayload(BaseModel):
