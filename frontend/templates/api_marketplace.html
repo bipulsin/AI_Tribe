@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}API Marketplace{% endblock %}
+{% block title %}{{ t('marketplace.title') }}{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="/static/css/api_marketplace.css?v=2" />
@@ -15,68 +15,63 @@
   x-init="init()"
 >
   <header class="mb-8">
-    <h1 class="text-2xl font-bold text-mist">AI Tribe API Marketplace</h1>
+    <h1 class="text-2xl font-bold text-mist">{{ t('marketplace.title') }}</h1>
     <p class="mt-2 max-w-3xl text-sm text-mist/60">
-      Self-service partner API into the same claim assessment pipeline used by Enterprise and Chat.
-      Generate a bearer token, subscribe to endpoints, then build an API chain from your subscriptions.
+      {{ t('marketplace.intro') }}
     </p>
   </header>
 
-  {# —— Token manager —— #}
   <section class="api-mp-card mb-6">
-    <h2 class="api-mp-section-title">My API Token</h2>
+    <h2 class="api-mp-section-title">{{ t('marketplace.token_section') }}</h2>
     <p class="mt-1 text-xs text-mist/50">
-      Format <code class="text-gold/80">atr_live_…</code>. Only the latest token is valid.
-      Showing the token is logged for security review.
+      {{ t('marketplace.token_format', code='atr_live_…') }}
     </p>
 
     <div class="mt-4 flex flex-wrap items-end gap-3">
       <div>
-        <label class="chrome-field-label" for="api-mp-validity">Validity</label>
+        <label class="chrome-field-label" for="api-mp-validity">{{ t('marketplace.validity') }}</label>
         <select id="api-mp-validity" class="chrome-input mt-1" x-model.number="validityDays">
           <template x-for="d in validityOptions" :key="d">
-            <option :value="d" x-text="d + ' days'"></option>
+            <option :value="d" x-text="d + ' ' + daysLabel"></option>
           </template>
         </select>
       </div>
       <button type="button" class="btn-primary rounded-lg px-4 py-2 text-xs font-semibold" :disabled="busy" @click="generateToken()">
-        Generate / Refresh Token
+        {{ t('marketplace.generate_token') }}
       </button>
       <button type="button" class="rounded-lg border border-white/15 px-4 py-2 text-xs text-mist/80" :disabled="busy || !tokenView" @click="showToken()">
-        Show Token
+        {{ t('marketplace.show_token') }}
       </button>
     </div>
 
     <div class="mt-4 grid gap-2 text-sm text-mist/75" x-show="tokenView" x-cloak>
-      <p>Prefix: <code class="text-gold/90" x-text="(tokenView.token_prefix || '') + '…'"></code></p>
+      <p>{{ t('marketplace.prefix') }} <code class="text-gold/90" x-text="(tokenView.token_prefix || '') + '…'"></code></p>
       <p>
-        Expires:
+        {{ t('marketplace.expires') }}
         <strong x-text="tokenView.expires_at"></strong>
         <span
           class="ml-2 rounded bg-amber-500/15 px-2 py-0.5 text-xs text-amber-200"
           x-show="tokenView.expiring_soon"
-          x-text="'expires in ' + tokenView.days_remaining + ' days'"
+          x-text="expiresInLabel(tokenView.days_remaining)"
         ></span>
       </p>
     </div>
-    <p class="mt-2 text-xs text-mist/45" x-show="!tokenView">No token yet — generate one to call the external API.</p>
+    <p class="mt-2 text-xs text-mist/45" x-show="!tokenView">{{ t('marketplace.no_token') }}</p>
 
     <div class="mt-3" x-show="revealedToken" x-cloak>
-      <label class="chrome-field-label">Current token (copyable)</label>
+      <label class="chrome-field-label">{{ t('marketplace.current_token') }}</label>
       <div class="mt-1 flex gap-2">
         <input class="chrome-input w-full font-mono text-xs" readonly :value="revealedToken" @click="$el.select()" />
-        <button type="button" class="rounded-lg border border-white/15 px-3 text-xs" @click="copyToken()">Copy</button>
+        <button type="button" class="rounded-lg border border-white/15 px-3 text-xs" @click="copyToken()">{{ t('common.copy') }}</button>
       </div>
     </div>
     <p class="mt-2 text-xs text-amber-300/80" x-show="message" x-text="message" x-cloak></p>
   </section>
 
-  {# —— Catalog —— #}
   <section class="mb-6">
-    <h2 class="api-mp-section-title mb-3">API Catalog</h2>
+    <h2 class="api-mp-section-title mb-3">{{ t('marketplace.catalog_section') }}</h2>
     <p class="mb-3 text-xs text-mist/50">
-      Subscribe to the APIs your integration needs.
-      <strong class="text-mist/70">Submit Claim</strong> is always on and cannot be disabled.
+      {{ t('marketplace.catalog_intro', submit_claim=t('marketplace.submit_claim')) }}
     </p>
     <div class="grid gap-4">
       <template x-for="item in catalog" :key="item.api_name">
@@ -85,8 +80,8 @@
             <div class="min-w-0 flex-1">
               <h3 class="text-base font-semibold text-mist">
                 <span x-text="item.title"></span>
-                <span class="api-mp-wip" x-show="item.wip" x-cloak>WIP</span>
-                <span class="api-mp-always" x-show="item.always_subscribed" x-cloak>Always on</span>
+                <span class="api-mp-wip" x-show="item.wip" x-cloak>{{ t('marketplace.wip_badge') }}</span>
+                <span class="api-mp-always" x-show="item.always_subscribed" x-cloak>{{ t('marketplace.always_on') }}</span>
               </h3>
               <p class="mt-2 text-sm leading-relaxed text-mist/65" x-text="item.description"></p>
               <p class="mt-2 font-mono text-[11px] text-gold/70">
@@ -100,11 +95,11 @@
                 class="api-mp-subscribe-btn"
                 :class="item.subscribed ? 'api-mp-subscribe-btn--on' : ''"
                 :disabled="item.subscribe_disabled || busy"
-                :title="item.wip && !item.wip_subscribable ? 'Coming soon — not yet available for subscription.' : (item.always_subscribed ? 'Submit Claim is always subscribed.' : (item.wip ? 'WIP — stub integration only.' : ''))"
+                :title="subscribeTooltip(item)"
                 @click="toggleSubscribe(item, !item.subscribed)"
               >
-                <span x-show="item.subscribed" x-cloak>Subscribed</span>
-                <span x-show="!item.subscribed" x-cloak>Subscribe</span>
+                <span x-show="item.subscribed" x-cloak>{{ t('marketplace.subscribed') }}</span>
+                <span x-show="!item.subscribed" x-cloak>{{ t('marketplace.subscribe') }}</span>
               </button>
             </div>
           </div>
@@ -114,27 +109,25 @@
             x-cloak
           >
             <p class="text-xs text-mist/55">
-              Enter your Salesforce endpoints, then call
-              <code class="text-gold/75">GET /api/v1/external/salesforce/leads</code>
-              to fetch stub lead details (WIP).
+              {{ t('marketplace.salesforce_intro', endpoint='GET /api/v1/external/salesforce/leads') }}
             </p>
             <div>
-              <label class="chrome-field-label" :for="'sf-server-' + item.api_name">Salesforce server IP / URL</label>
+              <label class="chrome-field-label" :for="'sf-server-' + item.api_name">{{ t('marketplace.salesforce_server') }}</label>
               <input
                 class="chrome-input mt-1 w-full font-mono text-xs"
                 :id="'sf-server-' + item.api_name"
                 type="url"
-                placeholder="https://your-org.my.salesforce.com"
+                placeholder="{{ t('marketplace.salesforce_server_ph') }}"
                 x-model="salesforceServerUrl"
               />
             </div>
             <div>
-              <label class="chrome-field-label" :for="'sf-connector-' + item.api_name">Salesforce API / Connector URL</label>
+              <label class="chrome-field-label" :for="'sf-connector-' + item.api_name">{{ t('marketplace.salesforce_connector') }}</label>
               <input
                 class="chrome-input mt-1 w-full font-mono text-xs"
                 :id="'sf-connector-' + item.api_name"
                 type="url"
-                placeholder="https://connector.example.com/salesforce/v1"
+                placeholder="{{ t('marketplace.salesforce_connector_ph') }}"
                 x-model="salesforceConnectorUrl"
               />
             </div>
@@ -145,13 +138,13 @@
                 :disabled="busy || !salesforceServerUrl.trim() || !salesforceConnectorUrl.trim()"
                 @click="saveSalesforceConfig()"
               >
-                Save connector settings
+                {{ t('marketplace.save_connector') }}
               </button>
-              <span class="text-xs text-emerald-300/80" x-show="salesforceConfigSaved" x-cloak>Saved</span>
+              <span class="text-xs text-emerald-300/80" x-show="salesforceConfigSaved" x-cloak>{{ t('common.saved') }}</span>
             </div>
           </div>
           <details class="mt-3" x-show="!item.wip || item.wip_subscribable" x-cloak>
-            <summary class="cursor-pointer text-xs text-mist/50">Code samples</summary>
+            <summary class="cursor-pointer text-xs text-mist/50">{{ t('marketplace.code_samples') }}</summary>
             <pre class="api-mp-code mt-2" x-text="sampleCurl(item)"></pre>
             <pre class="api-mp-code mt-2" x-text="samplePython(item)"></pre>
           </details>
@@ -160,23 +153,20 @@
     </div>
   </section>
 
-  {# —— Chains —— #}
   <section class="api-mp-card mb-6">
-    <h2 class="api-mp-section-title">API Chains</h2>
+    <h2 class="api-mp-section-title">{{ t('marketplace.chains_section') }}</h2>
     <p class="mt-1 text-xs text-mist/50">
-      Build a call sequence for integrators.
-      <strong class="text-mist/70">Submit Claim</strong> is always step 1.
-      Each next step is chosen from APIs you have subscribed to; pick <strong class="text-mist/70">END</strong> when the chain is complete.
+      {{ t('marketplace.chains_intro', submit_claim=t('marketplace.submit_claim'), end=t('marketplace.end')) }}
     </p>
 
     <form class="mt-4 grid gap-4" @submit.prevent="createChain()">
       <div>
-        <label class="chrome-field-label" for="chain-name">Chain name</label>
+        <label class="chrome-field-label" for="chain-name">{{ t('marketplace.chain_name') }}</label>
         <input
           id="chain-name"
           class="chrome-input mt-1 w-full max-w-md"
           x-model="chainName"
-          placeholder="e.g. Full intake to estimate"
+          placeholder="{{ t('marketplace.chain_name_ph') }}"
           required
         />
       </div>
@@ -185,8 +175,8 @@
         <div class="api-mp-chain-step api-mp-chain-step--locked">
           <span class="api-mp-step-badge">1</span>
           <div>
-            <p class="text-xs uppercase tracking-wide text-mist/45">Step 1 (fixed)</p>
-            <p class="text-sm font-medium text-mist">Submit Claim</p>
+            <p class="text-xs uppercase tracking-wide text-mist/45">{{ t('marketplace.step_fixed') }}</p>
+            <p class="text-sm font-medium text-mist">{{ t('marketplace.submit_claim') }}</p>
           </div>
         </div>
 
@@ -196,7 +186,7 @@
             <div class="api-mp-chain-step">
               <span class="api-mp-step-badge" x-text="idx + 2"></span>
               <div class="min-w-0 flex-1">
-                <label class="chrome-field-label" :for="'chain-step-' + idx">Next API</label>
+                <label class="chrome-field-label" :for="'chain-step-' + idx">{{ t('marketplace.next_api') }}</label>
                 <select
                   class="chrome-input mt-1 w-full max-w-md"
                   :id="'chain-step-' + idx"
@@ -214,11 +204,11 @@
       </div>
 
       <p class="text-xs text-mist/40" x-show="!chainableSubscribed.length">
-        Subscribe to at least one API above (besides Submit Claim) to add more steps — or leave step&nbsp;2 as END for a submit-only chain.
+        {{ t('marketplace.chain_hint') }}
       </p>
 
       <button type="submit" class="btn-primary w-fit rounded-lg px-4 py-2 text-xs font-semibold" :disabled="busy || !canSubmitChain">
-        Submit chain
+        {{ t('marketplace.submit_chain') }}
       </button>
     </form>
 
@@ -230,20 +220,20 @@
               <p class="text-sm font-medium text-mist" x-text="chain.chain_name"></p>
               <p class="mt-1 text-xs text-mist/50" x-text="formatChainSteps(chain)"></p>
             </div>
-            <button type="button" class="text-xs text-red-300/80" @click="removeChain(chain.id)">Delete</button>
+            <button type="button" class="text-xs text-red-300/80" @click="removeChain(chain.id)">{{ t('common.delete') }}</button>
           </div>
           <details class="mt-2">
-            <summary class="cursor-pointer text-xs text-mist/50">Chained curl examples</summary>
+            <summary class="cursor-pointer text-xs text-mist/50">{{ t('marketplace.chain_curl') }}</summary>
             <pre class="api-mp-code mt-2" x-text="chainCurl(chain)"></pre>
           </details>
         </li>
       </template>
-      <li class="text-xs text-mist/40" x-show="!chains.length">No chains yet.</li>
+      <li class="text-xs text-mist/40" x-show="!chains.length">{{ t('marketplace.no_chains') }}</li>
     </ul>
   </section>
 </main>
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/api_marketplace.js?v=3"></script>
+<script src="/static/js/api_marketplace.js?v=4"></script>
 {% endblock %}

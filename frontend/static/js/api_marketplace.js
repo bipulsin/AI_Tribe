@@ -19,6 +19,32 @@ function apiMarketplace(bootstrap = {}) {
     busy: false,
     message: "",
 
+    atrT(key, vars) {
+      return typeof window.atrT === "function" ? window.atrT(key, vars) : key;
+    },
+
+    get daysLabel() {
+      return this.atrT("marketplace.days");
+    },
+
+    expiresInLabel(days) {
+      return this.atrT("marketplace.expires_in", { days });
+    },
+
+    subscribeTooltip(item) {
+      if (!item) return "";
+      if (item.wip && !item.wip_subscribable) {
+        return this.atrT("marketplace.tooltip_wip_locked");
+      }
+      if (item.always_subscribed) {
+        return this.atrT("marketplace.tooltip_always_on");
+      }
+      if (item.wip) {
+        return this.atrT("marketplace.tooltip_wip_stub");
+      }
+      return "";
+    },
+
     get chainableSubscribed() {
       return (this.catalog || []).filter(
         (item) =>
@@ -63,7 +89,7 @@ function apiMarketplace(bootstrap = {}) {
         const prev = this.chainSelections[i];
         if (prev && prev !== "END") used.add(prev);
       }
-      const options = [{ value: "END", label: "END — finish chain here" }];
+      const options = [{ value: "END", label: this.atrT("marketplace.end_finish") }];
       for (const item of this.chainableSubscribed) {
         if (used.has(item.api_name)) continue;
         options.push({ value: item.api_name, label: item.title || item.api_name });
@@ -110,14 +136,14 @@ function apiMarketplace(bootstrap = {}) {
         });
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok) {
-          this.message = data.detail || "Could not generate token.";
+          this.message = data.detail || this.atrT("marketplace.msg.token_error");
           return;
         }
         this.tokenView = data.token_view;
         this.revealedToken = data.token || "";
         this.maskedToken =
           (data.token_view && data.token_view.token_prefix) || "atr_live_…";
-        this.message = "New token generated. Previous token (if any) is revoked.";
+        this.message = this.atrT("marketplace.msg.token_generated");
       } finally {
         this.busy = false;
       }
@@ -134,12 +160,12 @@ function apiMarketplace(bootstrap = {}) {
         });
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok) {
-          this.message = data.detail || "Could not reveal token.";
+          this.message = data.detail || this.atrT("marketplace.msg.reveal_error");
           return;
         }
         this.revealedToken = data.token || "";
         this.tokenView = data.token_view;
-        this.message = "Token revealed (this action was audited).";
+        this.message = this.atrT("marketplace.msg.token_revealed");
       } finally {
         this.busy = false;
       }
@@ -149,9 +175,9 @@ function apiMarketplace(bootstrap = {}) {
       if (!this.revealedToken) return;
       try {
         await navigator.clipboard.writeText(this.revealedToken);
-        this.message = "Token copied to clipboard.";
+        this.message = this.atrT("marketplace.msg.token_copied");
       } catch (_err) {
-        this.message = "Select the field and copy manually.";
+        this.message = this.atrT("marketplace.msg.copy_manual");
       }
     },
 
@@ -172,7 +198,7 @@ function apiMarketplace(bootstrap = {}) {
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok) {
           item.subscribed = previous;
-          this.message = data.detail || "Could not update subscription.";
+          this.message = data.detail || this.atrT("marketplace.msg.subscribe_error");
           return;
         }
         if (data.catalog) this.catalog = data.catalog;
@@ -184,8 +210,8 @@ function apiMarketplace(bootstrap = {}) {
         // Reset chain picker so options stay in sync with subscriptions.
         this.chainSelections = ["END"];
         this.message = enabled
-          ? `Subscribed to ${item.title}.`
-          : `Unsubscribed from ${item.title}.`;
+          ? this.atrT("marketplace.msg.subscribed", { title: item.title })
+          : this.atrT("marketplace.msg.unsubscribed", { title: item.title });
       } finally {
         this.busy = false;
       }
@@ -207,12 +233,12 @@ function apiMarketplace(bootstrap = {}) {
         });
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok) {
-          this.message = data.detail || "Could not save connector settings.";
+          this.message = data.detail || this.atrT("marketplace.msg.connector_error");
           return;
         }
         if (data.catalog) this.catalog = data.catalog;
         this.salesforceConfigSaved = true;
-        this.message = "Salesforce connector settings saved (WIP stub).";
+        this.message = this.atrT("marketplace.msg.connector_saved");
       } finally {
         this.busy = false;
       }
@@ -296,20 +322,20 @@ function apiMarketplace(bootstrap = {}) {
         });
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok) {
-          this.message = data.detail || "Could not create chain.";
+          this.message = data.detail || this.atrT("marketplace.msg.chain_error");
           return;
         }
         this.chains = data.chains || [];
         this.chainName = "";
         this.chainSelections = ["END"];
-        this.message = "Chain saved.";
+        this.message = this.atrT("marketplace.msg.chain_saved");
       } finally {
         this.busy = false;
       }
     },
 
     async removeChain(id) {
-      if (!id || !window.confirm("Delete this chain?")) return;
+      if (!id || !window.confirm(this.atrT("marketplace.msg.confirm_delete_chain"))) return;
       const resp = await fetch(`/api/marketplace/chains/${id}`, {
         method: "DELETE",
         credentials: "same-origin",
@@ -317,9 +343,9 @@ function apiMarketplace(bootstrap = {}) {
       const data = await resp.json().catch(() => ({}));
       if (resp.ok) {
         this.chains = data.chains || [];
-        this.message = "Chain deleted.";
+        this.message = this.atrT("marketplace.msg.chain_deleted");
       } else {
-        this.message = data.detail || "Could not delete chain.";
+        this.message = data.detail || this.atrT("marketplace.msg.chain_delete_error");
       }
     },
   };

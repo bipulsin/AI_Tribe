@@ -29,8 +29,10 @@
   <link rel="stylesheet" href="/static/css/app.css" />
 </head>
 <body class="login-page min-h-screen overflow-hidden text-white antialiased">
-  {% include "partials/lang_toggle.html" %}
   <div class="login-stage relative flex min-h-screen items-center px-6 sm:px-10 lg:px-16">
+    <div class="login-lang-slot">
+      {% include "partials/lang_toggle.html" %}
+    </div>
     <video
       id="login-bg-video"
       class="login-bg-video absolute inset-0 h-full w-full object-cover"

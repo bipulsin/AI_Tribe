@@ -35,11 +35,10 @@
   {% block head %}{% endblock %}
 </head>
 <body class="{% block body_class %}min-h-screen bg-canvas text-navy antialiased dark:bg-ink dark:text-mist{% endblock %}">
-  {% include "partials/lang_toggle.html" %}
   {% block body %}{% endblock %}
   {% include "partials/user_chrome.html" %}
   {% if not embed|default(false) %}
-  {% include "partials/help_trigger.html" %}
+  {% include "partials/app_top_chrome.html" %}
   {% include "partials/attribution.html" %}
   {% endif %}
   {% include "partials/help_guide.html" %}

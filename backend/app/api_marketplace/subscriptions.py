@@ -19,6 +19,13 @@ from app.api_marketplace.catalog import (
 )
 from app.api_marketplace.connectors import SALESFORCE_API, get_connector_config
 from app.api_marketplace.models import ApiChain, ApiChainStep, ApiSubscription
+from app.i18n.catalog import translate
+
+
+def _localized_api_field(api_name: str, field: str, fallback: str) -> str:
+    key = f"marketplace.api.{api_name}.{field}"
+    val = translate(key)
+    return val if val != key else fallback
 
 
 def list_subscriptions(db: Session, user_id: int) -> dict[str, bool]:
@@ -105,6 +112,8 @@ def catalog_with_subscriptions(db: Session, user_id: int) -> list[dict]:
         subscribed = True if always else bool(sub.get(name))
         row = {
             **item,
+            "title": _localized_api_field(name, "title", item["title"]),
+            "description": _localized_api_field(name, "description", item["description"]),
             "subscribed": subscribed,
             "subscribe_disabled": always or (wip and not wip_sub),
             "always_subscribed": always,
@@ -136,7 +145,9 @@ def list_chains(db: Session, user_id: int) -> list[dict]:
                     {
                         "order": s.step_order,
                         "api_name": s.api_name,
-                        "title": API_TITLE_BY_NAME.get(s.api_name, s.api_name),
+                        "title": _localized_api_field(
+                            s.api_name, "title", API_TITLE_BY_NAME.get(s.api_name, s.api_name)
+                        ),
                     }
                     for s in steps
                 ],

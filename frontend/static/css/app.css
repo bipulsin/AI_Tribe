@@ -38,6 +38,21 @@ body {
 }
 
 /* Login page — full-bleed video, flat left-aligned form (no card) */
+.login-page {
+  background-color: var(--navy);
+}
+
+.login-lang-slot {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 20;
+}
+
+.login-lang-slot .lang-toggle {
+  position: static;
+}
+
 .login-bg-video {
   filter: saturate(0.95) brightness(0.92);
 }
@@ -203,7 +218,7 @@ body {
   display: inline-block;
 }
 
-/* Help guide — standard trigger: top-right on app pages */
+/* Help guide — standard trigger: grouped in app-top-chrome on app pages */
 .help-guide-trigger {
   position: fixed;
   top: 1rem;
@@ -1176,12 +1191,27 @@ body:not(.login-page) {
   }
 }
 
-/* Top-right EN / FR UI language toggle */
-.lang-toggle {
+/* Top-right chrome: EN/FR to the left of the ? help button */
+.app-top-chrome {
   position: fixed;
   top: 1rem;
   right: 1rem;
   z-index: 70;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.app-top-chrome .help-guide-trigger,
+.app-top-chrome .lang-toggle {
+  position: static;
+  top: auto;
+  right: auto;
+}
+
+/* EN / FR language toggle pill */
+.lang-toggle {
   display: inline-flex;
   align-items: center;
   gap: 0.125rem;
@@ -1220,6 +1250,7 @@ body:not(.login-page) {
 }
 
 .login-page .lang-toggle {
-  background: rgba(0, 31, 63, 0.55);
-  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(0, 31, 63, 0.72);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
 }
