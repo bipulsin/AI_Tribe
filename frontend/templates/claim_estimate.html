@@ -110,9 +110,9 @@
           {% endif %}
         </p>
         {% if pricing_complete and estimate.pricing_basis != "pending_manual_prices" %}
-        <p class="mt-1 text-2xl font-semibold tabular-nums text-navy dark:text-white">₹{{ '%.2f'|format(estimate.grand_total) }}</p>
+        <p class="mt-1 text-2xl font-semibold tabular-nums text-navy dark:text-white">{{ format_currency(estimate.grand_total) }}</p>
         <p class="mt-1 text-sm tabular-nums text-navy/50 dark:text-mist/45">
-          Subtotal ₹{{ '%.2f'|format(estimate.subtotal) }} · GST ₹{{ '%.2f'|format(estimate.tax) }}
+          {{ t('estimate.subtotal_line', subtotal=format_currency(estimate.subtotal), tax=format_currency(estimate.tax)) }}
         </p>
         {% else %}
         <p class="mt-1 text-lg font-semibold text-navy/55 dark:text-mist/50">Enter prices below</p>
@@ -185,18 +185,18 @@
                 min="0"
                 step="0.01"
                 class="w-28 rounded-md border border-navy/15 bg-canvas px-2 py-1 text-right text-sm outline-none focus:border-gold/50 dark:border-white/15 dark:bg-ink dark:text-mist"
-                placeholder="Enter ₹"
+                placeholder="{{ t('estimate.enter_amount') }}"
                 x-model="draftPrices['{{ item.part_name | e }}::{{ item.damage_type | e }}']"
               />
               {% else %}
-              ₹{{ '%.2f'|format(item.unit_price) }}
+              {{ format_currency(item.unit_price) }}
               {% endif %}
             </td>
             <td class="px-3 py-3 text-right tabular-nums text-navy/80 dark:text-mist/75">
-              {% if item.labor_cost is not none %}₹{{ '%.2f'|format(item.labor_cost) }}{% else %}—{% endif %}
+              {% if item.labor_cost is not none %}{{ format_currency(item.labor_cost) }}{% else %}—{% endif %}
             </td>
             <td class="px-5 py-3 text-right tabular-nums font-medium text-navy dark:text-mist">
-              {% if item.total is not none %}₹{{ '%.2f'|format(item.total) }}{% else %}—{% endif %}
+              {% if item.total is not none %}{{ format_currency(item.total) }}{% else %}—{% endif %}
             </td>
           </tr>
           {% else %}
@@ -292,8 +292,8 @@
       },
       refreshTotalsFromDom() {
         {% if pricing_complete and estimate.pricing_basis != "pending_manual_prices" %}
-        this.totalLabel = "₹{{ '%.2f'|format(estimate.grand_total) }}";
-        this.subtotalLabel = "Subtotal ₹{{ '%.2f'|format(estimate.subtotal) }} · GST ₹{{ '%.2f'|format(estimate.tax) }}";
+        this.totalLabel = {{ format_currency(estimate.grand_total)|tojson }};
+        this.subtotalLabel = {{ t('estimate.subtotal_line', subtotal=format_currency(estimate.subtotal), tax=format_currency(estimate.tax))|tojson }};
         {% endif %}
       },
       get canSave() {
@@ -337,8 +337,15 @@
             if (el) el.textContent = data.reason_summary;
           }
           if (this.pricingComplete) {
-            this.totalLabel = `₹${Number(data.grand_total).toFixed(2)}`;
-            this.subtotalLabel = `Subtotal ₹${Number(data.subtotal).toFixed(2)} · GST ₹${Number(data.tax).toFixed(2)}`;
+            this.totalLabel = typeof atrFormatCurrency === "function"
+              ? atrFormatCurrency(data.grand_total)
+              : `₹${Number(data.grand_total).toFixed(2)}`;
+            this.subtotalLabel = typeof atrT === "function"
+              ? atrT("estimate.subtotal_line", {
+                  subtotal: atrFormatCurrency(data.subtotal),
+                  tax: atrFormatCurrency(data.tax),
+                })
+              : `Subtotal ₹${Number(data.subtotal).toFixed(2)} · GST ₹${Number(data.tax).toFixed(2)}`;
             window.location.reload();
           }
         } catch (_err) {

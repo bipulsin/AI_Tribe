@@ -89,10 +89,26 @@ def js_strings(lang: str | None = None) -> dict[str, str]:
     return out
 
 
+def format_currency(amount: float | int | str | None, lang: str | None = None) -> str:
+    """Display-formatted money; FR shows Moroccan dirham label (DH), no conversion."""
+    if amount is None:
+        return "—"
+    try:
+        value = float(amount)
+    except (TypeError, ValueError):
+        return "—"
+    text = f"{value:,.2f}"
+    code = resolve_lang(lang) if lang else get_lang()
+    if code == "fr":
+        return f"{text} DH"
+    return f"₹{text}"
+
+
 def setup_jinja_globals(env: Environment) -> None:
     env.globals["t"] = translate
     env.globals["get_lang"] = get_lang
     env.globals["js_i18n"] = js_strings
+    env.globals["format_currency"] = format_currency
 
 
 # Keys referenced from Alpine/HTMX JS (upload, pipeline, chat chrome errors).
@@ -169,4 +185,5 @@ _JS_KEYS: tuple[str, ...] = (
     "marketplace.msg.chain_deleted",
     "marketplace.msg.chain_delete_error",
     "marketplace.msg.confirm_delete_chain",
+    "estimate.subtotal_line",
 )

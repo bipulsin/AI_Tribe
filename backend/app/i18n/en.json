@@ -161,6 +161,8 @@
   "estimate.unknown": "Unknown",
   "estimate.nearest_catalogue": "nearest catalogue entry",
   "estimate.grand_total": "Grand total",
+  "estimate.subtotal_line": "Subtotal {subtotal} · GST {tax}",
+  "estimate.enter_amount": "Enter ₹",
   "estimate.indicative_notice": "Indicative pricing only",
   "estimate.part": "Part",
   "estimate.damage": "Damage",

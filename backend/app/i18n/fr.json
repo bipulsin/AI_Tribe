@@ -161,6 +161,8 @@
   "estimate.unknown": "Inconnu",
   "estimate.nearest_catalogue": "entrée catalogue la plus proche",
   "estimate.grand_total": "Total général",
+  "estimate.subtotal_line": "Sous-total {subtotal} · TVA {tax}",
+  "estimate.enter_amount": "Saisir DH",
   "estimate.indicative_notice": "Tarification indicative uniquement",
   "estimate.part": "Pièce",
   "estimate.damage": "Dommage",
