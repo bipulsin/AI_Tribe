@@ -7,13 +7,13 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.templates import templates
 from app.models import VmmrLabLabel
 from app.services.vmmr.lab_labeling.constants import LAB_LABEL_NOTICE, VEHIDE_RAW_ROOT
 from app.services.vmmr.lab_labeling.dataset_store import save_confirmed_label
@@ -27,7 +27,6 @@ from app.services.vmmr.vehicle_confirmation import catalog_makes_models
 
 router = APIRouter(tags=["lab-labeling"])
 settings = get_settings()
-templates = Jinja2Templates(directory=str(settings.templates_dir))
 
 
 def _allowed_lab_image(path: Path) -> bool:

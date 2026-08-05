@@ -6,12 +6,12 @@ from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.templates import templates
 from app.services.usage_evidence_service import backfill_usage_events_from_evidence
 from app.services.usage_report_service import (
     build_usage_report,
@@ -21,7 +21,6 @@ from app.services.usage_report_service import (
 
 router = APIRouter(tags=["usage-report"])
 settings = get_settings()
-templates = Jinja2Templates(directory=str(settings.templates_dir))
 
 
 def _parse_day(value: str | None, *, default: date) -> date:

@@ -6,7 +6,6 @@ import uuid
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
@@ -29,10 +28,10 @@ from app.api_marketplace.tokens import (
 )
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.templates import templates
 
 router = APIRouter(tags=["api-marketplace"])
 settings = get_settings()
-templates = Jinja2Templates(directory=str(settings.templates_dir))
 
 
 def _user_id(request: Request) -> int | None:
