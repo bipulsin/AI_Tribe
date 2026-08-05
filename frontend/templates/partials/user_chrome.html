@@ -42,7 +42,9 @@
     >
       <button type="button" class="user-menu-item" role="menuitem" @click="openProfile()">{{ t('nav.profile') }}</button>
       <button type="button" class="user-menu-item" role="menuitem" @click="openSettings()">{{ t('nav.settings') }}</button>
-      <a href="/settings/api-marketplace" class="user-menu-item" role="menuitem">API Marketplace</a>
+      <a href="/claims/new" class="user-menu-item" role="menuitem">{{ t('nav.enterprise') }}</a>
+      <a href="/chat" class="user-menu-item user-menu-item--chat" role="menuitem">{{ t('nav.chat') }}</a>
+      <a href="/settings/api-marketplace" class="user-menu-item" role="menuitem">{{ t('nav.api_marketplace') }}</a>
       <button
         type="button"
         class="user-menu-item"
@@ -51,9 +53,8 @@
         @click="openAdmin()"
         x-cloak
       >
-        Admin
+        {{ t('nav.admin') }}
       </button>
-      <a href="/claims/new" class="user-menu-item user-menu-item--enterprise" role="menuitem">{{ t('nav.enterprise') }}</a>
       <a href="/auth/logout" class="user-menu-item user-menu-item--signout" role="menuitem">{{ t('nav.sign_out') }}</a>
     </div>
   </div>
