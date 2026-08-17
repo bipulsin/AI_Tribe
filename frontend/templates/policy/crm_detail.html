@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Policy CRM · {{ booking.booking_reference }}{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="/static/css/policy.css?v=1" />
+{% endblock %}
+{% block body %}
+<div class="mx-auto max-w-4xl px-4 py-8">
+  <p class="text-xs font-semibold uppercase tracking-wide text-gold">Policy · CRM</p>
+  <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <h1 class="mt-1 text-2xl font-semibold text-navy dark:text-mist">{{ booking.booking_reference }}</h1>
+      <p class="mt-1 text-sm text-navy/55 dark:text-mist/50">{{ booking.status }} · step {{ booking.current_step }}</p>
+    </div>
+    <a class="text-sm text-gold hover:underline" href="/policy/crm">← All bookings</a>
+  </div>
+
+  <section class="mb-6 rounded-2xl border border-navy/10 bg-white p-5 dark:border-white/10 dark:bg-navy/40">
+    <h2 class="text-sm font-semibold uppercase tracking-wide text-navy/45 dark:text-mist/45">Customer & vehicle</h2>
+    <dl class="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+      <div><dt class="text-navy/45 dark:text-mist/40">Name</dt><dd>{{ booking.customer.name if booking.customer else '—' }}</dd></div>
+      <div><dt class="text-navy/45 dark:text-mist/40">Phone</dt><dd>{{ booking.customer.phone if booking.customer else '—' }}</dd></div>
+      <div><dt class="text-navy/45 dark:text-mist/40">ID</dt><dd>{% if booking.customer and booking.customer.id_type %}{{ booking.customer.id_type }} · {{ booking.customer.id_masked }}{% else %}—{% endif %}</dd></div>
+      <div><dt class="text-navy/45 dark:text-mist/40">Registration</dt><dd>{{ booking.vehicle.registration_number if booking.vehicle else '—' }}</dd></div>
+      <div>
+        <dt class="text-navy/45 dark:text-mist/40">Vehicle</dt>
+        <dd>
+          {% if booking.vehicle %}
+          {{ booking.vehicle.make }} {{ booking.vehicle.model }} {{ booking.vehicle.year or '' }}
+          <span class="policy-badge {% if booking.vehicle.source == 'live_api' %}policy-badge--live{% else %}policy-badge--fallback{% endif %}">
+            {{ 'Live Vahan Lookup' if booking.vehicle.source == 'live_api' else 'Demo Data — Fallback' }}
+          </span>
+          {% else %}—{% endif %}
+        </dd>
+      </div>
+      <div><dt class="text-navy/45 dark:text-mist/40">Agent</dt><dd>{% if booking.agent %}{{ booking.agent.full_name or booking.agent.username }}{% else %}—{% endif %}</dd></div>
+    </dl>
+  </section>
+
+  <section class="mb-6 rounded-2xl border border-navy/10 bg-white p-5 dark:border-white/10 dark:bg-navy/40">
+    <h2 class="text-sm font-semibold uppercase tracking-wide text-navy/45 dark:text-mist/45">KYC events</h2>
+    <ul class="mt-3 space-y-2 text-sm">
+      {% for ev in booking.kyc_events %}
+      <li>
+        Attempt {{ ev.attempt_number }} · {{ ev.validation_result }} · {{ ev.id_type }} {{ ev.id_number_masked }}
+        · {{ ev.validation_mode }}
+        <span class="policy-badge policy-badge--kyc">Simulated KYC</span>
+      </li>
+      {% else %}
+      <li class="text-navy/50 dark:text-mist/45">No KYC events yet.</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="mb-6 rounded-2xl border border-navy/10 bg-white p-5 dark:border-white/10 dark:bg-navy/40">
+    <h2 class="text-sm font-semibold uppercase tracking-wide text-navy/45 dark:text-mist/45">Quotes</h2>
+    <div class="mt-3 grid gap-3 md:grid-cols-3">
+      {% for q in booking.quotes %}
+      <article class="rounded-xl border p-3 {% if q.selected %}border-gold bg-gold/10{% else %}border-navy/10 dark:border-white/10{% endif %}">
+        <p class="font-semibold">{{ q.insurer_name }}</p>
+        <p class="text-xs text-navy/50 dark:text-mist/45">{{ q.package_type }}</p>
+        <p class="mt-1">₹{{ '%.2f'|format(q.premium) }}</p>
+        <p class="policy-badge policy-badge--quote">Demo Quote</p>
+        {% if q.selected %}<p class="mt-1 text-xs text-gold">Selected</p>{% endif %}
+      </article>
+      {% else %}
+      <p class="text-sm text-navy/50 dark:text-mist/45">No quotes generated.</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="mb-6 rounded-2xl border border-navy/10 bg-white p-5 dark:border-white/10 dark:bg-navy/40">
+    <h2 class="text-sm font-semibold uppercase tracking-wide text-navy/45 dark:text-mist/45">Issued policy</h2>
+    {% if booking.issued_policy %}
+    <p class="mt-2 text-sm">{{ booking.issued_policy.policy_reference }} · ₹{{ '%.2f'|format(booking.issued_policy.premium) }}</p>
+    <p class="policy-badge policy-badge--policy">Demo Policy Artifact — Not a Valid Insurance Document</p>
+    <p class="mt-1 text-xs">source_mode={{ booking.issued_policy.source_mode }}</p>
+    <a class="mt-3 inline-block text-sm text-gold hover:underline" href="/policy/document/{{ booking.issued_policy.id }}">Download Policy</a>
+    {% else %}
+    <p class="mt-2 text-sm text-navy/50 dark:text-mist/45">Not issued.</p>
+    {% endif %}
+  </section>
+
+  <section class="rounded-2xl border border-navy/10 bg-white p-5 dark:border-white/10 dark:bg-navy/40">
+    <h2 class="text-sm font-semibold uppercase tracking-wide text-navy/45 dark:text-mist/45">Transcript</h2>
+    <ol class="mt-3 space-y-3 text-sm">
+      {% for msg in booking.messages %}
+      <li class="rounded-lg border border-navy/10 px-3 py-2 dark:border-white/10">
+        <p class="text-xs uppercase tracking-wide text-navy/40 dark:text-mist/40">{{ msg.sender }} · {{ msg.created_at.strftime('%H:%M:%S') if msg.created_at else '' }}</p>
+        <p class="mt-1 whitespace-pre-wrap">{{ msg.content_text }}</p>
+      </li>
+      {% else %}
+      <li class="text-navy/50 dark:text-mist/45">No messages.</li>
+      {% endfor %}
+    </ol>
+  </section>
+</div>
+{% endblock %}

@@ -78,6 +78,7 @@ async def lifespan(_app: FastAPI):
 
     settings.upload_path.mkdir(parents=True, exist_ok=True)
     settings.profile_photos_path.mkdir(parents=True, exist_ok=True)
+    settings.policy_docs_path.mkdir(parents=True, exist_ok=True)
     try:
         from app.db.seed import seed_admin, seed_parts_catalog
 
@@ -298,6 +299,23 @@ try:
 
     app.include_router(routes_marketplace.router)
     app.include_router(routes_external.router)
+    from app.api import (
+        routes_policy,
+        routes_policy_chat,
+        routes_policy_issue,
+        routes_policy_kyc,
+        routes_policy_quotes,
+        routes_policy_settings,
+        routes_policy_vehicle,
+    )
+
+    app.include_router(routes_policy.router)
+    app.include_router(routes_policy_chat.router)
+    app.include_router(routes_policy_vehicle.router)
+    app.include_router(routes_policy_kyc.router)
+    app.include_router(routes_policy_quotes.router)
+    app.include_router(routes_policy_issue.router)
+    app.include_router(routes_policy_settings.router)
 except ImportError:
     # Partial scaffold during early milestones — routes land incrementally.
     pass

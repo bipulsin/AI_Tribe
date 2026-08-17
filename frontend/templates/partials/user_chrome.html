@@ -44,6 +44,11 @@
       <button type="button" class="user-menu-item" role="menuitem" @click="openSettings()">{{ t('nav.settings') }}</button>
       <a href="/claims/new" class="user-menu-item" role="menuitem">{{ t('nav.enterprise') }}</a>
       <a href="/chat" class="user-menu-item user-menu-item--chat" role="menuitem">{{ t('nav.chat') }}</a>
+      <a
+        href="/policy"
+        class="user-menu-item{% if request.url.path.startswith('/policy') %} user-menu-item--active{% endif %}"
+        role="menuitem"
+      >{{ t('nav.policy') }}</a>
       <a href="/settings/api-marketplace" class="user-menu-item" role="menuitem">{{ t('nav.api_marketplace') }}</a>
       <button
         type="button"

@@ -1,0 +1,51 @@
+<div class="overflow-x-auto rounded-2xl border border-navy/10 bg-white dark:border-white/10 dark:bg-navy/40">
+  <table class="w-full min-w-[52rem] text-left text-sm">
+    <thead>
+      <tr class="border-b border-navy/10 text-xs uppercase tracking-wide text-navy/45 dark:border-white/10 dark:text-mist/45">
+        <th class="px-4 py-3 font-medium">Reference</th>
+        <th class="px-4 py-3 font-medium">Customer</th>
+        <th class="px-4 py-3 font-medium">Registration</th>
+        <th class="px-4 py-3 font-medium">Status</th>
+        <th class="px-4 py-3 font-medium">KYC</th>
+        <th class="px-4 py-3 font-medium">Quote</th>
+        <th class="px-4 py-3 font-medium">Policy</th>
+        <th class="px-4 py-3 font-medium">Agent</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      {% set selected = (row.quotes | selectattr('selected') | list | first) if row.quotes else none %}
+      <tr class="border-b border-navy/5 dark:border-white/5">
+        <td class="px-4 py-3">
+          <a class="text-gold hover:underline" href="/policy/crm/{{ row.id }}">{{ row.booking_reference }}</a>
+          <div class="text-xs text-navy/45 dark:text-mist/40">{{ row.created_at.strftime('%Y-%m-%d %H:%M') if row.created_at else '' }}</div>
+        </td>
+        <td class="px-4 py-3">{{ row.customer.name if row.customer and row.customer.name else (row.customer.phone if row.customer else '—') }}</td>
+        <td class="px-4 py-3 font-mono text-xs">{{ row.vehicle.registration_number if row.vehicle else '—' }}</td>
+        <td class="px-4 py-3"><span class="policy-status">{{ row.status }}</span></td>
+        <td class="px-4 py-3">
+          {% if row.kyc_mode_used %}
+          <span class="policy-badge policy-badge--kyc">Simulated KYC</span>
+          {% else %}—{% endif %}
+        </td>
+        <td class="px-4 py-3">
+          {% if selected %}
+          <span class="policy-badge policy-badge--quote">Demo Quote</span>
+          <div class="text-xs">{{ selected.package_type }}</div>
+          {% else %}—{% endif %}
+        </td>
+        <td class="px-4 py-3">
+          {% if row.issued_policy %}
+          <span class="policy-badge policy-badge--policy">Demo Policy</span>
+          {% else %}No{% endif %}
+        </td>
+        <td class="px-4 py-3">{% if row.agent %}{{ row.agent.full_name or row.agent.username }}{% else %}—{% endif %}</td>
+      </tr>
+      {% else %}
+      <tr>
+        <td class="px-4 py-6 text-navy/50 dark:text-mist/45" colspan="8">No booking requests yet.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

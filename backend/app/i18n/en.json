@@ -14,6 +14,7 @@
   "nav.enterprise": "Enterprise",
   "nav.sign_out": "Sign out",
   "nav.chat": "Chat",
+  "nav.policy": "Policy",
   "nav.back_to_claims": "Back to claims",
 
   "login.title": "Motor Claim Damage Detection AI Model",

@@ -39,6 +39,14 @@ services:
       UPLOAD_DIR: /app/data/uploads
       PROFILE_PHOTOS_DIR: /app/data/profile_photos
       LLM_ENCRYPTION_KEY: ${LLM_ENCRYPTION_KEY:-}
+      EKO_VEHICLE_API_KEY: ${EKO_VEHICLE_API_KEY:-}
+      EKO_DEVELOPER_KEY: ${EKO_DEVELOPER_KEY:-}
+      EKO_INITIATOR_ID: ${EKO_INITIATOR_ID:-}
+      KYC_MODE: ${KYC_MODE:-mock_insurer_tagged}
+      KYC_TIER1_ENABLED: ${KYC_TIER1_ENABLED:-false}
+      KYC_TIER2_ENABLED: ${KYC_TIER2_ENABLED:-false}
+      POLICY_DEMO_WATERMARK: ${POLICY_DEMO_WATERMARK:-DEMO POLICY — NOT A VALID INSURANCE DOCUMENT}
+      POLICY_DOCS_DIR: /app/data/policy_docs
       SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-webnetin@gmail.com}
@@ -51,6 +59,7 @@ services:
     volumes:
       - ai_tribe_uploads:/app/data/uploads
       - ai_tribe_profile_photos:/app/data/profile_photos
+      - ai_tribe_policy_docs:/app/data/policy_docs
     restart: unless-stopped
 
   # Live-model app: only started with `--profile ml` (paperclip-vm path).
@@ -76,6 +85,14 @@ services:
       UPLOAD_DIR: /app/data/uploads
       PROFILE_PHOTOS_DIR: /app/data/profile_photos
       LLM_ENCRYPTION_KEY: ${LLM_ENCRYPTION_KEY:-}
+      EKO_VEHICLE_API_KEY: ${EKO_VEHICLE_API_KEY:-}
+      EKO_DEVELOPER_KEY: ${EKO_DEVELOPER_KEY:-}
+      EKO_INITIATOR_ID: ${EKO_INITIATOR_ID:-}
+      KYC_MODE: ${KYC_MODE:-mock_insurer_tagged}
+      KYC_TIER1_ENABLED: ${KYC_TIER1_ENABLED:-false}
+      KYC_TIER2_ENABLED: ${KYC_TIER2_ENABLED:-false}
+      POLICY_DEMO_WATERMARK: ${POLICY_DEMO_WATERMARK:-DEMO POLICY — NOT A VALID INSURANCE DOCUMENT}
+      POLICY_DOCS_DIR: /app/data/policy_docs
       SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-webnetin@gmail.com}
@@ -93,6 +110,7 @@ services:
     volumes:
       - ai_tribe_uploads:/app/data/uploads
       - ai_tribe_profile_photos:/app/data/profile_photos
+      - ai_tribe_policy_docs:/app/data/policy_docs
       - ai_tribe_ml_weights:/app/backend/app/ml_weights
       - /mnt/ml-scratch:/mnt/ml-scratch:rw
     mem_limit: 2g
@@ -103,4 +121,5 @@ volumes:
   ai_tribe_pgdata:
   ai_tribe_uploads:
   ai_tribe_profile_photos:
+  ai_tribe_policy_docs:
   ai_tribe_ml_weights:

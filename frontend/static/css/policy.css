@@ -1,0 +1,312 @@
+/* Policy booking demo — WhatsApp-style chat on AI Tribe dark chrome */
+
+body.policy-page {
+  overflow: hidden;
+}
+
+body.policy-page .attribution-byline {
+  display: none;
+}
+
+.policy-shell {
+  display: flex;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+}
+
+.policy-chat-panel {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: #0b141a;
+}
+
+.policy-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem 0.4rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: #1f2c34;
+}
+
+.policy-kicker {
+  font-size: 0.65rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #b8860b;
+}
+
+.policy-title {
+  font-size: 1.15rem;
+  font-weight: 650;
+  color: #e9edef;
+}
+
+.policy-header-links {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  font-size: 0.75rem;
+}
+
+.policy-header-links a,
+.policy-header-links button {
+  color: #8696a0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.policy-header-links a:hover,
+.policy-header-links button:hover {
+  color: #fde68a;
+}
+
+.policy-disclaimer {
+  margin: 0;
+  padding: 0.4rem 1rem;
+  font-size: 0.7rem;
+  text-align: center;
+  color: #e8b86d;
+  background: rgba(184, 134, 11, 0.12);
+  border-bottom: 1px solid rgba(184, 134, 11, 0.2);
+}
+
+.policy-thread {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 1.1rem 1.25rem;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.03), transparent 40%),
+    #0b141a;
+}
+
+.policy-row {
+  display: flex;
+  margin-bottom: 0.45rem;
+}
+
+.policy-row--user {
+  justify-content: flex-end;
+}
+
+.policy-row--assistant {
+  justify-content: flex-start;
+}
+
+.policy-row--system {
+  justify-content: center;
+}
+
+.policy-bubble {
+  max-width: min(34rem, 88%);
+  border-radius: 0.55rem;
+  padding: 0.4rem 0.55rem 0.2rem;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.policy-bubble--user {
+  background: #005c4b;
+  color: #e9edef;
+  border-top-right-radius: 0.15rem;
+}
+
+.policy-bubble--assistant {
+  background: #202c33;
+  color: #e9edef;
+  border-top-left-radius: 0.15rem;
+}
+
+.policy-bubble--system {
+  background: transparent;
+  color: #8696a0;
+  font-size: 0.72rem;
+  text-align: center;
+  max-width: 28rem;
+}
+
+.policy-time {
+  display: block;
+  text-align: right;
+  font-size: 0.65rem;
+  color: rgba(233, 237, 239, 0.45);
+  margin-top: 0.15rem;
+}
+
+.policy-card,
+.policy-quote {
+  margin-top: 0.45rem;
+  padding: 0.55rem;
+  border-radius: 0.45rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.policy-quote-grid {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.policy-quote-insurer {
+  font-weight: 650;
+}
+
+.policy-quote-pkg {
+  font-size: 0.75rem;
+  color: #fde68a;
+}
+
+.policy-quote-prem {
+  font-size: 1.05rem;
+  margin: 0.2rem 0;
+}
+
+.policy-muted {
+  color: #8696a0;
+  font-size: 0.75rem;
+}
+
+.policy-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+}
+
+.policy-chip,
+.policy-select {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(37, 211, 102, 0.45);
+  background: transparent;
+  color: #25d366;
+  font-size: 0.75rem;
+  padding: 0.28rem 0.7rem;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.policy-chip:hover,
+.policy-select:hover {
+  background: rgba(37, 211, 102, 0.12);
+}
+
+.policy-composer {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.65rem 0.85rem 0.9rem;
+  background: #1f2c34;
+}
+
+.policy-input {
+  flex: 1;
+  border: none;
+  border-radius: 1.2rem;
+  background: #2a3942;
+  color: #e9edef;
+  padding: 0.55rem 0.9rem;
+  outline: none;
+}
+
+.policy-send {
+  border: none;
+  border-radius: 999px;
+  background: #00a884;
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 650;
+  padding: 0 1rem;
+  cursor: pointer;
+}
+
+.policy-send:disabled {
+  opacity: 0.45;
+}
+
+.policy-summary-panel {
+  width: 18.5rem;
+  flex-shrink: 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  background: #111b21;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.policy-summary-card h2 {
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #b8860b;
+}
+
+.policy-summary-disclaimer {
+  font-size: 0.7rem;
+  color: #e8b86d;
+  margin: 0.4rem 0 0.8rem;
+}
+
+.policy-summary-card dl {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  gap: 0.35rem 0.5rem;
+  font-size: 0.78rem;
+}
+
+.policy-summary-card dt {
+  color: #8696a0;
+}
+
+.policy-badge {
+  display: inline-block;
+  margin-top: 0.2rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  letter-spacing: 0.02em;
+  background: rgba(184, 134, 11, 0.18);
+  color: #fde68a;
+}
+
+.policy-badge--live {
+  background: rgba(16, 185, 129, 0.18);
+  color: #6ee7b7;
+}
+
+.policy-badge--fallback,
+.policy-badge--quote {
+  background: rgba(59, 130, 246, 0.18);
+  color: #93c5fd;
+}
+
+.policy-badge--kyc {
+  background: rgba(250, 204, 21, 0.18);
+  color: #fde047;
+}
+
+.policy-badge--policy {
+  background: rgba(249, 115, 22, 0.2);
+  color: #fdba74;
+}
+
+.policy-status {
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+}
+
+.user-menu-item--active {
+  background: rgba(184, 134, 11, 0.18);
+  color: #fde68a;
+}
+
+@media (max-width: 860px) {
+  .policy-summary-panel {
+    display: none;
+  }
+}

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('nav.policy') }}{% endblock %}
+
+{% block body_class %}policy-page min-h-screen bg-ink text-mist antialiased{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/policy.css?v=1" />
+{% endblock %}
+
+{% block body %}
+<script type="application/json" id="policy-bootstrap">{{ bootstrap|tojson }}</script>
+<div class="policy-shell" x-data="policyChat(JSON.parse(document.getElementById('policy-bootstrap').textContent))" x-init="init()">
+  <section class="policy-chat-panel">
+    <header class="policy-header">
+      <div>
+        <p class="policy-kicker">{{ t('app.name') }}</p>
+        <h1 class="policy-title">{{ t('nav.policy') }}</h1>
+      </div>
+      <nav class="policy-header-links">
+        <a href="/policy/crm">CRM</a>
+        <a href="/policy/settings">Settings</a>
+        <button type="button" @click="startNew()">New booking</button>
+      </nav>
+    </header>
+    <p class="policy-disclaimer" role="note">{{ disclaimer }}</p>
+    <div class="policy-thread" id="policy-thread" x-ref="thread" role="log" aria-live="polite">
+      <template x-for="msg in messages" :key="msg.id">
+        <div
+          class="policy-row"
+          :class="{
+            'policy-row--user': msg.sender === 'user',
+            'policy-row--assistant': msg.sender === 'assistant',
+            'policy-row--system': msg.sender === 'system'
+          }"
+        >
+          <div class="policy-bubble" :class="'policy-bubble--' + msg.sender">
+            <div class="policy-bubble-text" x-html="formatText(msg.text)"></div>
+            <template x-if="msg.payload && msg.payload.kind === 'vehicle_card'">
+              <article class="policy-card">
+                <p class="policy-badge" x-text="msg.payload.source_label"></p>
+                <p><strong x-text="msg.payload.registration_number"></strong></p>
+                <p x-text="(msg.payload.make || '') + ' ' + (msg.payload.model || '') + ' · ' + (msg.payload.year || '—')"></p>
+                <p class="policy-muted" x-text="(msg.payload.color || '') + ' · ' + (msg.payload.fuel_type || '')"></p>
+                <p class="policy-muted">Owner: <span x-text="msg.payload.owner_name"></span></p>
+              </article>
+            </template>
+            <template x-if="msg.payload && msg.payload.kind === 'kyc_card'">
+              <article class="policy-card">
+                <p class="policy-badge policy-badge--kyc" x-text="msg.payload.label"></p>
+                <p x-text="(msg.payload.valid ? 'Valid' : 'Invalid') + ' · ' + msg.payload.id_type + ' · ' + msg.payload.id_masked"></p>
+                <p class="policy-muted" x-show="msg.payload.reason" x-text="msg.payload.reason"></p>
+              </article>
+            </template>
+            <template x-if="msg.payload && msg.payload.kind === 'quote_cards'">
+              <div class="policy-quote-grid">
+                <p class="policy-badge policy-badge--quote" x-text="msg.payload.label"></p>
+                <template x-for="q in msg.payload.quotes" :key="q.id || q.insurer_code">
+                  <article class="policy-quote">
+                    <p class="policy-quote-insurer" x-text="q.insurer_name"></p>
+                    <p class="policy-quote-pkg" x-text="q.package_type"></p>
+                    <p class="policy-quote-prem">₹<span x-text="Number(q.premium).toLocaleString('en-IN')"></span></p>
+                    <p class="policy-muted" x-text="q.coverage_summary"></p>
+                    <p class="policy-muted" x-text="q.validity_note"></p>
+                    <p class="policy-badge policy-badge--quote">Demo Quotation — Illustrative Only</p>
+                    <button type="button" class="policy-select" @click="send('select_quote:' + q.insurer_code)">Select</button>
+                  </article>
+                </template>
+              </div>
+            </template>
+            <template x-if="msg.payload && msg.payload.kind === 'document'">
+              <article class="policy-card">
+                <p class="policy-badge policy-badge--policy" x-text="msg.payload.label"></p>
+                <p><strong x-text="msg.payload.policy_reference"></strong></p>
+                <p x-text="msg.payload.insurer_name + ' · ₹' + Number(msg.payload.premium).toLocaleString('en-IN')"></p>
+                <a class="policy-select" :href="msg.payload.download_url">Download Policy</a>
+              </article>
+            </template>
+            <div class="policy-chips" x-show="msg.payload && msg.payload.options">
+              <template x-for="opt in (msg.payload.options || [])" :key="opt.value">
+                <button type="button" class="policy-chip" @click="send(opt.value)" x-text="opt.label"></button>
+              </template>
+            </div>
+            <time class="policy-time" x-text="msg.timestamp"></time>
+          </div>
+        </div>
+      </template>
+    </div>
+    <form class="policy-composer" @submit.prevent="sendComposer()">
+      <input
+        class="policy-input"
+        type="text"
+        x-model="draft"
+        :disabled="busy"
+        placeholder="Type a message or use the chips…"
+        autocomplete="off"
+      />
+      <button class="policy-send" type="submit" :disabled="busy || !draft.trim()">Send</button>
+    </form>
+  </section>
+
+  <aside class="policy-summary-panel">
+    <div id="policy-summary" hx-get="/policy/summary" hx-trigger="load" hx-swap="innerHTML">
+      {% include "policy/partials/summary.html" %}
+    </div>
+  </aside>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/policy_chat.js?v=1"></script>
+{% endblock %}

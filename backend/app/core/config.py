@@ -42,6 +42,17 @@ class Settings(BaseSettings):
     profile_photos_dir: str = str(REPO_ROOT / "data" / "profile_photos")
     max_profile_photo_mb: int = 2
 
+    eko_vehicle_api_key: str = ""
+    eko_developer_key: str = ""
+    eko_initiator_id: str = ""
+    eko_base_url: str = "https://api.eko.in/ekoicici/v3"
+    eko_rc_path: str = "/tools/kyc/vehicle-rc"
+    kyc_mode: str = "mock_insurer_tagged"
+    kyc_tier1_enabled: bool = False
+    kyc_tier2_enabled: bool = False
+    policy_demo_watermark: str = "DEMO POLICY - NOT A VALID INSURANCE DOCUMENT"
+    policy_docs_dir: str = str(REPO_ROOT / "data" / "policy_docs")
+
     host: str = "0.0.0.0"
     port: int = 8000
 
@@ -81,6 +92,13 @@ class Settings(BaseSettings):
     @property
     def upload_path(self) -> Path:
         path = Path(self.upload_dir)
+        if not path.is_absolute():
+            path = REPO_ROOT / path
+        return path
+
+    @property
+    def policy_docs_path(self) -> Path:
+        path = Path(self.policy_docs_dir)
         if not path.is_absolute():
             path = REPO_ROOT / path
         return path

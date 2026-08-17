@@ -36,3 +36,4 @@ aiofiles==24.1.0
 python-dateutil==2.9.0.post0
 networkx==3.2.1
 cryptography==44.0.0
+reportlab==4.2.5

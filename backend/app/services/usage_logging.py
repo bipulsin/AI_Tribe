@@ -90,6 +90,23 @@ def classify_route(method: str, path: str) -> tuple[str, str]:
             return "api_chain", "api_marketplace"
         return "api_marketplace_call", "api_marketplace"
 
+    if p.startswith("/policy"):
+        if "/crm" in p:
+            return "policy_crm", "policy"
+        if "/settings" in p:
+            return "policy_settings", "policy"
+        if "/chat/message" in p:
+            return "policy_chat_message", "policy"
+        if "/vehicle" in p:
+            return "policy_vehicle_lookup", "policy"
+        if "/kyc" in p:
+            return "policy_kyc", "policy"
+        if "/quotes" in p:
+            return "policy_quotes", "policy"
+        if "/issue" in p or "/document" in p:
+            return "policy_issue", "policy"
+        return "policy_page", "policy"
+
     if p.startswith("/lab/") or p.startswith("/api/lab/"):
         return "vmmr_labeling", "lab_vmmr"
 
