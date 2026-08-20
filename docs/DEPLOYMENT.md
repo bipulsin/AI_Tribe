@@ -31,6 +31,9 @@ ssh paperclip echo connected
 | HostName | `140.245.14.17` |
 | User | `ubuntu` |
 | IdentityFile | `~/.ssh/paperclip_key` |
+| IPQoS | `none` (required from some networks; LibreSSL TOS bits otherwise time out on connect) |
+
+If `ssh paperclip` hangs with `Operation timed out` while `https://tribe.tradentical.com` still works, add `IPQoS none` under the `Host paperclip` block in `~/.ssh/config` and retry.
 
 ## Live deployment topology
 
