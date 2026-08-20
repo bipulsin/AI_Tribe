@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 from starlette.datastructures import UploadFile
@@ -25,6 +25,12 @@ from app.services.vmmr.vehicle_confirmation import catalog_makes_models
 
 router = APIRouter(tags=["claims"])
 settings = get_settings()
+
+
+@router.get("/claims", include_in_schema=False)
+async def claims_index():
+    """Browser visits to /claims should land on the new-claim form (POST /claims is submit)."""
+    return RedirectResponse(url="/claims/new", status_code=303)
 
 
 @router.get("/claims/new", response_class=HTMLResponse)
