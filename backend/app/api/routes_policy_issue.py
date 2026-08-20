@@ -1,4 +1,4 @@
-"""Demo policy issuance and PDF download."""
+"""Policy issuance and PDF download (illustrative artefact)."""
 
 from __future__ import annotations
 
@@ -30,7 +30,12 @@ async def policy_issue(request: Request, db: Session = Depends(get_db)):
     if not booking:
         return JSONResponse({"detail": "No active booking"}, status_code=404)
     if booking.current_step == "select_quote" and any(q.selected for q in booking.quotes):
-        booking.current_step = "issue_policy"
+        booking.current_step = "initiate_payment"
+    if booking.current_step == "initiate_payment":
+        return JSONResponse(
+            {"detail": "Complete the simulated payment in chat before issuance."},
+            status_code=400,
+        )
     booking = handle_user_message(db, booking, "issue", user.id)
     return serialize_booking(booking)
 
@@ -64,5 +69,6 @@ async def policy_document(policy_id: str, request: Request, db: Session = Depend
     return FileResponse(
         path,
         media_type="application/pdf",
-        filename=f"{issued.policy_reference}.pdf",
+        filename=f"Policy_{issued.policy_reference}.pdf",
+        content_disposition_type="attachment",
     )

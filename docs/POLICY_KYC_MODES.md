@@ -12,8 +12,8 @@ To activate later: implement a real provider in `app/policy/kyc.py`, require tes
 
 ## 2. Local Extraction Pipeline (`local_extraction`)
 
-- Tier 1 OCR (PaddleOCR) — **Disabled — Demo Mode Only**
-- Tier 2 Vision LLM (BYOK) — **Disabled — Demo Mode Only**
+- Tier 1 OCR (PaddleOCR) — **Disabled — not configured**
+- Tier 2 Vision LLM (BYOK) — **Disabled — not configured**
 
 Both toggles default off. Selecting this mode without a tested pipeline falls back to mock.
 

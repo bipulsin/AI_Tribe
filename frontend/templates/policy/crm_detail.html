@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Policy CRM · {{ booking.booking_reference }}{% endblock %}
 {% block head %}
-<link rel="stylesheet" href="/static/css/policy.css?v=1" />
+<link rel="stylesheet" href="/static/css/policy.css?v=2" />
 {% endblock %}
 {% block body %}
 <div class="mx-auto max-w-4xl px-4 py-8">
@@ -9,7 +9,7 @@
   <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
     <div>
       <h1 class="mt-1 text-2xl font-semibold text-navy dark:text-mist">{{ booking.booking_reference }}</h1>
-      <p class="mt-1 text-sm text-navy/55 dark:text-mist/50">{{ booking.status }} · step {{ booking.current_step }}</p>
+      <p class="mt-1 text-sm text-navy/55 dark:text-mist/50">{{ 'issued (illustrative)' if booking.status == 'issued_demo' else booking.status }} · step {{ booking.current_step }}</p>
     </div>
     <a class="text-sm text-gold hover:underline" href="/policy/crm">← All bookings</a>
   </div>
@@ -27,7 +27,7 @@
           {% if booking.vehicle %}
           {{ booking.vehicle.make }} {{ booking.vehicle.model }} {{ booking.vehicle.year or '' }}
           <span class="policy-badge {% if booking.vehicle.source == 'live_api' %}policy-badge--live{% else %}policy-badge--fallback{% endif %}">
-            {{ 'Live Vahan Lookup' if booking.vehicle.source == 'live_api' else 'Demo Data — Fallback' }}
+            {{ 'Live Vahan Lookup' if booking.vehicle.source == 'live_api' else 'Fallback Data' }}
           </span>
           {% else %}—{% endif %}
         </dd>
@@ -43,7 +43,7 @@
       <li>
         Attempt {{ ev.attempt_number }} · {{ ev.validation_result }} · {{ ev.id_type }} {{ ev.id_number_masked }}
         · {{ ev.validation_mode }}
-        <span class="policy-badge policy-badge--kyc">Simulated KYC</span>
+        <span class="policy-badge policy-badge--kyc">{{ 'EKO PAN Verification — Live' if ev.validation_mode == 'eko_pan_lite' else 'Simulated KYC' }}</span>
       </li>
       {% else %}
       <li class="text-navy/50 dark:text-mist/45">No KYC events yet.</li>
@@ -59,7 +59,7 @@
         <p class="font-semibold">{{ q.insurer_name }}</p>
         <p class="text-xs text-navy/50 dark:text-mist/45">{{ q.package_type }}</p>
         <p class="mt-1">₹{{ '%.2f'|format(q.premium) }}</p>
-        <p class="policy-badge policy-badge--quote">Demo Quote</p>
+        <p class="policy-badge policy-badge--quote">Illustrative Quote</p>
         {% if q.selected %}<p class="mt-1 text-xs text-gold">Selected</p>{% endif %}
       </article>
       {% else %}
@@ -69,10 +69,28 @@
   </section>
 
   <section class="mb-6 rounded-2xl border border-navy/10 bg-white p-5 dark:border-white/10 dark:bg-navy/40">
+    <h2 class="text-sm font-semibold uppercase tracking-wide text-navy/45 dark:text-mist/45">Payment</h2>
+    {% set pay = booking.payments[-1] if booking.payments else none %}
+    {% if pay %}
+    <dl class="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+      <div><dt class="text-navy/45 dark:text-mist/40">Method</dt><dd>{{ booking.payment_method or pay.payment_method }}</dd></div>
+      <div><dt class="text-navy/45 dark:text-mist/40">Amount</dt><dd>₹{{ '%.2f'|format(pay.amount) }}</dd></div>
+      <div><dt class="text-navy/45 dark:text-mist/40">Status</dt><dd>{{ pay.status }}</dd></div>
+      <div><dt class="text-navy/45 dark:text-mist/40">Timestamp</dt><dd>{{ pay.created_at.strftime('%Y-%m-%d %H:%M') if pay.created_at else '—' }}</dd></div>
+      {% if pay.card_number_masked %}
+      <div><dt class="text-navy/45 dark:text-mist/40">Card</dt><dd>****{{ pay.card_number_masked }}{% if pay.card_holder_name %} · {{ pay.card_holder_name }}{% endif %}</dd></div>
+      {% endif %}
+    </dl>
+    {% else %}
+    <p class="mt-2 text-sm text-navy/50 dark:text-mist/45">No payment recorded.</p>
+    {% endif %}
+  </section>
+
+  <section class="mb-6 rounded-2xl border border-navy/10 bg-white p-5 dark:border-white/10 dark:bg-navy/40">
     <h2 class="text-sm font-semibold uppercase tracking-wide text-navy/45 dark:text-mist/45">Issued policy</h2>
     {% if booking.issued_policy %}
     <p class="mt-2 text-sm">{{ booking.issued_policy.policy_reference }} · ₹{{ '%.2f'|format(booking.issued_policy.premium) }}</p>
-    <p class="policy-badge policy-badge--policy">Demo Policy Artifact — Not a Valid Insurance Document</p>
+    <p class="policy-badge policy-badge--policy">Not a Valid Insurance Document</p>
     <p class="mt-1 text-xs">source_mode={{ booking.issued_policy.source_mode }}</p>
     <a class="mt-3 inline-block text-sm text-gold hover:underline" href="/policy/document/{{ booking.issued_policy.id }}">Download Policy</a>
     {% else %}

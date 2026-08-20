@@ -1,0 +1,22 @@
+{# Simulated payment card. Live chat renders the Alpine equivalent in chat.html
+   because the thread is JSON-driven. This partial is the HTMX-compatible structure. #}
+<article class="payment-card">
+  <div class="payment-card-header">
+    <p class="policy-badge policy-badge--quote">{{ label or "Simulated Payment — Not Real Processing" }}</p>
+    <p class="payment-card-insurer">{{ insurer_name }}</p>
+    <p class="payment-card-prem">₹{{ "%.0f"|format(premium) }}</p>
+    <p class="policy-muted">{{ package_type }}</p>
+  </div>
+  <div class="payment-methods">
+    <button type="button" class="payment-method">GPay</button>
+    <button type="button" class="payment-method">PhonePe</button>
+    <button type="button" class="payment-method">Paytm</button>
+    <button type="button" class="payment-method">Cards</button>
+  </div>
+  <form method="post" hx-post="/policy/payment/process" hx-target="#policy-thread" hx-swap="beforeend">
+    <input type="hidden" name="session_id" value="{{ session_id }}" />
+    <input type="hidden" name="selected_payment_method" value="{{ selected_payment_method or '' }}" />
+    <button type="submit" class="payment-pay">Pay Now</button>
+  </form>
+  <p class="payment-disclaimer">This is a demo payment interface. No actual charge will be processed. Payment is simulated for demonstration purposes only.</p>
+</article>

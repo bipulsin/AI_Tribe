@@ -1,4 +1,4 @@
-"""Demo quote generation — three internal insurers, never a live insurer API."""
+"""Quote generation — three internal insurers, never a live insurer API."""
 
 from __future__ import annotations
 
@@ -81,7 +81,7 @@ class DemoInsurerA:
             package_type=self.spec["package"],
             premium=premium,
             coverage_summary=self.spec["coverage"],
-            validity_note="Illustrative only · 7-day demo validity",
+            validity_note="Illustrative only · 7-day validity",
             source_mode=SOURCE_DEMO_QUOTE,
             label=LABEL_DEMO_QUOTE,
         )
@@ -98,7 +98,7 @@ class DemoInsurerB:
             package_type=self.spec["package"],
             premium=premium,
             coverage_summary=self.spec["coverage"],
-            validity_note="Illustrative only · 7-day demo validity",
+            validity_note="Illustrative only · 7-day validity",
             source_mode=SOURCE_DEMO_QUOTE,
             label=LABEL_DEMO_QUOTE,
         )
@@ -115,7 +115,7 @@ class DemoInsurerC:
             package_type=self.spec["package"],
             premium=premium,
             coverage_summary=self.spec["coverage"],
-            validity_note="Illustrative only · 7-day demo validity",
+            validity_note="Illustrative only · 7-day validity",
             source_mode=SOURCE_DEMO_QUOTE,
             label=LABEL_DEMO_QUOTE,
         )

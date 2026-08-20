@@ -1,1 +1,1 @@
-"""Policy Booking Demo Module — browser WhatsApp-style guided booking."""
+"""Policy booking module — browser WhatsApp-style guided booking."""

@@ -15,9 +15,12 @@
   "nav.sign_out": "Déconnexion",
   "nav.chat": "Chat",
   "nav.policy": "Souscription",
+  "nav.crm": "CRM",
   "nav.back_to_claims": "Retour aux sinistres",
 
-  "login.title": "Modèle IA de détection des dommages automobile",
+  "login.title": "Trusted Risk & Insurance Bionic Ecosystem",
+  "login.typewriter_line1": "Ai doesn't replace Insurance expertise.",
+  "login.typewriter_line2": "It makes Insurance expertise BIONIC",
   "login.subtitle": "Utilisez votre e-mail ou identifiant et votre mot de passe pour accéder à cette instance.",
   "login.email_or_username": "E-mail ou identifiant",
   "login.password": "Mot de passe",

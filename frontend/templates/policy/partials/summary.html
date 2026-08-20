@@ -1,6 +1,6 @@
 <div class="policy-summary-card">
   <h2>Booking summary</h2>
-  <p class="policy-summary-disclaimer">{{ summary.disclaimer or 'Demo booking assistant — not a live insurer, KYC, or policy-issuance integration.' }}</p>
+  <p class="policy-summary-disclaimer">{{ summary.disclaimer or 'Booking assistant — not a live insurer, KYC, or policy-issuance integration.' }}</p>
   <dl>
     <dt>Reference</dt><dd>{{ summary.booking_reference or '—' }}</dd>
     <dt>Registration</dt><dd>{{ summary.registration_number or '—' }}</dd>
@@ -11,6 +11,10 @@
       <span class="policy-badge {% if summary.vehicle_source == 'live_api' %}policy-badge--live{% else %}policy-badge--fallback{% endif %}">{{ summary.vehicle_source_label }}</span>
       {% else %}—{% endif %}
     </dd>
+    {% if summary.blacklisted %}
+    <dt>Blacklist</dt>
+    <dd><span class="policy-badge policy-badge--policy">{{ summary.blacklist_status }}</span></dd>
+    {% endif %}
     <dt>Customer</dt><dd>{{ summary.customer_name or '—' }}</dd>
     <dt>Phone</dt><dd>{{ summary.phone or '—' }}</dd>
     <dt>ID</dt><dd>{% if summary.id_type %}{{ summary.id_type }} · {{ summary.id_masked }}{% else %}—{% endif %}</dd>
@@ -20,6 +24,13 @@
       {% if summary.kyc_label %}<span class="policy-badge policy-badge--kyc">{{ summary.kyc_label }}</span>{% endif %}
     </dd>
     <dt>Quote</dt><dd>{{ summary.selected_quote or '—' }}</dd>
+    <dt>Payment</dt>
+    <dd>
+      {% if summary.payment_method_label %}
+      {{ summary.payment_method_label }}
+      {% if summary.payment_status %} · {{ summary.payment_status }}{% endif %}
+      {% else %}—{% endif %}
+    </dd>
     <dt>Policy</dt>
     <dd>
       {{ summary.policy_status or '—' }}

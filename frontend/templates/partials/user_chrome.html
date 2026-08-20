@@ -6,6 +6,14 @@
   data-initial-name="{{ request.session.get('full_name') or request.session.get('username') or t('common.user') }}"
   @keydown.escape.window="menuOpen = false"
 >
+  <div
+    class="user-menu-backdrop"
+    x-show="menuOpen"
+    x-cloak
+    @click="closeMenu()"
+    aria-hidden="true"
+  ></div>
+
   <div class="user-menu-wrap">
     <button
       type="button"
@@ -13,6 +21,7 @@
       aria-haspopup="menu"
       aria-expanded="false"
       :aria-expanded="menuOpen"
+      :aria-label="profile.full_name || initialName"
       @click="toggleMenu()"
     >
       <img
@@ -37,7 +46,13 @@
       class="user-menu-popup"
       x-show="menuOpen"
       x-cloak
-      @click.outside="menuOpen = false"
+      x-transition:enter="user-menu-enter"
+      x-transition:enter-start="user-menu-enter-start"
+      x-transition:enter-end="user-menu-enter-end"
+      x-transition:leave="user-menu-leave"
+      x-transition:leave-start="user-menu-leave-start"
+      x-transition:leave-end="user-menu-leave-end"
+      @click.outside="closeMenu()"
       role="menu"
     >
       <button type="button" class="user-menu-item" role="menuitem" @click="openProfile()">{{ t('nav.profile') }}</button>
@@ -46,9 +61,14 @@
       <a href="/chat" class="user-menu-item user-menu-item--chat" role="menuitem">{{ t('nav.chat') }}</a>
       <a
         href="/policy"
-        class="user-menu-item{% if request.url.path.startswith('/policy') %} user-menu-item--active{% endif %}"
+        class="user-menu-item{% if request.url.path.startswith('/policy') and not request.url.path.startswith('/policy/crm') %} user-menu-item--active{% endif %}"
         role="menuitem"
       >{{ t('nav.policy') }}</a>
+      <a
+        href="/policy/crm"
+        class="user-menu-item user-menu-item--mobile-extra{% if request.url.path.startswith('/policy/crm') %} user-menu-item--active{% endif %}"
+        role="menuitem"
+      >{{ t('nav.crm') }}</a>
       <a href="/settings/api-marketplace" class="user-menu-item" role="menuitem">{{ t('nav.api_marketplace') }}</a>
       <button
         type="button"
@@ -60,6 +80,10 @@
       >
         {{ t('nav.admin') }}
       </button>
+      <div class="user-menu-lang user-menu-item--mobile-extra" role="none">
+        <p class="user-menu-lang-label">{{ t('lang.toggle_label') }}</p>
+        {% include "partials/lang_toggle.html" %}
+      </div>
       <a href="/auth/logout" class="user-menu-item user-menu-item--signout" role="menuitem">{{ t('nav.sign_out') }}</a>
     </div>
   </div>

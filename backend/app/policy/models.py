@@ -13,6 +13,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     LargeBinary,
+    Numeric,
     String,
     Text,
     func,
@@ -34,6 +35,7 @@ class PolicyBookingRequest(Base):
     current_step: Mapped[str] = mapped_column(String(64), nullable=False, default="welcome")
     previous_policy_declared: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     kyc_mode_used: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    payment_method: Mapped[str | None] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
@@ -55,6 +57,12 @@ class PolicyBookingRequest(Base):
     )
     kyc_events = relationship("PolicyKycEvent", back_populates="booking", cascade="all, delete-orphan")
     quotes = relationship("PolicyQuoteOption", back_populates="booking", cascade="all, delete-orphan")
+    payments = relationship(
+        "PolicyPayment",
+        back_populates="booking",
+        cascade="all, delete-orphan",
+        order_by="PolicyPayment.created_at",
+    )
     issued_policy = relationship(
         "PolicyIssuedPolicy", back_populates="booking", uselist=False, cascade="all, delete-orphan"
     )
@@ -96,6 +104,11 @@ class PolicyVehicle(Base):
     owner_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
     source: Mapped[str] = mapped_column(String(32), nullable=False, default="demo_fallback")
     raw_payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    client_ref_id: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    rc_status: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    insurance_validity: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    blacklist_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    blacklist_acknowledged: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     booking = relationship("PolicyBookingRequest", back_populates="vehicle")
@@ -133,6 +146,12 @@ class PolicyKycEvent(Base):
     attempt_number: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     demo_mode: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    client_ref_id: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    raw_response: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    name_match: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    dob_match: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    pan_status: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    aadhaar_seeding_status: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -152,11 +171,33 @@ class PolicyQuoteOption(Base):
     premium: Mapped[float] = mapped_column(Float, nullable=False)
     package_type: Mapped[str] = mapped_column(String(32), nullable=False)
     coverage_summary: Mapped[str] = mapped_column(Text, nullable=False)
-    validity_note: Mapped[str] = mapped_column(String(128), nullable=False, default="Illustrative only · 7-day demo validity")
+    validity_note: Mapped[str] = mapped_column(String(128), nullable=False, default="Illustrative only · 7-day validity")
     source_mode: Mapped[str] = mapped_column(String(32), nullable=False, default="demo_rules")
     selected: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     booking = relationship("PolicyBookingRequest", back_populates="quotes")
+
+
+class PolicyPayment(Base):
+    __tablename__ = "policy_payments"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    booking_request_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("policy_booking_requests.id"), index=True, nullable=False
+    )
+    payment_method: Mapped[str] = mapped_column(String(20), nullable=False)
+    card_holder_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    card_number_masked: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    expiry_masked: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    cvv_masked: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    amount: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="simulated")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    booking = relationship("PolicyBookingRequest", back_populates="payments")
+    issued_policy = relationship("PolicyIssuedPolicy", back_populates="payment", uselist=False)
 
 
 class PolicyIssuedPolicy(Base):
@@ -174,8 +215,12 @@ class PolicyIssuedPolicy(Base):
     insurer_name: Mapped[str] = mapped_column(String(64), nullable=False)
     package_type: Mapped[str] = mapped_column(String(32), nullable=False)
     premium: Mapped[float] = mapped_column(Float, nullable=False)
+    payment_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("policy_payments.id"), nullable=True
+    )
 
     booking = relationship("PolicyBookingRequest", back_populates="issued_policy")
+    payment = relationship("PolicyPayment", back_populates="issued_policy")
 
 
 class PolicySettings(Base):

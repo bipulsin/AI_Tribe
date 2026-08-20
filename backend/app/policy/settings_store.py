@@ -14,10 +14,12 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.policy.constants import (
     DEFAULT_WATERMARK,
+    KYC_MODE_EKO_PAN,
     KYC_MODE_INSURER,
     KYC_MODE_LOCAL,
     KYC_MODE_MOCK,
 )
+from app.policy.eko_runtime import eko_configured, mask_initiator
 from app.policy.models import PolicySettings
 from app.services.llm.encryption import LlmEncryptionError, mask_api_key
 
@@ -61,13 +63,21 @@ def encrypt_payload(data: dict[str, Any]) -> bytes:
     return _fernet().encrypt(json.dumps(data).encode("utf-8"))
 
 
+def _sanitize_copy(data: dict[str, Any]) -> dict[str, Any]:
+    watermark = str(data.get("watermark_text") or "")
+    if "demo" in watermark.lower():
+        data["watermark_text"] = DEFAULT_WATERMARK
+    return data
+
+
 def decrypt_payload(token: bytes) -> dict[str, Any]:
     try:
         raw = _fernet().decrypt(token).decode("utf-8")
     except InvalidToken as exc:
         raise LlmEncryptionError("Policy settings could not be decrypted") from exc
     data = json.loads(raw)
-    return {**DEFAULTS, **data} if isinstance(data, dict) else dict(DEFAULTS)
+    merged = {**DEFAULTS, **data} if isinstance(data, dict) else dict(DEFAULTS)
+    return _sanitize_copy(merged)
 
 
 def load_settings(db: Session, user_id: int) -> dict[str, Any]:
@@ -101,10 +111,12 @@ def resolved_kyc_mode(stored: dict[str, Any]) -> tuple[str, str | None]:
     requested = stored.get("kyc_mode") or KYC_MODE_MOCK
     if requested == KYC_MODE_MOCK:
         return KYC_MODE_MOCK, None
-    if requested == KYC_MODE_INSURER:
+    if requested in {KYC_MODE_INSURER, KYC_MODE_EKO_PAN}:
+        if eko_configured():
+            return KYC_MODE_EKO_PAN, None
         return (
             KYC_MODE_MOCK,
-            "Insurer API / DigiLocker is Not Configured. Using Mock Insurer-Tagged.",
+            "EKO PAN Lite / Insurer API is not configured. Using Mock Insurer-Tagged.",
         )
     if requested == KYC_MODE_LOCAL:
         tier1 = bool(stored.get("kyc_tier1_enabled"))
@@ -112,7 +124,7 @@ def resolved_kyc_mode(stored: dict[str, Any]) -> tuple[str, str | None]:
         if not tier1 and not tier2:
             return (
                 KYC_MODE_MOCK,
-                "Local Extraction Pipeline is Disabled — Demo Mode Only. Using Mock Insurer-Tagged.",
+                "Local Extraction Pipeline is Disabled — not configured. Using Mock Insurer-Tagged.",
             )
         return (
             KYC_MODE_MOCK,
@@ -122,7 +134,8 @@ def resolved_kyc_mode(stored: dict[str, Any]) -> tuple[str, str | None]:
 
 
 def eko_key_hint() -> str:
-    key = (get_settings().eko_vehicle_api_key or "").strip()
+    env = get_settings()
+    key = (env.eko_access_key or env.eko_vehicle_api_key or "").strip()
     if not key:
         return "Not set"
     return mask_api_key(key)
@@ -132,19 +145,24 @@ def public_settings_view(db: Session, user_id: int) -> dict[str, Any]:
     stored = load_settings(db, user_id)
     mode, warning = resolved_kyc_mode(stored)
     env = get_settings()
+    connected = eko_configured()
     return {
         "eko_key_hint": eko_key_hint(),
-        "eko_key_configured": bool((env.eko_vehicle_api_key or "").strip()),
+        "eko_key_configured": bool((env.eko_access_key or env.eko_vehicle_api_key or "").strip()),
         "eko_developer_key_configured": bool((env.eko_developer_key or "").strip()),
         "eko_initiator_configured": bool((env.eko_initiator_id or "").strip()),
+        "eko_connected": connected,
+        "eko_status_label": "EKO Connected" if connected else "EKO Not Configured",
+        "eko_initiator_masked": mask_initiator(env.eko_initiator_id),
+        "eko_base_url": (env.eko_base_url or "").rstrip("/"),
         "force_demo_fallback": bool(stored.get("force_demo_fallback")),
         "kyc_mode_requested": stored.get("kyc_mode") or KYC_MODE_MOCK,
         "kyc_mode_active": mode,
         "kyc_warning": warning,
         "kyc_tier1_enabled": False,
         "kyc_tier2_enabled": False,
-        "kyc_tier1_label": "Disabled — Demo Mode Only",
-        "kyc_tier2_label": "Disabled — Demo Mode Only",
+        "kyc_tier1_label": "Disabled — not configured",
+        "kyc_tier2_label": "Disabled — not configured",
         "quotes_randomized": bool(stored.get("quotes_randomized")),
         "premium_floor_a": float(stored.get("premium_floor_a") or 8000),
         "premium_floor_b": float(stored.get("premium_floor_b") or 12000),

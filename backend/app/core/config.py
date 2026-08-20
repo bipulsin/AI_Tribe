@@ -43,14 +43,16 @@ class Settings(BaseSettings):
     max_profile_photo_mb: int = 2
 
     eko_vehicle_api_key: str = ""
+    eko_access_key: str = ""
     eko_developer_key: str = ""
     eko_initiator_id: str = ""
-    eko_base_url: str = "https://api.eko.in/ekoicici/v3"
+    eko_base_url: str = "https://staging.eko.in/ekoapi/v3"
     eko_rc_path: str = "/tools/kyc/vehicle-rc"
+    eko_pan_lite_path: str = "/tools/kyc/pan-lite"
     kyc_mode: str = "mock_insurer_tagged"
     kyc_tier1_enabled: bool = False
     kyc_tier2_enabled: bool = False
-    policy_demo_watermark: str = "DEMO POLICY - NOT A VALID INSURANCE DOCUMENT"
+    policy_demo_watermark: str = "NOT A VALID INSURANCE DOCUMENT"
     policy_docs_dir: str = str(REPO_ROOT / "data" / "policy_docs")
 
     host: str = "0.0.0.0"

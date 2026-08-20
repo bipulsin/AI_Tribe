@@ -304,6 +304,7 @@ try:
         routes_policy_chat,
         routes_policy_issue,
         routes_policy_kyc,
+        routes_policy_payment,
         routes_policy_quotes,
         routes_policy_settings,
         routes_policy_vehicle,
@@ -315,7 +316,7 @@ try:
     app.include_router(routes_policy_kyc.router)
     app.include_router(routes_policy_quotes.router)
     app.include_router(routes_policy_issue.router)
+    app.include_router(routes_policy_payment.router)
     app.include_router(routes_policy_settings.router)
 except ImportError:
-    # Partial scaffold during early milestones — routes land incrementally.
-    pass
+    logger.exception("Policy routers were not registered")

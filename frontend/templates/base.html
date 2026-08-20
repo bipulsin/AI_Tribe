@@ -31,7 +31,7 @@
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
   <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
   <script defer src="https://unpkg.com/alpinejs@3.14.8/dist/cdn.min.js"></script>
-  <link rel="stylesheet" href="/static/css/app.css" />
+  <link rel="stylesheet" href="/static/css/app.css?v=mobile-nav-1" />
   {% block head %}{% endblock %}
 </head>
 <body class="{% block body_class %}min-h-screen bg-canvas text-navy antialiased dark:bg-ink dark:text-mist{% endblock %}">
@@ -43,7 +43,7 @@
   {% endif %}
   {% include "partials/help_guide.html" %}
   {% include "partials/media_preview_modal.html" %}
-  <script src="/static/js/user_chrome.js"></script>
+  <script src="/static/js/user_chrome.js?v=2"></script>
   {% if not embed|default(false) %}
   <script src="/static/js/help_guide.js"></script>
   {% endif %}

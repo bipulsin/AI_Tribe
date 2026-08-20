@@ -15,9 +15,12 @@
   "nav.sign_out": "Sign out",
   "nav.chat": "Chat",
   "nav.policy": "Policy",
+  "nav.crm": "CRM",
   "nav.back_to_claims": "Back to claims",
 
-  "login.title": "Motor Claim Damage Detection AI Model",
+  "login.title": "Trusted Risk & Insurance Bionic Ecosystem",
+  "login.typewriter_line1": "Ai doesn't replace Insurance expertise.",
+  "login.typewriter_line2": "It makes Insurance expertise BIONIC",
   "login.subtitle": "Use your email or username and password to access this instance.",
   "login.email_or_username": "Email or username",
   "login.password": "Password",

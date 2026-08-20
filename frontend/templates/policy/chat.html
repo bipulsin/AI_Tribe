@@ -5,26 +5,29 @@
 {% block body_class %}policy-page min-h-screen bg-ink text-mist antialiased{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="/static/css/policy.css?v=1" />
+<link rel="stylesheet" href="/static/css/policy.css?v=5" />
 {% endblock %}
 
 {% block body %}
 <script type="application/json" id="policy-bootstrap">{{ bootstrap|tojson }}</script>
 <div class="policy-shell" x-data="policyChat(JSON.parse(document.getElementById('policy-bootstrap').textContent))" x-init="init()">
-  <section class="policy-chat-panel">
+  <section class="policy-chat-frame">
     <header class="policy-header">
       <div>
         <p class="policy-kicker">{{ t('app.name') }}</p>
         <h1 class="policy-title">{{ t('nav.policy') }}</h1>
       </div>
       <nav class="policy-header-links">
-        <a href="/policy/crm">CRM</a>
-        <a href="/policy/settings">Settings</a>
+        <a href="/policy/crm" class="policy-header-crm">{{ t('nav.crm') }}</a>
+        <a href="/policy/settings">{{ t('nav.settings') }}</a>
         <button type="button" @click="startNew()">New booking</button>
       </nav>
     </header>
     <p class="policy-disclaimer" role="note">{{ disclaimer }}</p>
     <div class="policy-thread" id="policy-thread" x-ref="thread" role="log" aria-live="polite">
+      <div class="policy-row policy-row--system">
+        <div class="policy-date-chip">TODAY</div>
+      </div>
       <template x-for="msg in messages" :key="msg.id">
         <div
           class="policy-row"
@@ -38,17 +41,32 @@
             <div class="policy-bubble-text" x-html="formatText(msg.text)"></div>
             <template x-if="msg.payload && msg.payload.kind === 'vehicle_card'">
               <article class="policy-card">
-                <p class="policy-badge" x-text="msg.payload.source_label"></p>
+                <p class="policy-badge" :class="msg.payload.source_label === 'Live Vahan Lookup' ? 'policy-badge--live' : 'policy-badge--fallback'" x-text="msg.payload.source_label"></p>
                 <p><strong x-text="msg.payload.registration_number"></strong></p>
                 <p x-text="(msg.payload.make || '') + ' ' + (msg.payload.model || '') + ' · ' + (msg.payload.year || '—')"></p>
-                <p class="policy-muted" x-text="(msg.payload.color || '') + ' · ' + (msg.payload.fuel_type || '')"></p>
                 <p class="policy-muted">Owner: <span x-text="msg.payload.owner_name"></span></p>
+                <p class="policy-muted" x-show="msg.payload.fuel_type">Fuel: <span x-text="msg.payload.fuel_type"></span></p>
+                <p class="policy-muted" x-show="msg.payload.rc_status">RC status: <span x-text="msg.payload.rc_status"></span></p>
+                <p class="policy-muted" x-show="msg.payload.insurance_validity">Insurance validity: <span x-text="msg.payload.insurance_validity"></span></p>
+                <p class="policy-muted"><strong>Blacklist:</strong> <span x-text="msg.payload.blacklist_status || 'Not reported'"></span></p>
+              </article>
+            </template>
+            <template x-if="msg.payload && msg.payload.kind === 'blacklist_warning'">
+              <article class="policy-card policy-card--warn">
+                <p class="policy-badge policy-badge--policy">Blacklist warning</p>
+                <p>Registration <strong x-text="msg.payload.registration_number"></strong> is flagged
+                  (<span x-text="msg.payload.blacklist_status"></span>).</p>
+                <p class="policy-muted">Confirm you want to continue, or start over.</p>
               </article>
             </template>
             <template x-if="msg.payload && msg.payload.kind === 'kyc_card'">
               <article class="policy-card">
                 <p class="policy-badge policy-badge--kyc" x-text="msg.payload.label"></p>
                 <p x-text="(msg.payload.valid ? 'Valid' : 'Invalid') + ' · ' + msg.payload.id_type + ' · ' + msg.payload.id_masked"></p>
+                <p class="policy-muted" x-show="msg.payload.pan_status" x-text="'PAN status: ' + msg.payload.pan_status"></p>
+                <p class="policy-muted" x-show="msg.payload.name_match" x-text="'Name match: ' + msg.payload.name_match"></p>
+                <p class="policy-muted" x-show="msg.payload.dob_match" x-text="'DOB match: ' + msg.payload.dob_match"></p>
+                <p class="policy-muted" x-show="msg.payload.aadhaar_seeding_status" x-text="'Aadhaar seeding: ' + msg.payload.aadhaar_seeding_status"></p>
                 <p class="policy-muted" x-show="msg.payload.reason" x-text="msg.payload.reason"></p>
               </article>
             </template>
@@ -62,18 +80,85 @@
                     <p class="policy-quote-prem">₹<span x-text="Number(q.premium).toLocaleString('en-IN')"></span></p>
                     <p class="policy-muted" x-text="q.coverage_summary"></p>
                     <p class="policy-muted" x-text="q.validity_note"></p>
-                    <p class="policy-badge policy-badge--quote">Demo Quotation — Illustrative Only</p>
+                    <p class="policy-badge policy-badge--quote" x-text="q.label || 'Illustrative Quotation Only'"></p>
                     <button type="button" class="policy-select" @click="send('select_quote:' + q.insurer_code)">Select</button>
                   </article>
                 </template>
               </div>
             </template>
+            <template x-if="msg.payload && msg.payload.kind === 'payment_success'">
+              <article class="policy-card policy-card--success">
+                <p class="policy-badge policy-badge--live">Payment successful</p>
+                <p>Payment Successful! Policy issuance in process.</p>
+              </article>
+            </template>
+            <template x-if="msg.payload && msg.payload.kind === 'payment_card'">
+              <article class="payment-card">
+                <div class="payment-card-header">
+                  <p class="policy-badge policy-badge--quote" x-text="msg.payload.label || 'Simulated Payment — Not Real Processing'"></p>
+                  <p class="payment-card-insurer" x-text="msg.payload.insurer_name"></p>
+                  <p class="payment-card-prem">₹<span x-text="Number(msg.payload.premium).toLocaleString('en-IN')"></span></p>
+                  <p class="policy-muted" x-text="msg.payload.package_type"></p>
+                </div>
+                <div class="payment-methods" role="group" aria-label="Payment methods">
+                  <button type="button" class="payment-method" :class="selectedPayment === 'google_pay' ? 'is-selected' : ''" @click="selectPay('google_pay')">
+                    <span class="payment-method-icon" aria-hidden="true">G</span>
+                    <span>GPay</span>
+                  </button>
+                  <button type="button" class="payment-method" :class="selectedPayment === 'phonepe' ? 'is-selected' : ''" @click="selectPay('phonepe')">
+                    <span class="payment-method-icon" aria-hidden="true">₹</span>
+                    <span>PhonePe</span>
+                  </button>
+                  <button type="button" class="payment-method" :class="selectedPayment === 'paytm' ? 'is-selected' : ''" @click="selectPay('paytm')">
+                    <span class="payment-method-icon" aria-hidden="true">P</span>
+                    <span>Paytm</span>
+                  </button>
+                  <button type="button" class="payment-method" :class="selectedPayment === 'cards' ? 'is-selected' : ''" @click="selectPay('cards')">
+                    <span class="payment-method-icon" aria-hidden="true">▭</span>
+                    <span>Cards</span>
+                  </button>
+                </div>
+                <div class="payment-details">
+                  <p class="policy-muted" x-show="selectedPayment === 'google_pay'">Tap to open Google Pay on your device.</p>
+                  <p class="policy-muted" x-show="selectedPayment === 'phonepe'">Tap to open PhonePe on your device.</p>
+                  <p class="policy-muted" x-show="selectedPayment === 'paytm'">Tap to open Paytm on your device.</p>
+                  <div class="payment-card-fields" x-show="selectedPayment === 'cards'">
+                    <label>Card Holder Name
+                      <input type="text" x-model="cardHolder" autocomplete="cc-name" />
+                    </label>
+                    <label>Card Number
+                      <input type="tel" inputmode="numeric" maxlength="19" :value="cardDisplay()" @input="onCardInput($event)" autocomplete="cc-number" />
+                    </label>
+                    <div class="payment-card-row">
+                      <label>Expiry MM/YY
+                        <input type="text" x-model="cardExpiry" maxlength="5" placeholder="MM/YY" autocomplete="cc-exp" />
+                      </label>
+                      <label>CVV
+                        <input type="password" x-model="cardCvv" maxlength="4" inputmode="numeric" autocomplete="cc-csc" />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                <p class="payment-error" x-show="payError" x-text="payError"></p>
+                <button
+                  type="button"
+                  class="payment-pay"
+                  :disabled="payBusy || currentStep !== 'initiate_payment'"
+                  @click="payNow()"
+                  x-text="payBusy ? 'Processing...' : 'Pay Now'"
+                ></button>
+                <p class="payment-disclaimer">This is a demo payment interface. No actual charge will be processed. Payment is simulated for demonstration purposes only.</p>
+              </article>
+            </template>
             <template x-if="msg.payload && msg.payload.kind === 'document'">
-              <article class="policy-card">
+              <article class="policy-card policy-card--success">
                 <p class="policy-badge policy-badge--policy" x-text="msg.payload.label"></p>
                 <p><strong x-text="msg.payload.policy_reference"></strong></p>
                 <p x-text="msg.payload.insurer_name + ' · ₹' + Number(msg.payload.premium).toLocaleString('en-IN')"></p>
-                <a class="policy-select" :href="msg.payload.download_url">Download Policy</a>
+                <a class="policy-select" :href="msg.payload.download_url" target="_blank" rel="noopener">
+                  <span aria-hidden="true">PDF</span>
+                  Download Policy: Policy_<span x-text="msg.payload.policy_reference"></span>
+                </a>
               </article>
             </template>
             <div class="policy-chips" x-show="msg.payload && msg.payload.options">
@@ -108,5 +193,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/policy_chat.js?v=1"></script>
+<script src="/static/js/policy_chat.js?v=3"></script>
 {% endblock %}

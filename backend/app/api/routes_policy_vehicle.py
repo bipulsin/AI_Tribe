@@ -29,6 +29,7 @@ async def policy_vehicle_lookup(request: Request, db: Session = Depends(get_db))
     result = lookup_vehicle(
         normalize_registration(registration),
         force_fallback=bool(stored.get("force_demo_fallback")),
+        session_id=request.cookies.get(SESSION_COOKIE),
     )
     session_id = request.cookies.get(SESSION_COOKIE)
     booking = get_booking_by_session(db, session_id, user.id) if session_id else None

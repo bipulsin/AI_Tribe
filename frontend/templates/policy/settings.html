@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Policy settings{% endblock %}
 {% block head %}
-<link rel="stylesheet" href="/static/css/policy.css?v=1" />
+<link rel="stylesheet" href="/static/css/policy.css?v=3" />
 {% endblock %}
 {% block body %}
 <div class="mx-auto max-w-3xl px-4 py-8" x-data="policySettings({{ settings_view|tojson }})" x-init="init()">
@@ -12,17 +12,29 @@
   </p>
   <p class="mt-2"><a class="text-sm text-gold hover:underline" href="/policy">← Booking chat</a></p>
 
-  <section class="mt-6 rounded-2xl border border-navy/10 bg-white p-5 dark:border-white/10 dark:bg-navy/40">
-    <h2 class="text-sm font-semibold">Vehicle API (EKO Vahan)</h2>
-    <p class="mt-2 text-sm">Access key: <code x-text="view.eko_key_hint"></code></p>
+  <section class="mt-6 rounded-2xl border border-emerald-700/40 bg-white p-5 dark:border-emerald-400/25 dark:bg-navy/40">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h2 class="text-sm font-semibold">EKO Configuration</h2>
+      <span
+        class="rounded-full px-2.5 py-0.5 text-xs font-semibold"
+        :class="view.eko_connected ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-400/20 text-amber-200'"
+        x-text="view.eko_status_label || 'EKO Not Configured'"
+      ></span>
+    </div>
+    <p class="mt-2 text-xs text-navy/55 dark:text-mist/50">
+      UAT base URL: <code x-text="view.eko_base_url || '—'"></code>
+    </p>
+    <p class="mt-1 text-sm">Access key: <code x-text="view.eko_key_hint"></code></p>
+    <p class="mt-1 text-sm">Initiator ID: <code x-text="view.eko_initiator_masked"></code></p>
     <label class="mt-3 flex items-center gap-2 text-sm">
       <input type="checkbox" x-model="form.force_demo_fallback" />
-      Force demo fallback even if the API key is set
+      Force fallback data even if the API key is set
     </label>
     <button type="button" class="btn-primary mt-3 rounded-lg px-4 py-2 text-xs font-semibold" @click="testEko()" :disabled="busy">
-      Test connection
+      <span x-show="!busy">Test EKO Connection</span>
+      <span x-show="busy" x-cloak>Loading…</span>
     </button>
-    <p class="mt-2 text-xs" x-show="ekoNote" x-text="ekoNote" x-cloak></p>
+    <pre class="mt-3 max-h-64 overflow-auto rounded-lg bg-ink/80 p-3 text-[11px] text-mist/90" x-show="ekoNote" x-text="ekoNote" x-cloak></pre>
   </section>
 
   <section class="mt-4 rounded-2xl border border-navy/10 bg-white p-5 dark:border-white/10 dark:bg-navy/40">
@@ -31,14 +43,17 @@
     <p class="mt-2 text-xs text-amber-300/90" x-show="view.kyc_warning" x-text="view.kyc_warning" x-cloak></p>
     <label class="mt-3 block text-sm">
       <input type="radio" name="kyc_mode" value="insurer_api" x-model="form.kyc_mode" />
-      Insurer API / DigiLocker — <em>Not Configured</em>
+      EKO PAN Lite / Insurer API
     </label>
+    <p class="ml-5 mt-1 text-xs text-navy/50 dark:text-mist/45">
+      Uses the EKO Platform Services PAN Lite API for live PAN verification when EKO is connected.
+    </p>
     <label class="mt-2 block text-sm">
       <input type="radio" name="kyc_mode" value="local_extraction" x-model="form.kyc_mode" />
       Local Extraction Pipeline
     </label>
-    <p class="ml-5 mt-1 text-xs">Tier 1 OCR (PaddleOCR): Disabled — Demo Mode Only</p>
-    <p class="ml-5 text-xs">Tier 2 Vision LLM fallback: Disabled — Demo Mode Only</p>
+    <p class="ml-5 mt-1 text-xs">Tier 1 OCR (PaddleOCR): Disabled — not configured</p>
+    <p class="ml-5 text-xs">Tier 2 Vision LLM fallback: Disabled — not configured</p>
     <label class="mt-2 block text-sm">
       <input type="radio" name="kyc_mode" value="mock_insurer_tagged" x-model="form.kyc_mode" />
       Mock Insurer-Tagged (default, fully working)
@@ -71,7 +86,7 @@
     </label>
     <label class="mt-3 flex items-center gap-2 text-sm">
       <input type="checkbox" checked disabled />
-      Show demo labels in the UI (locked while integrations are simulated)
+      Show honesty labels in the UI (locked while integrations are simulated)
     </label>
     <p class="mt-2 text-xs text-navy/50 dark:text-mist/45" x-text="view.demo_labels_note"></p>
   </section>
@@ -122,7 +137,7 @@ function policySettings(initial) {
           headers: { Accept: "application/json" },
         });
         const data = await resp.json();
-        this.ekoNote = (data.source_label || "") + " — " + (data.note || data.detail || "");
+        this.ekoNote = JSON.stringify(data, null, 2);
       } finally {
         this.busy = false;
       }

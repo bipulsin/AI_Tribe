@@ -52,6 +52,18 @@ def normalize_phone(raw: str) -> str:
     return digits
 
 
+def mask_card_last4(raw: str | None) -> str | None:
+    digits = "".join(ch for ch in (raw or "") if ch.isdigit())
+    if not digits:
+        return None
+    return digits[-4:]
+
+
+def mask_expiry(raw: str | None) -> str | None:
+    text = "".join(ch for ch in (raw or "") if ch.isdigit() or ch == "/")[:5]
+    return text or None
+
+
 def is_valid_pan(raw: str) -> bool:
     return bool(PAN_RE.fullmatch((raw or "").strip().upper().replace(" ", "")))
 
@@ -207,6 +219,8 @@ def next_collection_step_from_fields(fields: dict) -> str:
         return "generate_quotes"
     if not fields.get("quote_selected"):
         return "select_quote"
+    if not fields.get("payment_confirmed"):
+        return "initiate_payment"
     if not fields.get("issued"):
         return "issue_policy"
     return "completed"

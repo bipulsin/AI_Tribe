@@ -28,6 +28,7 @@ def list_bookings(
             selectinload(PolicyBookingRequest.customer),
             selectinload(PolicyBookingRequest.vehicle),
             selectinload(PolicyBookingRequest.quotes),
+            selectinload(PolicyBookingRequest.payments),
             selectinload(PolicyBookingRequest.issued_policy),
             selectinload(PolicyBookingRequest.agent),
         )
