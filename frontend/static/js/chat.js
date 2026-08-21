@@ -494,12 +494,12 @@ async function submitChatMessage() {
   const thread = document.getElementById("chat-thread");
   if (thread) {
     const userBubble = document.createElement("div");
-    userBubble.className = "chat-message chat-message--user";
-    let html = text
-      ? `<div class="chat-bubble">${text.replace(/</g, "&lt;")}</div>`
+    userBubble.className = "chat-row chat-row--user";
+    let inner = text
+      ? `<div class="chat-bubble-text">${text.replace(/</g, "&lt;")}</div>`
       : "";
     if (staged.length) {
-      html += `<div class="chat-msg-attachments">${staged
+      inner += `<div class="chat-msg-attachments">${staged
         .map((a) =>
           a.isVideo
             ? `<span class="chat-msg-thumb chat-msg-video">${a.name || "Video"}</span>`
@@ -507,7 +507,7 @@ async function submitChatMessage() {
         )
         .join("")}</div>`;
     }
-    userBubble.innerHTML = html;
+    userBubble.innerHTML = `<div class="chat-bubble chat-bubble--user">${inner}</div>`;
     thread.appendChild(userBubble);
   }
 
@@ -548,7 +548,7 @@ async function submitChatMessage() {
 function appendAssistantMessage(thread, data) {
   if (!thread) return;
   const botBubble = document.createElement("div");
-  botBubble.className = "chat-message chat-message--assistant";
+  botBubble.className = "chat-row chat-row--assistant";
   const text = String(data.detail || data.text || "No response.")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -559,7 +559,7 @@ function appendAssistantMessage(thread, data) {
     )
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/\n/g, "<br>");
-  let html = `<div class="chat-bubble">${text}</div>`;
+  let html = `<div class="chat-bubble-text">${text}</div>`;
   const widgets = data.widgets || [];
   for (const widget of widgets) {
     if (!widget || !widget.type) continue;
@@ -635,7 +635,7 @@ function appendAssistantMessage(thread, data) {
       </div>`;
     }
   }
-  botBubble.innerHTML = html;
+  botBubble.innerHTML = `<div class="chat-bubble chat-bubble--assistant">${html}</div>`;
   thread.appendChild(botBubble);
   botBubble.querySelectorAll("[data-chat-upload]").forEach((fileInput) => {
     fileInput.addEventListener("change", () => {
