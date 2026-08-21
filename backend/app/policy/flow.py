@@ -74,10 +74,10 @@ STEP_PROMPTS = {
     "collect_registration_number": "Please share the vehicle registration number (for example MH02AB1234).",
     "confirm_vehicle": "Do these vehicle details look correct?",
     "confirm_blacklist": "This vehicle appears on a blacklist. Do you want to continue anyway?",
-    "collect_customer_name": "What is the customer's full name?",
+    "collect_customer_name": "Customer's full name: {owner_name}. Please type YES to confirm or type a different name.",
     "collect_phone": "What is the 10-digit mobile number?",
     "collect_id_type": "Which ID will we use for KYC — PAN or Aadhaar?",
-    "collect_id_number": "Please enter the ID number. It will be stored and shown masked (last four characters only).",
+    "collect_id_number": "Please enter the ID number. PAN must be 10 characters (5 letters + 4 digits + 1 letter). Aadhaar must be 12 digits (continuous or 1234 5678 9012). It is stored masked (last four only).",
     "collect_dob": "What is the date of birth (YYYY-MM-DD or DD/MM/YYYY)?",
     "collect_gender": "Gender? Male, Female, or Other.",
     "collect_address": "Please share a short correspondence address.",
@@ -144,6 +144,11 @@ def _ensure_customer(booking: PolicyBookingRequest) -> PolicyCustomer:
     return booking.customer
 
 
+def _store_text(text: str) -> str:
+    """Uppercase alphabetic characters for user-entered values."""
+    return (text or "").upper()
+
+
 def _add_message(
     db: Session,
     booking: PolicyBookingRequest,
@@ -153,16 +158,25 @@ def _add_message(
     message_type: str = "text",
     payload: dict | None = None,
 ) -> PolicyConversationMessage:
+    stored = _store_text(text) if sender == "user" else (text or "")
     msg = PolicyConversationMessage(
         booking_request_id=booking.id,
         sender=sender,
         message_type=message_type,
-        content_text=text,
+        content_text=stored,
         payload=payload,
     )
     db.add(msg)
+    # Keep the in-memory collection current so duplicate-prompt guards see new cards.
+    if booking.messages is None:
+        booking.messages = []
+    booking.messages.append(msg)
     db.flush()
     return msg
+
+
+def _has_payload_kind(booking: PolicyBookingRequest, kind: str) -> bool:
+    return any((m.payload or {}).get("kind") == kind for m in (booking.messages or []))
 
 
 def _assistant(db: Session, booking: PolicyBookingRequest, text: str, payload: dict | None = None, message_type: str = "text"):
@@ -191,15 +205,27 @@ def start_booking(db: Session, user_id: int) -> PolicyBookingRequest:
     return get_booking_by_session(db, booking.session_id, user_id) or booking
 
 
-def serialize_message(msg: PolicyConversationMessage) -> dict[str, Any]:
+def serialize_message(msg: PolicyConversationMessage, *, issued_policy_id: str | None = None) -> dict[str, Any]:
     created = msg.created_at
     stamp = created.strftime("%H:%M") if created else ""
+    payload = dict(msg.payload or {})
+    # Repair legacy document cards that stored /policy/document/None before flush.
+    if payload.get("kind") == "document" and issued_policy_id:
+        bad = not payload.get("policy_id") or str(payload.get("policy_id")).lower() in {"none", "null"}
+        url = str(payload.get("download_url") or "")
+        if bad or "/document/None" in url or url.endswith("/None"):
+            payload["policy_id"] = issued_policy_id
+            payload["download_url"] = f"/policy/document/{issued_policy_id}"
     return {
         "id": str(msg.id),
         "sender": msg.sender,
         "message_type": msg.message_type,
-        "text": msg.content_text,
-        "payload": msg.payload or {},
+        "text": (
+            _store_text(msg.content_text or "")
+            if msg.sender == "user"
+            else (msg.content_text or "")
+        ),
+        "payload": payload,
         "timestamp": stamp,
     }
 
@@ -256,13 +282,14 @@ def booking_summary(booking: PolicyBookingRequest) -> dict[str, Any]:
 
 
 def serialize_booking(booking: PolicyBookingRequest) -> dict[str, Any]:
+    issued_id = str(booking.issued_policy.id) if booking.issued_policy and booking.issued_policy.id else None
     return {
         "session_id": booking.session_id,
         "booking_id": str(booking.id),
         "booking_reference": booking.booking_reference,
         "current_step": booking.current_step,
         "status": booking.status,
-        "messages": [serialize_message(m) for m in booking.messages],
+        "messages": [serialize_message(m, issued_policy_id=issued_id) for m in booking.messages],
         "summary": booking_summary(booking),
     }
 
@@ -274,7 +301,7 @@ def _apply_extracted(booking: PolicyBookingRequest, fields: dict[str, str]) -> l
         applied.append("registration_number")
         booking._pending_registration = fields["registration_number"]  # type: ignore[attr-defined]
     if fields.get("customer_name") and not customer.name:
-        customer.name = fields["customer_name"][:128]
+        customer.name = _store_text(fields["customer_name"])[:128]
         applied.append("name")
     if fields.get("phone") and not customer.phone:
         customer.phone = normalize_phone(fields["phone"])
@@ -284,17 +311,18 @@ def _apply_extracted(booking: PolicyBookingRequest, fields: dict[str, str]) -> l
         customer.id_type = "PAN" if kind.upper() == "PAN" else "Aadhaar"
         applied.append("id_type")
     if fields.get("id_number") and not customer.id_encrypted:
-        customer.id_encrypted = encrypt_secret(fields["id_number"])
-        customer.id_masked = mask_id_number(fields["id_number"])
+        id_raw = fields["id_number"].strip().upper()
+        customer.id_encrypted = encrypt_secret(id_raw)
+        customer.id_masked = mask_id_number(id_raw)
         applied.append("id_number")
     if fields.get("dob") and not customer.dob:
         customer.dob = fields["dob"]
         applied.append("dob")
     if fields.get("gender") and not customer.gender:
-        customer.gender = fields["gender"]
+        customer.gender = _store_text(fields["gender"])
         applied.append("gender")
     if fields.get("address") and not customer.address:
-        customer.address = fields["address"][:255]
+        customer.address = _store_text(fields["address"])[:255]
         applied.append("address")
     if fields.get("pincode") and not customer.pincode:
         customer.pincode = fields["pincode"]
@@ -406,35 +434,47 @@ def _prompt_for(db: Session, booking: PolicyBookingRequest, step: str) -> None:
             },
         )
         return
-    if step == "confirm_vehicle" and booking.vehicle:
-        v = booking.vehicle
-        label = LABEL_LIVE_VAHAN if v.source == "live_api" else LABEL_DEMO_FALLBACK
-        extra_lines = []
-        if v.rc_status:
-            extra_lines.append(f"RC status: {v.rc_status}")
-        if v.fuel_type:
-            extra_lines.append(f"Fuel: {v.fuel_type}")
-        if v.insurance_validity:
-            extra_lines.append(f"Insurance validity: {v.insurance_validity}")
-        extra_lines.append(f"Blacklist status: {v.blacklist_status or 'Not reported'}")
+    if step == "collect_customer_name":
+        owner = ""
+        if booking.vehicle and booking.vehicle.owner_name:
+            owner = _store_text(booking.vehicle.owner_name)
+        if not owner:
+            owner = "—"
+        text = STEP_PROMPTS[step].format(owner_name=owner)
         _assistant(
             db,
             booking,
-            "Please confirm these vehicle details before we continue.\n" + "\n".join(extra_lines),
+            text,
+            message_type="chip",
+            payload={
+                "kind": "chips",
+                "options": [
+                    {"label": "YES", "value": "yes"},
+                ],
+            },
+        )
+        return
+    if step == "confirm_vehicle" and booking.vehicle:
+        v = booking.vehicle
+        label = LABEL_LIVE_VAHAN if v.source == "live_api" else LABEL_DEMO_FALLBACK
+        _assistant(
+            db,
+            booking,
+            "Please confirm these vehicle details before we continue.",
             message_type="card",
             payload={
                 "kind": "vehicle_card",
                 "source_label": label,
-                "registration_number": v.registration_number,
-                "make": v.make,
-                "model": v.model,
+                "registration_number": _store_text(v.registration_number or ""),
+                "make": _store_text(v.make or ""),
+                "model": _store_text(v.model or ""),
                 "year": v.year,
-                "color": v.color,
-                "fuel_type": v.fuel_type,
-                "owner_name": v.owner_name,
-                "rc_status": v.rc_status,
+                "color": _store_text(v.color or ""),
+                "fuel_type": _store_text(v.fuel_type or ""),
+                "owner_name": _store_text(v.owner_name or ""),
+                "rc_status": _store_text(v.rc_status or "") or None,
                 "insurance_validity": v.insurance_validity,
-                "blacklist_status": v.blacklist_status,
+                "blacklist_status": _store_text(v.blacklist_status or "") or "NOT REPORTED",
                 "blacklisted": is_blacklist_flag(v.blacklist_status),
                 "options": [
                     {"label": "Yes, details are correct", "value": "confirm_vehicle"},
@@ -514,12 +554,14 @@ def _run_vehicle_lookup(db: Session, booking: PolicyBookingRequest, registration
             registration,
             force_fallback=bool(stored.get("force_demo_fallback")),
             session_id=booking.session_id,
+            db=db,
+            user_id=user_id,
         )
     except Exception:
         logger.exception("vehicle lookup crashed — using mimic data")
         from app.policy.vehicle import DemoFallbackProvider
 
-        result = DemoFallbackProvider().lookup(registration)
+        result = DemoFallbackProvider().lookup(registration, db=db, user_id=user_id)
     if result.not_found or result.error == "invalid_format":
         _assistant(
             db,
@@ -534,13 +576,13 @@ def _run_vehicle_lookup(db: Session, booking: PolicyBookingRequest, registration
         vehicle = PolicyVehicle(booking_request_id=booking.id, registration_number=result.registration_number)
         booking.vehicle = vehicle
         db.add(vehicle)
-    vehicle.registration_number = result.registration_number
-    vehicle.make = result.make
-    vehicle.model = result.model
+    vehicle.registration_number = _store_text(result.registration_number)
+    vehicle.make = _store_text(result.make)
+    vehicle.model = _store_text(result.model)
     vehicle.year = result.year
-    vehicle.color = result.color
-    vehicle.fuel_type = result.fuel_type
-    vehicle.owner_name = result.owner_name
+    vehicle.color = _store_text(result.color)
+    vehicle.fuel_type = _store_text(result.fuel_type)
+    vehicle.owner_name = _store_text(result.owner_name)
     vehicle.source = result.source or "demo_fallback"
     vehicle.raw_payload = result.raw_payload
     vehicle.client_ref_id = result.client_ref_id
@@ -797,9 +839,11 @@ def _issue_policy(
         payment_id=payment.id if payment else None,
     )
     db.add(issued)
+    db.flush()  # Ensure issued.id is assigned before building the download URL.
     booking.issued_policy = issued
     booking.status = STATUS_ISSUED_DEMO
     booking.current_step = "policy_issued"
+    download_url = f"/policy/document/{issued.id}"
     _assistant(
         db,
         booking,
@@ -817,7 +861,7 @@ def _issue_policy(
             "policy_reference": policy_ref,
             "insurer_name": selected.insurer_name,
             "premium": float(selected.premium),
-            "download_url": f"/policy/document/{issued.id}",
+            "download_url": download_url,
         },
     )
     _system(
@@ -892,7 +936,7 @@ def process_simulated_payment(
     _assistant(
         db,
         booking,
-        "Payment Successful! Policy issuance in process.",
+        "",
         message_type="card",
         payload={"kind": "payment_success"},
     )
@@ -972,8 +1016,20 @@ def _handle_current_input(db: Session, booking: PolicyBookingRequest, text: str,
         return False
 
     if step == "collect_customer_name":
+        if lowered in {"yes", "y", "ok", "confirm", "confirmed"}:
+            owner = (booking.vehicle.owner_name if booking.vehicle else None) or ""
+            owner = _store_text(owner).strip()
+            if len(owner) >= 2 and owner not in {"—", "-", "N/A", "NA"}:
+                customer.name = owner[:128]
+                return True
+            _assistant(
+                db,
+                booking,
+                "No vehicle owner name is available to confirm. Please type the customer's full name.",
+            )
+            return True
         if len(raw) >= 2 and not is_valid_registration(raw) and not is_valid_phone(raw):
-            customer.name = raw[:128]
+            customer.name = _store_text(raw)[:128]
             return True
         return False
 
@@ -991,12 +1047,27 @@ def _handle_current_input(db: Session, booking: PolicyBookingRequest, text: str,
 
     if step == "collect_id_number":
         kind = (customer.id_type or "").upper()
-        ok = is_valid_pan(raw) if kind == "PAN" else is_valid_aadhaar(raw)
-        if ok:
-            customer.id_encrypted = encrypt_secret(raw)
+        if kind == "PAN":
+            if not is_valid_pan(raw):
+                _assistant(
+                    db,
+                    booking,
+                    "That PAN is not valid. Enter exactly 10 characters: first 5 letters, next 4 digits, then 1 letter (example: ABCDE1234F).",
+                )
+                return True
+            customer.id_encrypted = encrypt_secret(raw.strip().upper().replace(" ", ""))
             customer.id_masked = mask_id_number(raw)
             return True
-        return False
+        if not is_valid_aadhaar(raw):
+            _assistant(
+                db,
+                booking,
+                "That Aadhaar is not valid. Enter 12 digits continuously (123456789012) or as four groups with spaces (1234 5678 9012).",
+            )
+            return True
+        customer.id_encrypted = encrypt_secret(re.sub(r"\D", "", raw))
+        customer.id_masked = mask_id_number(raw)
+        return True
 
     if step == "collect_dob":
         parsed = parse_dob(raw)
@@ -1007,13 +1078,13 @@ def _handle_current_input(db: Session, booking: PolicyBookingRequest, text: str,
 
     if step == "collect_gender":
         if lowered in {"male", "female", "other"}:
-            customer.gender = lowered.title()
+            customer.gender = _store_text(lowered)
             return True
         return False
 
     if step == "collect_address":
         if len(raw) >= 6:
-            customer.address = raw[:255]
+            customer.address = _store_text(raw)[:255]
             return True
         return False
 
@@ -1144,21 +1215,18 @@ def handle_user_message(db: Session, booking: PolicyBookingRequest, text: str, u
     nxt = _missing_step(booking)
     booking.current_step = nxt
     if nxt not in {"vehicle_lookup", "kyc_simulation", "generate_quotes", "issue_policy", "completed", "policy_issued", "payment_confirmed"}:
-        # Avoid duplicate prompts if auto step already asked.
-        last = booking.messages[-1] if booking.messages else None
-        already = bool(last and last.sender == "assistant" and last.payload)
-        already_payment = any(
-            (m.payload or {}).get("kind") == "payment_card" for m in (booking.messages or [])
-        )
-        if nxt == "confirm_vehicle" and already:
+        # Avoid duplicate prompts if an auto step already rendered the card.
+        if nxt == "confirm_vehicle" and _has_payload_kind(booking, "vehicle_card"):
             pass
-        elif nxt == "confirm_blacklist" and already:
+        elif nxt == "confirm_blacklist" and _has_payload_kind(booking, "blacklist_warning"):
             pass
-        elif nxt == "confirm_kyc_partial" and already:
+        elif nxt == "confirm_kyc_partial" and _has_payload_kind(booking, "kyc_card"):
             pass
-        elif nxt == "select_quote" and already:
+        elif nxt == "select_quote" and _has_payload_kind(booking, "quote_cards"):
             pass
-        elif nxt == "initiate_payment" and already_payment:
+        elif nxt == "initiate_payment" and _has_payload_kind(booking, "payment_card"):
+            pass
+        elif nxt == "policy_issued" and _has_payload_kind(booking, "document"):
             pass
         else:
             _prompt_for(db, booking, nxt)
