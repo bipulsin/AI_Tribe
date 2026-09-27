@@ -53,17 +53,13 @@ body {
   position: static;
 }
 
-.login-bg-video {
-  filter: saturate(0.95) brightness(0.92);
-}
-
 .login-bg-video.video-missing {
   display: none;
 }
 
-/* Black-tinted overlay: video stays visible; text stays legible across the loop */
+/* Overlay sits above the video; keep it clear so the clip is fully visible. */
 .login-overlay {
-  background: rgba(0, 0, 0, 0.48);
+  background: transparent;
 }
 
 .login-stage {
