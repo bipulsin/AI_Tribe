@@ -330,11 +330,7 @@ function openChatProfile() {
 }
 
 function mountUserChromeInSidebar() {
-  const chrome = document.querySelector(".app-chrome-left");
-  const slot = document.getElementById("chat-user-menu-slot");
-  if (!chrome || !slot || slot.contains(chrome)) return;
-  chrome.classList.add("chat-sidebar-user-chrome");
-  slot.appendChild(chrome);
+  // Claims chat uses the same centered frame + global avatar/footer chrome as Policy.
 }
 
 function initChatChrome() {

@@ -1,48 +1,5 @@
-/* Chat interface — dark AX-minimalist layout */
+/* Chat interface — WhatsApp frame (Policy-matching center layout) */
 
-/* Deliberately relocate bottom-left chrome into chat sidebar (see chat.js). */
-body.chat-page .app-chrome-left:not(.chat-sidebar-user-chrome) {
-  visibility: hidden;
-  pointer-events: none;
-}
-
-body.chat-page .app-chrome-left.chat-sidebar-user-chrome {
-  position: static;
-  left: auto;
-  bottom: auto;
-  z-index: auto;
-  max-width: none;
-  width: 100%;
-  margin-top: auto;
-  padding: 0;
-}
-
-body.chat-page .app-chrome-left.chat-sidebar-user-chrome .user-menu-wrap {
-  width: 100%;
-}
-
-body.chat-page .app-chrome-left.chat-sidebar-user-chrome .profile-trigger {
-  width: 100%;
-  max-width: 100%;
-}
-
-.chat-sidebar--collapsed .chat-sidebar-user-chrome .profile-trigger-name,
-.chat-sidebar--collapsed .chat-sidebar-user-chrome .profile-trigger-chevron {
-  display: none;
-}
-
-.chat-sidebar--collapsed .chat-sidebar-user-chrome .profile-trigger {
-  width: auto;
-  margin: 0 auto;
-  padding: 0.35rem;
-}
-
-.chat-sidebar--collapsed .chat-sidebar-user-chrome .user-menu-popup {
-  left: 0;
-  min-width: 10rem;
-}
-
-/* Attribution sits at z-index 60 and was intercepting Send clicks — hide on chat. */
 body.chat-page .attribution-byline {
   display: none;
 }
@@ -52,35 +9,40 @@ body.chat-page {
   overflow: hidden;
 }
 
+/* Keep avatar/menu above the WhatsApp composer on mobile. */
+body.chat-page .app-chrome-left {
+  z-index: 90;
+}
+
 .chat-shell {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 33.333vw) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 1rem;
   height: 100vh;
   height: 100dvh;
   max-height: 100dvh;
+  padding: 1.15rem 1.25rem;
+  box-sizing: border-box;
   overflow: hidden;
   background: #0a0f1a;
 }
 
-.chat-stage {
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  align-items: stretch;
-  justify-content: center;
-  padding: 1rem 1.15rem;
-  box-sizing: border-box;
+/* Sidebar kept in DOM for legacy JS hooks; chrome uses the global footer/avatar. */
+.chat-sidebar {
+  display: none;
 }
 
-.chat-sidebar {
-  flex-shrink: 0;
-  width: 14rem;
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(0, 31, 63, 0.35);
-  display: flex;
-  flex-direction: column;
-  transition: width 0.2s ease;
+.chat-stage {
+  grid-column: 2;
+  min-width: 0;
   min-height: 0;
+  height: 100%;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 .chat-sidebar--collapsed {
@@ -192,7 +154,6 @@ body.chat-page {
 }
 
 .chat-main {
-  flex: 1;
   min-width: 0;
   min-height: 0;
   display: flex;
@@ -200,9 +161,11 @@ body.chat-page {
 }
 
 .chat-wa-frame {
-  width: min(430px, 100%);
+  width: 100%;
   max-width: 100%;
   height: 100%;
+  display: flex;
+  flex-direction: column;
   border-radius: 1.65rem;
   overflow: hidden;
   background: #e5ddd5;
@@ -487,7 +450,7 @@ body.chat-page {
 .chat-composer-wrap {
   flex-shrink: 0;
   position: relative;
-  z-index: 70;
+  z-index: 1;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
   background: #f0f2f5;
   padding-bottom: max(0.55rem, env(safe-area-inset-bottom));
@@ -696,19 +659,44 @@ body.chat-page {
 }
 
 @media (max-width: 960px) {
+  body.chat-page {
+    padding-bottom: 0;
+  }
+
+  .chat-shell {
+    grid-template-columns: 1fr;
+    padding: 0.55rem 0.55rem 0;
+    height: calc(100dvh - var(--mobile-nav-band-h, 3.75rem) - env(safe-area-inset-bottom, 0px));
+    max-height: calc(100dvh - var(--mobile-nav-band-h, 3.75rem) - env(safe-area-inset-bottom, 0px));
+  }
+
   .chat-stage {
-    padding: 0.55rem 0.45rem calc(var(--mobile-nav-band-h, 3.75rem) + 0.35rem);
+    grid-column: 1;
+    width: min(100%, 420px);
+    justify-self: center;
   }
 
   .chat-wa-frame {
     width: 100%;
-    border-radius: 1.15rem;
+    border-radius: 1.35rem 1.35rem 0.85rem 0.85rem;
   }
 }
 
+/* True phone viewports: drop device chrome so the WA skin is full-bleed. */
 @media (max-width: 640px) {
-  .chat-sidebar:not(.chat-sidebar--collapsed) {
-    width: 11rem;
+  .chat-shell {
+    padding: 0;
+    gap: 0;
+  }
+
+  .chat-stage {
+    width: 100%;
+    max-width: none;
+  }
+
+  .chat-wa-frame {
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .chat-bubble {
