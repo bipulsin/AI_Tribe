@@ -19,7 +19,7 @@ Table: `usage_events`
 | `endpoint_or_route` | `METHOD path` only — never request bodies or uploads |
 | `occurred_at` | UTC |
 | `session_id` / `ip_address` | Optional |
-| `metadata` | Small JSONB (e.g. `claim_id`) — no API keys / PII blobs |
+| `metadata` | Small JSONB (e.g. `claim_id`, sanitized `search_params` from the query string) — no API keys / bodies / PII blobs |
 
 Logged by HTTP middleware in `main.py` after each successful/failed response for
 interesting routes. Skipped: `/static/`, `/uploads/`, `/health`, OpenAPI, SSE
@@ -57,6 +57,22 @@ GET /api/admin/usage-report?start=2026-07-01&end=2026-07-31&user_id=
 GET /api/admin/usage-report/detail?user_id=3&start=2026-07-01&end=2026-07-31
 POST /api/admin/usage-report/scan-history
 ```
+
+### Expandable interaction detail
+
+On `/admin/usage-report`, clicking a username or synopsis row (accordion: one
+user at a time) loads `/api/admin/usage-report/detail` for the same date range.
+Events are returned **newest first**. Display columns map as:
+
+| UI column | Source |
+| --- | --- |
+| Date & time | `usage_events.occurred_at` (UTC label) |
+| IP address | `usage_events.ip_address` (historical evidence often empty → —) |
+| Page / module | Humanized `feature_area` + `event_type`; route shown as secondary text |
+| Data entered | Non-search keys from `metadata` / evidence (e.g. `claim_id`, `make`) |
+| Search parameters | `metadata.search_params` (query string, sanitized) when present |
+
+Request bodies are intentionally not logged; empty cells show an em dash.
 
 The report returns **one row per system user** (or a single user when
 `user_id` is set). Status values:

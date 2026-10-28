@@ -22,7 +22,8 @@
           traces in claims, LLM assists, VMMR labels, partner API calls, and chat drafts.
           <strong class="text-mist/70">Not accessed</strong> means history exists outside this range;
           <strong class="text-mist/70">No data</strong> means no live or historical evidence.
-          Times are UTC.
+          Times are UTC. Click a username or synopsis row to expand each interaction
+          (newest first).
         </p>
       </div>
       <a href="/claims/new" class="text-sm font-medium text-gold hover:underline">← Back to claims</a>
@@ -78,18 +79,45 @@
             <th class="px-4 py-3 font-medium text-right">Detail</th>
           </tr>
         </thead>
-        <tbody>
-          <template x-for="row in rows" :key="row.user.id">
-            <tr class="border-b border-navy/5 last:border-0 dark:border-white/5 align-top" :class="row.status !== 'accessed' ? 'opacity-80' : ''">
+        <template x-for="row in rows" :key="row.user.id">
+          <tbody class="usage-report-user-block">
+            <tr
+              class="border-b border-navy/5 dark:border-white/5 align-top transition-colors"
+              :class="{
+                'opacity-80': row.status !== 'accessed',
+                'usage-report-row--expandable cursor-pointer hover:bg-gold/[0.06]': row.status === 'accessed',
+                'usage-report-row--open bg-gold/[0.07]': isExpanded(row)
+              }"
+              :tabindex="row.status === 'accessed' ? 0 : -1"
+              :role="row.status === 'accessed' ? 'button' : null"
+              :aria-expanded="row.status === 'accessed' ? (isExpanded(row) ? 'true' : 'false') : null"
+              :aria-label="row.status === 'accessed' ? ('Toggle interactions for ' + row.user.username) : null"
+              @click="toggleDetail(row, $event)"
+              @keydown="onRowKeydown(row, $event)"
+            >
               <td class="px-4 py-3">
-                <p class="font-medium text-navy dark:text-mist" x-text="row.user.username"></p>
-                <p class="text-xs text-navy/45 dark:text-mist/45" x-show="row.user.full_name" x-text="row.user.full_name"></p>
-                <p class="text-[10px] text-amber-300/70" x-show="row.user.is_active === false">Inactive</p>
-                <p
-                  class="mt-1 text-[10px] text-navy/40 dark:text-mist/40"
-                  x-show="row.evidence_sources && row.evidence_sources.length"
-                  x-text="'Sources: ' + (row.evidence_sources || []).join(', ')"
-                ></p>
+                <div class="flex items-start gap-2">
+                  <span
+                    class="mt-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border border-gold/30 text-[10px] text-gold transition-transform"
+                    :class="isExpanded(row) ? 'rotate-90 border-gold/60 bg-gold/15' : ''"
+                    x-show="row.status === 'accessed'"
+                    aria-hidden="true"
+                  >▸</span>
+                  <div>
+                    <p
+                      class="font-medium text-navy dark:text-mist"
+                      :class="row.status === 'accessed' ? 'text-gold hover:underline' : ''"
+                      x-text="row.user.username"
+                    ></p>
+                    <p class="text-xs text-navy/45 dark:text-mist/45" x-show="row.user.full_name" x-text="row.user.full_name"></p>
+                    <p class="text-[10px] text-amber-300/70" x-show="row.user.is_active === false">Inactive</p>
+                    <p
+                      class="mt-1 text-[10px] text-navy/40 dark:text-mist/40"
+                      x-show="row.evidence_sources && row.evidence_sources.length"
+                      x-text="'Sources: ' + (row.evidence_sources || []).join(', ')"
+                    ></p>
+                  </div>
+                </div>
               </td>
               <td class="px-4 py-3 text-navy/80 dark:text-mist/80">
                 <template x-if="row.status === 'accessed'">
@@ -129,48 +157,88 @@
               </td>
               <td class="px-4 py-3 text-right tabular-nums font-medium" x-text="row.total_events"></td>
               <td class="px-4 py-3 text-right">
-                <button
-                  type="button"
-                  class="text-xs font-medium text-gold hover:underline"
+                <span
+                  class="text-xs font-medium text-gold"
                   x-show="row.status === 'accessed'"
-                  @click="toggleDetail(row)"
                   x-text="isExpanded(row) ? 'Hide' : 'Expand'"
-                ></button>
+                ></span>
                 <span class="text-xs text-mist/35" x-show="row.status !== 'accessed'">—</span>
               </td>
             </tr>
-            <tr x-show="isExpanded(row)" x-cloak class="border-b border-navy/5 bg-navy/5 dark:border-white/5 dark:bg-black/20">
-              <td colspan="5" class="px-4 py-3">
-                <p class="mb-2 text-xs text-navy/50 dark:text-mist/50" x-show="detailLoadingKey === rowKey(row)">Loading events…</p>
-                <div class="overflow-x-auto" x-show="details[rowKey(row)]">
-                  <table class="w-full text-left text-xs">
-                    <thead>
-                      <tr class="text-navy/45 dark:text-mist/45">
-                        <th class="py-1 pr-3 font-medium">Time (UTC)</th>
-                        <th class="py-1 pr-3 font-medium">Type</th>
-                        <th class="py-1 pr-3 font-medium">Area</th>
-                        <th class="py-1 pr-3 font-medium">Source</th>
-                        <th class="py-1 font-medium">Route / record</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <template x-for="ev in (details[rowKey(row)] || [])" :key="ev.id">
-                        <tr class="border-t border-navy/5 dark:border-white/5">
-                          <td class="py-1.5 pr-3 tabular-nums" x-text="formatTime(ev.occurred_at)"></td>
-                          <td class="py-1.5 pr-3" x-text="ev.event_type"></td>
-                          <td class="py-1.5 pr-3" x-text="ev.feature_area"></td>
-                          <td class="py-1.5 pr-3 text-navy/55 dark:text-mist/55" x-text="ev.source || '—'"></td>
-                          <td class="py-1.5 font-mono text-[11px] text-navy/70 dark:text-mist/70" x-text="ev.endpoint_or_route"></td>
+            <tr
+              x-show="isExpanded(row)"
+              x-cloak
+              x-transition:enter="transition ease-out duration-200"
+              x-transition:enter-start="opacity-0"
+              x-transition:enter-end="opacity-100"
+              class="usage-report-detail-row border-b border-navy/5 dark:border-white/5"
+            >
+              <td colspan="5" class="px-0 py-0">
+                <div class="usage-report-detail-panel border-l-[3px] border-gold bg-gradient-to-br from-navy/[0.04] via-transparent to-gold/[0.06] px-4 py-4 dark:from-black/30 dark:to-gold/[0.08]">
+                  <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                    <div>
+                      <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-gold/90">Interaction detail</p>
+                      <p class="mt-0.5 text-sm font-medium text-navy dark:text-mist">
+                        <span x-text="row.user.username"></span>
+                        <span class="font-normal text-navy/45 dark:text-mist/45"> · newest first · UTC</span>
+                      </p>
+                    </div>
+                    <p
+                      class="text-[11px] tabular-nums text-navy/45 dark:text-mist/45"
+                      x-show="details[rowKey(row)]"
+                      x-text="(details[rowKey(row)] || []).length + ' interaction(s)'"
+                    ></p>
+                  </div>
+
+                  <p
+                    class="mb-3 flex items-center gap-2 text-xs text-navy/55 dark:text-mist/55"
+                    x-show="detailLoadingKey === rowKey(row)"
+                  >
+                    <span class="inline-block h-3 w-3 animate-pulse rounded-full bg-gold/70"></span>
+                    Loading interactions…
+                  </p>
+
+                  <div
+                    class="overflow-x-auto rounded-xl border border-navy/10 bg-white/80 shadow-sm dark:border-white/10 dark:bg-navy/50"
+                    x-show="detailLoadingKey !== rowKey(row) && details[rowKey(row)]"
+                  >
+                    <table class="usage-report-detail-table w-full min-w-[52rem] text-left text-xs">
+                      <thead>
+                        <tr class="border-b border-navy/10 bg-navy/[0.03] text-[10px] uppercase tracking-wide text-navy/45 dark:border-white/10 dark:bg-black/20 dark:text-mist/45">
+                          <th class="px-3 py-2.5 font-medium">Date &amp; time</th>
+                          <th class="px-3 py-2.5 font-medium">IP address</th>
+                          <th class="px-3 py-2.5 font-medium">Page / module</th>
+                          <th class="px-3 py-2.5 font-medium">Data entered</th>
+                          <th class="px-3 py-2.5 font-medium">Search parameters</th>
                         </tr>
-                      </template>
-                    </tbody>
-                  </table>
-                  <p class="mt-2 text-xs text-navy/40 dark:text-mist/40" x-show="details[rowKey(row)] && !details[rowKey(row)].length">No events.</p>
+                      </thead>
+                      <tbody>
+                        <template x-for="ev in (details[rowKey(row)] || [])" :key="ev.id">
+                          <tr class="border-t border-navy/5 align-top dark:border-white/5">
+                            <td class="px-3 py-2.5 whitespace-nowrap tabular-nums text-navy/85 dark:text-mist/85" x-text="formatTime(ev.occurred_at)"></td>
+                            <td class="px-3 py-2.5 font-mono text-[11px] text-navy/70 dark:text-mist/70" x-text="dash(ev.ip_address)"></td>
+                            <td class="px-3 py-2.5">
+                              <p class="font-medium text-navy dark:text-mist" x-text="dash(ev.page_module)"></p>
+                              <p class="mt-0.5 font-mono text-[10px] text-navy/40 dark:text-mist/40" x-text="dash(ev.endpoint_or_route)"></p>
+                            </td>
+                            <td class="px-3 py-2.5 max-w-[14rem] break-words text-navy/75 dark:text-mist/75" x-text="dash(ev.data_entered)"></td>
+                            <td class="px-3 py-2.5 max-w-[12rem] break-words font-mono text-[11px] text-navy/65 dark:text-mist/65" x-text="dash(ev.search_params)"></td>
+                          </tr>
+                        </template>
+                      </tbody>
+                    </table>
+                    <p
+                      class="px-3 py-6 text-center text-xs text-navy/40 dark:text-mist/40"
+                      x-show="details[rowKey(row)] && !details[rowKey(row)].length"
+                    >
+                      No interactions in this date range.
+                    </p>
+                  </div>
                 </div>
               </td>
             </tr>
-          </template>
-        </tbody>
+          </tbody>
+        </template>
       </table>
       <p class="px-4 py-8 text-center text-sm text-navy/45 dark:text-mist/45" x-show="!busy && !rows.length">
         No users found.
@@ -181,5 +249,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/usage_report.js?v=3"></script>
+<script src="/static/js/usage_report.js?v=4"></script>
 {% endblock %}

@@ -226,7 +226,7 @@ async def log_usage_events(request: Request, call_next):
                 endpoint_or_route=f"{method.upper()} {path}"[:256],
                 session_id=session_key,
                 ip_address=ip,
-                metadata=extract_metadata(path),
+                metadata=extract_metadata(path, request.query_params),
             )
             db.commit()
         except Exception as exc:

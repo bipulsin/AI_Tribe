@@ -14,6 +14,11 @@ from app.services.usage_evidence_service import (
     collect_usage_evidence,
     user_ids_with_any_evidence,
 )
+from app.services.usage_logging import (
+    format_data_entered,
+    format_search_params,
+    page_module_label,
+)
 
 
 def _as_utc_day_bounds(start: date, end: date) -> tuple[datetime, datetime]:
@@ -269,6 +274,22 @@ def build_usage_report(
     return rows
 
 
+def _shape_detail_event(raw: dict[str, Any]) -> dict[str, Any]:
+    """Add display columns for the expandable per-interaction table."""
+    meta = raw.get("metadata") if isinstance(raw.get("metadata"), dict) else None
+    endpoint = raw.get("endpoint_or_route")
+    return {
+        **raw,
+        "page_module": page_module_label(
+            feature_area=raw.get("feature_area"),
+            event_type=raw.get("event_type"),
+            endpoint_or_route=endpoint,
+        ),
+        "data_entered": format_data_entered(meta),
+        "search_params": format_search_params(meta),
+    }
+
+
 def usage_event_detail(
     db: Session,
     *,
@@ -277,7 +298,10 @@ def usage_event_detail(
     end: date,
     limit: int = 500,
 ) -> list[dict[str, Any]]:
-    """Event-level detail: live usage_events plus non-imported historical traces."""
+    """Event-level detail: live usage_events plus non-imported historical traces.
+
+    Ordered newest first for the expandable usability report.
+    """
     if end < start:
         start, end = end, start
     start_dt, end_dt = _as_utc_day_bounds(start, end)
@@ -286,28 +310,38 @@ def usage_event_detail(
         .where(UsageEvent.user_id == user_id)
         .where(UsageEvent.occurred_at >= start_dt)
         .where(UsageEvent.occurred_at <= end_dt)
-        .order_by(UsageEvent.occurred_at.asc())
+        .order_by(UsageEvent.occurred_at.desc())
         .limit(limit)
     ).all()
     live = [
-        {
-            "id": r.id,
-            "event_type": r.event_type,
-            "feature_area": r.feature_area,
-            "endpoint_or_route": r.endpoint_or_route,
-            "occurred_at": r.occurred_at.isoformat() if r.occurred_at else None,
-            "ip_address": r.ip_address,
-            "metadata": r.metadata_json,
-            "source": (
-                (r.metadata_json or {}).get("source")
-                if isinstance(r.metadata_json, dict)
-                else None
-            )
-            or ("legacy" if (r.endpoint_or_route or "").startswith("LEGACY|") else "usage_events"),
-        }
+        _shape_detail_event(
+            {
+                "id": r.id,
+                "event_type": r.event_type,
+                "feature_area": r.feature_area,
+                "endpoint_or_route": r.endpoint_or_route,
+                "occurred_at": r.occurred_at.isoformat() if r.occurred_at else None,
+                "ip_address": r.ip_address,
+                "metadata": r.metadata_json,
+                "source": (
+                    (r.metadata_json or {}).get("source")
+                    if isinstance(r.metadata_json, dict)
+                    else None
+                )
+                or (
+                    "legacy"
+                    if (r.endpoint_or_route or "").startswith("LEGACY|")
+                    else "usage_events"
+                ),
+            }
+        )
         for r in rows
     ]
-    legacy_routes = {r.endpoint_or_route for r in rows if (r.endpoint_or_route or "").startswith("LEGACY|")}
+    legacy_routes = {
+        r.endpoint_or_route
+        for r in rows
+        if (r.endpoint_or_route or "").startswith("LEGACY|")
+    }
     # Also include any LEGACY routes for this user outside the limited live set
     legacy_routes |= set(
         db.scalars(
@@ -323,18 +357,21 @@ def usage_event_detail(
         if ev["endpoint_or_route"] in legacy_routes:
             continue
         hist.append(
-            {
-                "id": ev["id"],
-                "event_type": ev["event_type"],
-                "feature_area": ev["feature_area"],
-                "endpoint_or_route": ev["endpoint_or_route"],
-                "occurred_at": ev["occurred_at"].isoformat(),
-                "ip_address": None,
-                "metadata": ev.get("metadata"),
-                "source": ev.get("source") or "history",
-            }
+            _shape_detail_event(
+                {
+                    "id": ev["id"],
+                    "event_type": ev["event_type"],
+                    "feature_area": ev["feature_area"],
+                    "endpoint_or_route": ev["endpoint_or_route"],
+                    "occurred_at": ev["occurred_at"].isoformat(),
+                    "ip_address": None,
+                    "metadata": ev.get("metadata"),
+                    "source": ev.get("source") or "history",
+                }
+            )
         )
 
     combined = live + hist
-    combined.sort(key=lambda e: e.get("occurred_at") or "")
+    # Newest first (documented choice for the expandable detail table).
+    combined.sort(key=lambda e: e.get("occurred_at") or "", reverse=True)
     return combined[:limit]

@@ -6,7 +6,7 @@ function usageReport({ defaultStart, defaultEnd, users = [] } = {}) {
     users: users || [],
     rows: [],
     details: {},
-    expanded: {},
+    expandedKey: "",
     detailLoadingKey: "",
     busy: false,
     scanning: false,
@@ -22,14 +22,20 @@ function usageReport({ defaultStart, defaultEnd, users = [] } = {}) {
     },
 
     isExpanded(row) {
-      return !!this.expanded[this.rowKey(row)];
+      return this.expandedKey === this.rowKey(row);
+    },
+
+    dash(value) {
+      if (value === null || value === undefined || value === "") return "—";
+      return String(value);
     },
 
     formatTime(iso) {
       if (!iso) return "—";
       try {
         const d = new Date(iso);
-        return d.toISOString().replace("T", " ").slice(0, 19);
+        if (Number.isNaN(d.getTime())) return String(iso);
+        return d.toISOString().replace("T", " ").slice(0, 19) + " UTC";
       } catch (_err) {
         return String(iso);
       }
@@ -56,7 +62,7 @@ function usageReport({ defaultStart, defaultEnd, users = [] } = {}) {
         this.rows = data.rows || [];
         if (data.users) this.users = data.users;
         this.details = {};
-        this.expanded = {};
+        this.expandedKey = "";
       } catch (_err) {
         this.error = "Network error loading report.";
       } finally {
@@ -91,16 +97,23 @@ function usageReport({ defaultStart, defaultEnd, users = [] } = {}) {
       }
     },
 
-    async toggleDetail(row) {
+    async toggleDetail(row, event) {
+      if (event) {
+        const tag = (event.target && event.target.tagName) || "";
+        if (tag === "A" || tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") {
+          return;
+        }
+      }
       if (!row || row.status !== "accessed") return;
       const key = this.rowKey(row);
-      if (this.expanded[key]) {
-        this.expanded = { ...this.expanded, [key]: false };
+      if (this.expandedKey === key) {
+        this.expandedKey = "";
         return;
       }
-      this.expanded = { ...this.expanded, [key]: true };
+      this.expandedKey = key;
       if (this.details[key]) return;
       this.detailLoadingKey = key;
+      this.error = "";
       try {
         const params = new URLSearchParams({
           user_id: String(row.user.id),
@@ -114,11 +127,23 @@ function usageReport({ defaultStart, defaultEnd, users = [] } = {}) {
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok) {
           this.error = data.detail || "Could not load detail.";
+          this.expandedKey = "";
           return;
         }
         this.details = { ...this.details, [key]: data.events || [] };
+      } catch (_err) {
+        this.error = "Network error loading detail.";
+        this.expandedKey = "";
       } finally {
         this.detailLoadingKey = "";
+      }
+    },
+
+    onRowKeydown(row, event) {
+      if (!event) return;
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        this.toggleDetail(row, event);
       }
     },
   };
